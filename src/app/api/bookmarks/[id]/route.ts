@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { DbBookmark } from "@/types";
 
 function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] {
@@ -19,6 +20,7 @@ function toBookmarkResponse(row: DbBookmark) {
         description: row.description,
         notes: row.notes,
         favicon: row.favicon,
+        thumbnail: row.thumbnail,
         isArchived: !!row.is_archived,
         isReadLater: !!row.is_read_later,
         createdAt: row.created_at,
@@ -66,16 +68,33 @@ export async function PUT(
     const body = await request.json();
     const { url, title, description, notes, tags, isReadLater, isArchived } = body;
 
+    let finalFavicon = existing.favicon;
+    let finalThumbnail = existing.thumbnail;
+    let finalTitle = title ?? existing.title;
+    let finalDescription = description ?? existing.description;
+
+    // Fetch missing metadata if any are null or URL changed
+    if ((url && url !== existing.url) || !finalFavicon || !finalThumbnail) {
+        const fetched = await fetchUrlMetadata(url ?? existing.url);
+        finalFavicon = fetched.favicon;
+        finalThumbnail = fetched.thumbnail;
+        if (!finalTitle) finalTitle = fetched.title;
+        if (!finalDescription) finalDescription = fetched.description;
+    }
+
     db.prepare(`
     UPDATE bookmarks SET
       url = ?, title = ?, description = ?, notes = ?,
+      favicon = ?, thumbnail = ?,
       is_read_later = ?, is_archived = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(
         url ?? existing.url,
-        title ?? existing.title,
-        description ?? existing.description,
+        finalTitle,
+        finalDescription,
         notes ?? existing.notes,
+        finalFavicon,
+        finalThumbnail,
         (isReadLater ?? !!existing.is_read_later) ? 1 : 0,
         (isArchived ?? !!existing.is_archived) ? 1 : 0,
         id

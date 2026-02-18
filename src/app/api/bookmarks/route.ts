@@ -20,6 +20,7 @@ function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
         description: row.description,
         notes: row.notes,
         favicon: row.favicon,
+        thumbnail: row.thumbnail,
         isArchived: !!row.is_archived,
         isReadLater: !!row.is_read_later,
         createdAt: row.created_at,
@@ -100,24 +101,26 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    // Auto-fetch metadata if not provided
+    // Auto-fetch metadata if any info is missing
     let finalTitle = title || null;
     let finalDescription = description || null;
     let finalFavicon: string | null = null;
+    let finalThumbnail: string | null = null;
 
-    if (!title || !description) {
+    if (!finalTitle || !finalDescription || !finalFavicon || !finalThumbnail) {
         const fetched = await fetchUrlMetadata(url);
-        finalTitle = title || fetched.title;
-        finalDescription = description || fetched.description;
+        finalTitle = finalTitle || fetched.title;
+        finalDescription = finalDescription || fetched.description;
         finalFavicon = fetched.favicon;
+        finalThumbnail = fetched.thumbnail;
     }
 
     const id = generateId();
 
     db.prepare(`
-    INSERT INTO bookmarks (id, url, title, description, notes, favicon, is_read_later, user_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, isReadLater ? 1 : 0, session.user.id);
+    INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, user_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, session.user.id);
 
     // Create/connect tags
     if (tags && tags.length > 0) {

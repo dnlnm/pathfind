@@ -197,6 +197,25 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
                             </span>
                         </div>
                     </div>
+
+                    {/* Thumbnail */}
+                    {bookmark.thumbnail && (
+                        <div className="hidden sm:block shrink-0 ml-2 w-28 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative">
+                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
+                                <Globe className="h-6 w-6" />
+                            </div>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={bookmark.thumbnail}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.opacity = "0";
+                                }}
+                                loading="lazy"
+                            />
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

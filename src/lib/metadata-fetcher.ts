@@ -23,29 +23,56 @@ export async function fetchUrlMetadata(url: string) {
         );
         const description = descriptionMatch ? descriptionMatch[1].trim() : null;
 
-        const faviconMatch = html.match(
-            /<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']*)["']/i
+        // Extract og:image or twitter:image
+        const ogImageMatch = html.match(
+            /<meta[\s\S]*?property=["']og:image["'][\s\S]*?content=["']([^"']*)["']/i
         ) || html.match(
-            /<link[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut )?icon["']/i
+            /<meta[\s\S]*?content=["']([^"']*)["'][\s\S]*?property=["']og:image["']/i
+        ) || html.match(
+            /<meta[\s\S]*?name=["']twitter:image["'][\s\S]*?content=["']([^"']*)["']/i
+        ) || html.match(
+            /<meta[\s\S]*?content=["']([^"']*)["'][\s\S]*?name=["']twitter:image["']/i
+        );
+
+        let thumbnail: string | null = null;
+        if (ogImageMatch) {
+            try {
+                thumbnail = new URL(ogImageMatch[1], url).href;
+            } catch {
+                thumbnail = null;
+            }
+        }
+
+        // Extract favicon
+        const faviconMatch = html.match(
+            /<link[\s\S]*?rel=["'](?:shortcut )?icon["'][\s\S]*?href=["']([^"']*)["']/i
+        ) || html.match(
+            /<link[\s\S]*?href=["']([^"']*)["'][\s\S]*?rel=["'](?:shortcut )?icon["']/i
+        ) || html.match(
+            /<link[\s\S]*?rel=["']apple-touch-icon["'][\s\S]*?href=["']([^"']*)["']/i
         );
 
         let favicon: string | null = null;
         if (faviconMatch) {
-            favicon = faviconMatch[1];
-            if (favicon.startsWith("/")) {
-                const urlObj = new URL(url);
-                favicon = `${urlObj.protocol}//${urlObj.host}${favicon}`;
-            } else if (!favicon.startsWith("http")) {
-                const urlObj = new URL(url);
-                favicon = `${urlObj.protocol}//${urlObj.host}/${favicon}`;
+            try {
+                favicon = new URL(faviconMatch[1], url).href;
+            } catch {
+                favicon = null;
             }
-        } else {
-            const urlObj = new URL(url);
-            favicon = `${urlObj.protocol}//${urlObj.host}/favicon.ico`;
         }
 
-        return { title, description, favicon };
+        // Final fallback: Use Google's favicon service which is very reliable
+        if (!favicon) {
+            try {
+                const urlObj = new URL(url);
+                favicon = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
+            } catch {
+                favicon = null;
+            }
+        }
+
+        return { title, description, favicon, thumbnail };
     } catch {
-        return { title: null, description: null, favicon: null };
+        return { title: null, description: null, favicon: null, thumbnail: null };
     }
 }

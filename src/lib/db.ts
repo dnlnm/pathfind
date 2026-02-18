@@ -20,6 +20,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     name TEXT,
     password TEXT NOT NULL,
+    github_token TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -31,6 +32,7 @@ db.exec(`
     description TEXT,
     notes TEXT,
     favicon TEXT,
+    thumbnail TEXT,
     is_archived INTEGER DEFAULT 0,
     is_read_later INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
@@ -56,6 +58,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
 `);
+
+// Migration: add thumbnail column if missing (for existing DBs)
+try {
+    db.exec(`ALTER TABLE bookmarks ADD COLUMN thumbnail TEXT`);
+} catch {
+    // Column already exists
+}
+
+// Migration: add github_token to users if missing
+try {
+    db.exec(`ALTER TABLE users ADD COLUMN github_token TEXT`);
+} catch { }
 
 export default db;
 

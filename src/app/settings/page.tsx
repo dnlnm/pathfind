@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Download, Upload, Loader2 } from "lucide-react";
+import { Download, Upload, Loader2, Github, RefreshCw } from "lucide-react";
+import { useEffect } from "react";
 
 function SettingsContent() {
     const router = useRouter();
@@ -26,6 +27,16 @@ function SettingsContent() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [changingPassword, setChangingPassword] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [githubToken, setGithubToken] = useState("");
+    const [savingToken, setSavingToken] = useState(false);
+    const [syncingStars, setSyncingStars] = useState(false);
+
+    useEffect(() => {
+        // Fetch GitHub token on load
+        fetch("/api/settings/github")
+            .then(res => res.json())
+            .then(data => setGithubToken(data.token || ""));
+    }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -108,6 +119,46 @@ function SettingsContent() {
         e.target.value = "";
     };
 
+    const handleSaveGithubToken = async () => {
+        setSavingToken(true);
+        try {
+            const res = await fetch("/api/settings/github", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: githubToken }),
+            });
+            if (res.ok) {
+                toast.success("GitHub token saved");
+            } else {
+                toast.error("Failed to save token");
+            }
+        } catch {
+            toast.error("Something went wrong");
+        }
+        setSavingToken(false);
+    };
+
+    const handleSyncStars = async () => {
+        if (!githubToken) {
+            toast.error("Please save your GitHub token first");
+            return;
+        }
+
+        setSyncingStars(true);
+        try {
+            const res = await fetch("/api/github/sync", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success(`Synced ${data.count} new repositories`);
+            } else {
+                toast.error(data.error || "Sync failed");
+            }
+        } catch {
+            toast.error("Sync failed");
+        }
+        setSyncingStars(false);
+    };
+
     return (
         <SidebarProvider>
             <AppSidebar bookmarkCounts={{ all: 0, readLater: 0, archived: 0 }} />
@@ -170,6 +221,60 @@ function SettingsContent() {
                                     )}
                                 </Button>
                             </form>
+                        </CardContent>
+                    </Card>
+
+                    <Separator className="bg-border/30" />
+
+                    {/* GitHub Integration */}
+                    <Card className="border-border/40 bg-card/50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Github className="h-5 w-5" />
+                                GitHub Integration
+                            </CardTitle>
+                            <CardDescription>
+                                Automatically sync your starred repositories as bookmarks
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="github-token">Personal Access Token</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="github-token"
+                                        type="password"
+                                        placeholder="ghp_xxxxxxxxxxxx"
+                                        value={githubToken}
+                                        onChange={(e) => setGithubToken(e.target.value)}
+                                        className="bg-background/50"
+                                    />
+                                    <Button
+                                        onClick={handleSaveGithubToken}
+                                        disabled={savingToken}
+                                        className="cursor-pointer shrink-0"
+                                    >
+                                        {savingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                    </Button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Requires a token with <code className="bg-muted px-1 rounded">public_repo</code> or <code className="bg-muted px-1 rounded">repo</code> scope.
+                                </p>
+                            </div>
+
+                            <Button
+                                variant="secondary"
+                                className="w-full gap-2 cursor-pointer"
+                                onClick={handleSyncStars}
+                                disabled={syncingStars || !githubToken}
+                            >
+                                {syncingStars ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <RefreshCw className="h-4 w-4" />
+                                )}
+                                Sync My Starred Repos
+                            </Button>
                         </CardContent>
                     </Card>
 

@@ -14,6 +14,7 @@ export interface DbBookmark {
     description: string | null;
     notes: string | null;
     favicon: string | null;
+    thumbnail: string | null;
     is_archived: number;
     is_read_later: number;
     created_at: string;
@@ -40,6 +41,7 @@ export interface BookmarkWithTags {
     description: string | null;
     notes: string | null;
     favicon: string | null;
+    thumbnail: string | null;
     isArchived: boolean;
     isReadLater: boolean;
     createdAt: string;
