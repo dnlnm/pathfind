@@ -7,8 +7,27 @@ export async function fetchUrlMetadata(url: string) {
         // Special handling for Reddit: use the .json trick
         if (isReddit) {
             try {
+                let resolvedUrl = url;
+
+                // Reddit share links like /r/sub/s/XXXXX are redirect URLs.
+                // Appending .json to them won't work — we must follow the redirect first.
+                const isShareLink = /\/s\/[a-zA-Z0-9]+\/?$/.test(urlObj.pathname);
+                if (isShareLink) {
+                    console.log(`[Metadata] Reddit share link detected, resolving redirect...`);
+                    const headRes = await fetch(url, {
+                        method: "GET",
+                        redirect: "follow",
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        },
+                    });
+                    // After following the redirect, the final URL is the canonical post URL
+                    resolvedUrl = headRes.url;
+                    console.log(`[Metadata] Resolved Reddit URL: ${resolvedUrl}`);
+                }
+
                 // Ensure we handle various reddit URL formats correctly
-                let redditJsonUrl = url.replace(/\?.*$/, ""); // Remove query params for the JSON fetch
+                let redditJsonUrl = resolvedUrl.replace(/\?.*$/, ""); // Remove query params for the JSON fetch
                 redditJsonUrl = redditJsonUrl.replace(/\/$/, "") + ".json";
 
                 console.log(`[Metadata] Reddit JSON URL: ${redditJsonUrl}`);

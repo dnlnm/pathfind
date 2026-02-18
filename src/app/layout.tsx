@@ -1,37 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import ServiceWorkerRegistration from "@/components/service-worker-registration";
 
 export const metadata: Metadata = {
-  title: "PathFind — Bookmark Manager",
-  description: "A self-hosted bookmarking app to organize, tag, and search your web links.",
+    title: "Pathfind",
+    description: "Your personal bookmark manager",
 };
 
 export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
-        suppressHydrationWarning
-      >
-        {children}
-        <Toaster richColors position="bottom-right" />
-      </body>
-    </html>
-  );
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <html lang="en" className="dark" suppressHydrationWarning>
+            <head>
+                <meta name="theme-color" content="#09090b" />
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+                <meta name="apple-mobile-web-app-title" content="Pathfind" />
+                <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+            </head>
+            <body>
+                <ServiceWorkerRegistration />
+                {children}
+            </body>
+        </html>
+    );
 }
