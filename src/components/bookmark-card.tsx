@@ -1,0 +1,204 @@
+"use client";
+
+import { BookmarkWithTags } from "@/types";
+import {
+    Card,
+    CardContent,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import {
+    MoreHorizontal,
+    ExternalLink,
+    Clock,
+    Archive,
+    Pencil,
+    Trash2,
+    Globe,
+    ArchiveRestore,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+interface BookmarkCardProps {
+    bookmark: BookmarkWithTags;
+    onEdit: (bookmark: BookmarkWithTags) => void;
+    onRefresh: () => void;
+}
+
+export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps) {
+    const router = useRouter();
+
+    const handleToggle = async (field: "isReadLater" | "isArchived") => {
+        try {
+            const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    [field]: !bookmark[field],
+                    tags: bookmark.tags.map((t) => t.name),
+                }),
+            });
+            if (res.ok) {
+                toast.success(
+                    field === "isReadLater"
+                        ? bookmark.isReadLater
+                            ? "Removed from Read Later"
+                            : "Added to Read Later"
+                        : bookmark.isArchived
+                            ? "Unarchived"
+                            : "Archived"
+                );
+                onRefresh();
+            }
+        } catch {
+            toast.error("Failed to update bookmark");
+        }
+    };
+
+    const handleDelete = async () => {
+        try {
+            const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                toast.success("Bookmark deleted");
+                onRefresh();
+            }
+        } catch {
+            toast.error("Failed to delete bookmark");
+        }
+    };
+
+    const hostname = (() => {
+        try {
+            return new URL(bookmark.url).hostname.replace("www.", "");
+        } catch {
+            return bookmark.url;
+        }
+    })();
+
+    const tagList = bookmark.tags;
+
+    return (
+        <Card className="group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden">
+            <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                    {/* Favicon */}
+                    <div className="mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden">
+                        {bookmark.favicon ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={bookmark.favicon}
+                                alt=""
+                                className="w-5 h-5 object-contain"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                }}
+                            />
+                        ) : null}
+                        <Globe className={`h-4 w-4 text-muted-foreground ${bookmark.favicon ? "hidden" : ""}`} />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <a
+                                    href={bookmark.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-1 inline-flex items-center gap-1.5"
+                                >
+                                    {bookmark.title || bookmark.url}
+                                    <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+                                </a>
+                                <p className="text-xs text-muted-foreground/70 truncate mt-0.5">
+                                    {hostname}
+                                </p>
+                            </div>
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer"
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem onClick={() => onEdit(bookmark)} className="cursor-pointer">
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleToggle("isReadLater")} className="cursor-pointer">
+                                        <Clock className="h-4 w-4 mr-2" />
+                                        {bookmark.isReadLater ? "Remove from Read Later" : "Read Later"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleToggle("isArchived")} className="cursor-pointer">
+                                        {bookmark.isArchived ? (
+                                            <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
+                                        ) : (
+                                            <><Archive className="h-4 w-4 mr-2" /> Archive</>
+                                        )}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={handleDelete}
+                                        className="text-destructive focus:text-destructive cursor-pointer"
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {bookmark.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                                {bookmark.description}
+                            </p>
+                        )}
+
+                        {/* Tags & Date */}
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                            {tagList.map((tag) => (
+                                <Badge
+                                    key={tag.id}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors"
+                                    onClick={() => router.push(`/?tag=${tag.name}`)}
+                                >
+                                    {tag.name}
+                                </Badge>
+                            ))}
+                            {bookmark.isReadLater && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-amber-500/30 text-amber-500">
+                                    <Clock className="h-2.5 w-2.5 mr-0.5" />
+                                    read later
+                                </Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground/50 ml-auto whitespace-nowrap">
+                                {new Date(bookmark.createdAt).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
