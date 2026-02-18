@@ -1,10 +1,10 @@
 import { NextResponse, NextRequest } from "next/server";
 import db from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/api-auth";
 
-export async function GET() {
-    const session = await auth();
-    if (!session?.user?.id) {
+export async function GET(request: NextRequest) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -16,7 +16,7 @@ export async function GET() {
     WHERE b.user_id = ?
     GROUP BY t.id
     ORDER BY t.name ASC
-  `).all(session.user.id) as { id: string; name: string; created_at: string; count: number }[];
+  `).all(userAuth.id) as { id: string; name: string; created_at: string; count: number }[];
 
     return NextResponse.json(tags.map(t => ({
         id: t.id,
@@ -27,8 +27,8 @@ export async function GET() {
 }
 
 export async function DELETE(request: NextRequest) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

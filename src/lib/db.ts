@@ -84,9 +84,21 @@ db.exec(`
     FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS api_tokens (
+    id TEXT PRIMARY KEY,
+    token TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    last_used_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
   CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
+  CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
+  CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
 `);
 
 // Migration: add thumbnail column if missing (for existing DBs)

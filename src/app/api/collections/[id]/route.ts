@@ -1,19 +1,19 @@
 import { NextResponse, NextRequest } from "next/server";
 import db from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/api-auth";
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth();
+    const userAuth = await getAuthenticatedUser(request);
     const { id } = await params;
 
-    if (!session?.user?.id) {
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const collection = db.prepare("SELECT * FROM collections WHERE id = ? AND user_id = ?").get(id, session.user.id);
+    const collection = db.prepare("SELECT * FROM collections WHERE id = ? AND user_id = ?").get(id, userAuth.id);
 
     if (!collection) {
         return NextResponse.json({ error: "Collection not found" }, { status: 404 });
@@ -26,10 +26,10 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth();
+    const userAuth = await getAuthenticatedUser(request);
     const { id } = await params;
 
-    if (!session?.user?.id) {
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -37,7 +37,7 @@ export async function PATCH(
         const body = await request.json();
         const { name, description, icon, color } = body;
 
-        const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, session.user.id);
+        const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, userAuth.id);
         if (!collection) {
             return NextResponse.json({ error: "Collection not found" }, { status: 404 });
         }
@@ -63,14 +63,14 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth();
+    const userAuth = await getAuthenticatedUser(request);
     const { id } = await params;
 
-    if (!session?.user?.id) {
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, session.user.id);
+    const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, userAuth.id);
     if (!collection) {
         return NextResponse.json({ error: "Collection not found" }, { status: 404 });
     }

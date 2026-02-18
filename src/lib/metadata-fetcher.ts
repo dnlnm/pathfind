@@ -148,12 +148,46 @@ export async function fetchUrlMetadata(url: string) {
             thumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(urlObj.hostname)}`;
         }
 
-        const result = { title, description, favicon, thumbnail };
+        const result = {
+            title,
+            description,
+            favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
+            thumbnail: thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail
+        };
         console.log(`[Metadata] Final result:`, result.title);
         return result;
     } catch (e) {
         console.error(`[Metadata] Error fetching ${url}:`, e);
         return { title: null, description: null, favicon: null, thumbnail: null };
+    }
+}
+
+async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise<string | null> {
+    try {
+        if (!url || !url.startsWith('http')) return url;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (!response.ok) return url;
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.startsWith('image/')) return url;
+
+        const buffer = await response.arrayBuffer();
+        if (buffer.byteLength > maxSize) {
+            console.warn(`[Metadata] Image too large: ${buffer.byteLength} bytes`);
+            return url;
+        }
+
+        const base64 = Buffer.from(buffer).toString('base64');
+        return `data:${contentType};base64,${base64}`;
+    } catch (e) {
+        console.error(`[Metadata] Failed to convert image to base64: ${url}`, e);
+        return url;
     }
 }
 

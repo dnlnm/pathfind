@@ -1,10 +1,10 @@
 import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/api-auth";
 
-export async function GET() {
-    const session = await auth();
-    if (!session?.user?.id) {
+export async function GET(request: NextRequest) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -15,7 +15,7 @@ export async function GET() {
     WHERE c.user_id = ?
     GROUP BY c.id
     ORDER BY c.name ASC
-  `).all(session.user.id);
+  `).all(userAuth.id);
 
     return NextResponse.json(collections.map((c: any) => ({
         id: c.id,
@@ -28,8 +28,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         db.prepare(`
             INSERT INTO collections (id, name, description, icon, color, user_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        `).run(id, name, description || null, icon || null, color || null, session.user.id);
+        `).run(id, name, description || null, icon || null, color || null, userAuth.id);
 
         const created = db.prepare("SELECT * FROM collections WHERE id = ?").get(id);
         return NextResponse.json(created, { status: 201 });

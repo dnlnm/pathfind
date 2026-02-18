@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { DbBookmark, BookmarkWithTags } from "@/types";
 
@@ -40,12 +40,12 @@ function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
 }
 
 export async function GET(request: NextRequest) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = db.prepare("SELECT pagination_limit FROM users WHERE id = ?").get(session.user.id) as { pagination_limit: number };
+    const user = db.prepare("SELECT pagination_limit FROM users WHERE id = ?").get(userAuth.id) as { pagination_limit: number };
     const defaultLimit = user?.pagination_limit || 30;
 
     const { searchParams } = new URL(request.url);
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     let whereClauses = ["b.user_id = ?"];
-    const params: (string | number)[] = [session.user.id];
+    const params: (string | number)[] = [userAuth.id];
 
     if (filter === "readlater") {
         whereClauses.push("b.is_read_later = 1");
@@ -114,8 +114,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     db.prepare(`
     INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, user_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, session.user.id);
+  `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, userAuth.id);
 
     // Create/connect tags
     if (tags && tags.length > 0) {

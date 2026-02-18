@@ -23,11 +23,13 @@ export const authConfig: NextAuthConfig = {
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user;
-            const isOnLogin = nextUrl.pathname.startsWith("/login");
+            const isApi = nextUrl.pathname.startsWith("/api/");
             const isAuthApi = nextUrl.pathname.startsWith("/api/auth");
             const isSeedApi = nextUrl.pathname.startsWith("/api/seed");
+            const isOnLogin = nextUrl.pathname.startsWith("/login");
 
             if (isAuthApi || isSeedApi) return true;
+            if (isApi) return true; // Allow API routes to handle their own auth (session or token)
             if (isOnLogin) return true;
             if (!isLoggedIn) return false;
             return true;

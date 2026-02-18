@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { DbBookmark } from "@/types";
 
@@ -40,16 +40,16 @@ function toBookmarkResponse(row: DbBookmark) {
 }
 
 export async function GET(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const row = db.prepare("SELECT * FROM bookmarks WHERE id = ? AND user_id = ?").get(id, session.user.id) as DbBookmark | undefined;
+    const row = db.prepare("SELECT * FROM bookmarks WHERE id = ? AND user_id = ?").get(id, userAuth.id) as DbBookmark | undefined;
 
     if (!row) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,13 +62,13 @@ export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const existing = db.prepare("SELECT * FROM bookmarks WHERE id = ? AND user_id = ?").get(id, session.user.id) as DbBookmark | undefined;
+    const existing = db.prepare("SELECT * FROM bookmarks WHERE id = ? AND user_id = ?").get(id, userAuth.id) as DbBookmark | undefined;
 
     if (!existing) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -142,16 +142,16 @@ export async function PUT(
 }
 
 export async function DELETE(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const userAuth = await getAuthenticatedUser(request);
+    if (!userAuth) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
-    const existing = db.prepare("SELECT id FROM bookmarks WHERE id = ? AND user_id = ?").get(id, session.user.id);
+    const existing = db.prepare("SELECT id FROM bookmarks WHERE id = ? AND user_id = ?").get(id, userAuth.id);
 
     if (!existing) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
