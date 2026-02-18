@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get("filter") || "all";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || String(defaultLimit));
+    const sort = searchParams.get("sort") || "newest";
     const offset = (page - 1) * limit;
 
     let whereClauses = ["b.user_id = ?"];
@@ -72,12 +73,18 @@ export async function GET(request: NextRequest) {
 
     const whereStr = whereClauses.join(" AND ");
 
+    // Map sort parameter to SQL ORDER BY
+    let orderBy = "b.created_at DESC";
+    if (sort === "oldest") orderBy = "b.created_at ASC";
+    else if (sort === "title_asc") orderBy = "b.title COLLATE NOCASE ASC";
+    else if (sort === "title_desc") orderBy = "b.title COLLATE NOCASE DESC";
+
     const total = (db.prepare(`SELECT COUNT(*) as count FROM bookmarks b WHERE ${whereStr}`).get(...params) as { count: number }).count;
 
     const rows = db.prepare(`
     SELECT b.* FROM bookmarks b
     WHERE ${whereStr}
-    ORDER BY b.created_at DESC
+    ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset) as DbBookmark[];
 
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url, title, description, notes, tags, isReadLater } = body;
+    const { url, title, description, notes, tags, isReadLater, thumbnail } = body;
 
     if (!url) {
         return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -108,14 +115,16 @@ export async function POST(request: NextRequest) {
     let finalTitle = title || null;
     let finalDescription = description || null;
     let finalFavicon: string | null = null;
-    let finalThumbnail: string | null = null;
+    let finalThumbnail = thumbnail || null;
 
     if (!finalTitle || !finalDescription || !finalFavicon || !finalThumbnail) {
         const fetched = await fetchUrlMetadata(url);
         finalTitle = finalTitle || fetched.title;
         finalDescription = finalDescription || fetched.description;
         finalFavicon = fetched.favicon;
-        finalThumbnail = fetched.thumbnail;
+        if (!finalThumbnail) {
+            finalThumbnail = fetched.thumbnail;
+        }
     }
 
     const id = generateId();

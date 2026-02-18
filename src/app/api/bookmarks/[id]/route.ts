@@ -66,18 +66,21 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { url, title, description, notes, tags, isReadLater, isArchived } = body;
+    const { url, title, description, notes, tags, isReadLater, isArchived, thumbnail } = body;
 
     let finalFavicon = existing.favicon;
-    let finalThumbnail = existing.thumbnail;
+    let finalThumbnail = thumbnail !== undefined ? thumbnail : existing.thumbnail;
     let finalTitle = title ?? existing.title;
     let finalDescription = description ?? existing.description;
 
     // Fetch missing metadata if any are null or URL changed
-    if ((url && url !== existing.url) || !finalFavicon || !finalThumbnail) {
+    // But don't overwrite finalThumbnail if it was explicitly provided in the body
+    if ((url && url !== existing.url) || !finalFavicon || (finalThumbnail === null && !body.hasOwnProperty('thumbnail'))) {
         const fetched = await fetchUrlMetadata(url ?? existing.url);
         finalFavicon = fetched.favicon;
-        finalThumbnail = fetched.thumbnail;
+        if (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) {
+            finalThumbnail = fetched.thumbnail;
+        }
         if (!finalTitle) finalTitle = fetched.title;
         if (!finalDescription) finalDescription = fetched.description;
     }

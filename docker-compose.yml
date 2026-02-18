@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pathfind-app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/pathfind.db
+      - AUTH_SECRET=${AUTH_SECRET:-change-me-to-a-random-secret-in-production}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@pathfind.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - AUTH_TRUST_HOST=true
+    restart: always
+
+volumes:
+  data:

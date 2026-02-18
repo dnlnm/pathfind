@@ -70,28 +70,28 @@ db.exec(`
 
 // Migration: add thumbnail column if missing (for existing DBs)
 try {
-    db.exec("ALTER TABLE bookmarks ADD COLUMN thumbnail TEXT");
+  db.exec("ALTER TABLE bookmarks ADD COLUMN thumbnail TEXT");
 } catch (e) {
-    // Column already exists or error
+  // Column already exists or error
 }
 
 // Migration: add github_token to users if missing
 try {
-    db.exec("ALTER TABLE users ADD COLUMN github_token TEXT");
+  db.exec("ALTER TABLE users ADD COLUMN github_token TEXT");
 } catch (e) {
-    // Column already exists
+  // Column already exists
 }
 
 // Migration: add pagination_limit to users if missing
 try {
-    db.exec("ALTER TABLE users ADD COLUMN pagination_limit INTEGER DEFAULT 30");
+  db.exec("ALTER TABLE users ADD COLUMN pagination_limit INTEGER DEFAULT 30");
 } catch (e) {
-    // Column already exists
+  // Column already exists
 }
 
 export default db;
 
 // Helper to generate IDs
 export function generateId(): string {
-    return crypto.randomUUID();
+  return crypto.randomUUID();
 }

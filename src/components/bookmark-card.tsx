@@ -31,9 +31,10 @@ interface BookmarkCardProps {
     bookmark: BookmarkWithTags;
     onEdit: (bookmark: BookmarkWithTags) => void;
     onRefresh: () => void;
+    layout?: "list" | "grid";
 }
 
-export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps) {
+export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: BookmarkCardProps) {
     const router = useRouter();
 
     const handleToggle = async (field: "isReadLater" | "isArchived") => {
@@ -87,36 +88,57 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
 
     const tagList = bookmark.tags;
 
+    const isGrid = layout === "grid";
+
     return (
-        <Card className="group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden">
-            <CardContent className="p-3">
-                <div className="flex items-start gap-3">
-                    {/* Favicon */}
-                    <div className="mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden">
-                        {bookmark.favicon ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                                src={bookmark.favicon}
-                                alt=""
-                                className="w-5 h-5 object-contain"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                                }}
-                            />
-                        ) : null}
-                        <Globe className={`h-4 w-4 text-muted-foreground ${bookmark.favicon ? "hidden" : ""}`} />
+        <Card className={`group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden h-full flex flex-col p-0 gap-0 ${isGrid ? "rounded-2xl" : ""}`}>
+            {isGrid && bookmark.thumbnail && (
+                <div className="w-full aspect-video rounded-t-2xl border-b border-border/20 bg-muted/30 overflow-hidden relative shrink-0">
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
+                        <Globe className="h-8 w-8" />
                     </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={bookmark.thumbnail}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).style.opacity = "0";
+                        }}
+                        loading="lazy"
+                    />
+                </div>
+            )}
+            <CardContent className={`p-3 flex-1 flex flex-col ${isGrid ? "p-4" : ""}`}>
+                <div className={`flex items-start gap-3 ${isGrid ? "flex-col gap-2" : ""}`}>
+                    {/* Favicon - only in list view or if no thumbnail in grid */}
+                    {(!isGrid || !bookmark.thumbnail) && (
+                        <div className={`mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden ${isGrid ? "w-10 h-10 mt-0" : ""}`}>
+                            {bookmark.favicon ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src={bookmark.favicon}
+                                    alt=""
+                                    className="w-5 h-5 object-contain"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = "none";
+                                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                    }}
+                                />
+                            ) : null}
+                            <Globe className={`h-4 w-4 text-muted-foreground ${bookmark.favicon ? "hidden" : ""}`} />
+                        </div>
+                    )}
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex-1 min-w-0 space-y-1 w-full">
                         <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <a
                                     href={bookmark.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-1 inline-flex items-center gap-1.5"
+                                    className={`text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-1 inline-flex items-center gap-1.5 ${isGrid ? "text-base leading-tight" : ""}`}
                                 >
                                     {bookmark.title || bookmark.url}
                                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
@@ -131,7 +153,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer"
+                                        className={`h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer ${isGrid ? "opacity-100" : ""}`}
                                     >
                                         <MoreHorizontal className="h-4 w-4" />
                                     </Button>
@@ -165,13 +187,13 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
                         </div>
 
                         {bookmark.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
+                            <p className={`text-xs text-muted-foreground ${isGrid ? "line-clamp-2" : "line-clamp-1"}`}>
                                 {bookmark.description}
                             </p>
                         )}
 
                         {/* Tags & Date */}
-                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                        <div className={`flex items-center gap-2 flex-wrap pt-1 ${isGrid ? "mt-auto" : ""}`}>
                             {tagList.map((tag) => (
                                 <Badge
                                     key={tag.id}
@@ -192,14 +214,13 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
                                 {new Date(bookmark.createdAt).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
-                                    year: "numeric",
                                 })}
                             </span>
                         </div>
                     </div>
 
-                    {/* Thumbnail */}
-                    {bookmark.thumbnail && (
+                    {/* Thumbnail (List View Only) */}
+                    {!isGrid && bookmark.thumbnail && (
                         <div className="hidden sm:block shrink-0 ml-2 w-36 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative">
                             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                                 <Globe className="h-6 w-6" />

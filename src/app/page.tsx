@@ -10,8 +10,16 @@ import { BookmarkForm } from "@/components/bookmark-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookmarkWithTags } from "@/types";
-import { Compass, ChevronLeft, ChevronRight } from "lucide-react";
+import { Compass, ChevronLeft, ChevronRight, LayoutGrid, List, SortAsc } from "lucide-react";
 import { useRouter } from "next/navigation";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 function BookmarkPageContent() {
   const router = useRouter();
@@ -25,6 +33,19 @@ function BookmarkPageContent() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkWithTags | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [sortBy, setSortBy] = useState("newest");
+
+  // Load view mode from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("bookmark-view-mode");
+    if (saved === "grid") setViewMode("grid");
+  }, []);
+
+  const toggleViewMode = (mode: "list" | "grid") => {
+    setViewMode(mode);
+    localStorage.setItem("bookmark-view-mode", mode);
+  };
 
   const fetchBookmarks = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -39,6 +60,7 @@ function BookmarkPageContent() {
     if (tag) params.set("tag", tag);
     if (q) params.set("q", q);
     if (p) params.set("page", p);
+    params.set("sort", sortBy);
 
     try {
       const res = await fetch(`/api/bookmarks?${params.toString()}`);
@@ -53,7 +75,7 @@ function BookmarkPageContent() {
       // Silent fail
     }
     setLoading(false);
-  }, [searchParams]);
+  }, [searchParams, sortBy]);
 
   const fetchCounts = useCallback(async () => {
     try {
@@ -82,7 +104,7 @@ function BookmarkPageContent() {
   useEffect(() => {
     fetchBookmarks(false);
     fetchCounts();
-  }, [fetchBookmarks, fetchCounts]);
+  }, [fetchBookmarks, fetchCounts, sortBy]);
 
   const handleRefresh = () => {
     fetchBookmarks(true);
@@ -120,7 +142,7 @@ function BookmarkPageContent() {
       <SidebarInset>
         <Header onAddBookmark={() => setFormOpen(true)} />
 
-        <main className="flex-1 p-4 md:p-6 max-w-4xl mx-auto w-full">
+        <main className="flex-1 p-4 md:p-6 max-w-5xl mx-auto w-full">
           {/* Page title */}
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -129,13 +151,59 @@ function BookmarkPageContent() {
                 {total} bookmark{total !== 1 ? "s" : ""}
               </p>
             </div>
+
+            <div className="flex items-center gap-3">
+              {/* Sort Dropdown */}
+              <div className="flex items-center gap-2">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="h-9 w-[140px] bg-background/50 border-border/40 text-xs cursor-pointer">
+                    <SortAsc className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest" className="text-xs cursor-pointer">Newest First</SelectItem>
+                    <SelectItem value="oldest" className="text-xs cursor-pointer">Oldest First</SelectItem>
+                    <SelectItem value="title_asc" className="text-xs cursor-pointer">Title (A-Z)</SelectItem>
+                    <SelectItem value="title_desc" className="text-xs cursor-pointer">Title (Z-A)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* View Toggle */}
+              <div className="flex items-center border border-border/40 rounded-lg p-0.5 bg-muted/30">
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-7 cursor-pointer"
+                  onClick={() => toggleViewMode("list")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-7 cursor-pointer"
+                  onClick={() => toggleViewMode("grid")}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Bookmark list */}
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full rounded-xl" />
+            <div className={cn(
+              "w-full",
+              viewMode === "grid"
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                : "space-y-3"
+            )}>
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className={cn(
+                  "rounded-xl",
+                  viewMode === "grid" ? "aspect-[4/5]" : "h-24 w-full"
+                )} />
               ))}
             </div>
           ) : bookmarks.length === 0 ? (
@@ -155,13 +223,19 @@ function BookmarkPageContent() {
             </div>
           ) : (
             <>
-              <div className="space-y-2">
+              <div className={cn(
+                "w-full",
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                  : "space-y-2"
+              )}>
                 {bookmarks.map((bookmark) => (
                   <BookmarkCard
                     key={bookmark.id}
                     bookmark={bookmark}
                     onEdit={handleEdit}
                     onRefresh={handleRefresh}
+                    layout={viewMode}
                   />
                 ))}
               </div>

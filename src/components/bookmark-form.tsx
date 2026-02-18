@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Dialog,
     DialogContent,
@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, X, Plus } from "lucide-react";
+import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload } from "lucide-react";
 import { BookmarkWithTags } from "@/types";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface BookmarkFormProps {
     open: boolean;
@@ -33,6 +34,9 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
     const [isReadLater, setIsReadLater] = useState(false);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
+    const [thumbnail, setThumbnail] = useState("");
+    const [generating, setGenerating] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isEditing = !!bookmark;
 
@@ -44,6 +48,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
             setNotes(bookmark.notes || "");
             setTags(bookmark.tags.map((t) => t.name));
             setIsReadLater(bookmark.isReadLater);
+            setThumbnail(bookmark.thumbnail || "");
         } else {
             resetForm();
         }
@@ -57,6 +62,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
         setTagInput("");
         setTags([]);
         setIsReadLater(false);
+        setThumbnail("");
     };
 
     const fetchMetadata = async () => {
@@ -72,11 +78,52 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                 const data = await res.json();
                 if (data.title && !title) setTitle(data.title);
                 if (data.description && !description) setDescription(data.description);
+                if (data.thumbnail) setThumbnail(data.thumbnail);
             }
         } catch {
             // Silently fail metadata fetch
         }
         setFetching(false);
+    };
+
+    const generateDynamicThumbnail = async () => {
+        if (!title && !url) {
+            toast.error("Please enter a title or URL first");
+            return;
+        }
+        setGenerating(true);
+        try {
+            const domain = url ? new URL(url).hostname.replace("www.", "") : "";
+            const dynamicUrl = `/api/thumbnail?title=${encodeURIComponent(title || "Bookmark")}&domain=${encodeURIComponent(domain)}`;
+            setThumbnail(dynamicUrl);
+            toast.success("Dynamic thumbnail generated");
+        } catch {
+            toast.error("Failed to generate thumbnail");
+        }
+        setGenerating(false);
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            toast.error("Please upload an image file");
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("File size should be less than 2MB");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const result = event.target?.result as string;
+            setThumbnail(result);
+            toast.success("Image uploaded successfully");
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleUrlBlur = () => {
@@ -125,6 +172,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                     notes: notes || undefined,
                     tags,
                     isReadLater,
+                    thumbnail: thumbnail || null,
                 }),
             });
 
@@ -145,7 +193,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg bg-card border-border/50">
+            <DialogContent className="sm:max-w-lg bg-card border-border/50 max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? "Edit Bookmark" : "Add Bookmark"}</DialogTitle>
                 </DialogHeader>
@@ -234,6 +282,85 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                             rows={3}
                             className="bg-background/50 resize-none"
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Thumbnail (Optional)</Label>
+                        <div className="space-y-3">
+                            {/* Thumbnail Preview - 16:9 Aspect Ratio */}
+                            <div className="relative w-full aspect-video rounded-lg border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
+                                {thumbnail ? (
+                                    <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={thumbnail}
+                                            alt="Thumbnail preview"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = "";
+                                            }}
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon"
+                                            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 backdrop-blur shadow-sm cursor-pointer"
+                                            onClick={() => setThumbnail("")}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-30">
+                                        <Globe className="h-10 w-10" />
+                                        <span className="text-xs font-medium">16:9 Preview</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Options - Just the 3 buttons */}
+                            <div className="grid grid-cols-3 gap-2">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileUpload}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-[11px] gap-1.5 cursor-pointer"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Upload className="h-3.5 w-3.5" />
+                                    Upload
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-[11px] gap-1.5 cursor-pointer"
+                                    onClick={fetchMetadata}
+                                    disabled={fetching || !url}
+                                >
+                                    <RefreshCw className={cn("h-3.5 w-3.5", fetching && "animate-spin")} />
+                                    Fetch
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-[11px] gap-1.5 cursor-pointer"
+                                    onClick={generateDynamicThumbnail}
+                                    disabled={generating || (!title && !url)}
+                                >
+                                    <Sparkles className={cn("h-3.5 w-3.5", generating && "animate-spin")} />
+                                    Dynamic
+                                </Button>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-2">
