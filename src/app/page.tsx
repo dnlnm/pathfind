@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookmarkWithTags } from "@/types";
 import { Compass, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 function BookmarkPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [bookmarks, setBookmarks] = useState<BookmarkWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,8 +25,8 @@ function BookmarkPageContent() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkWithTags | null>(null);
 
-  const fetchBookmarks = useCallback(async () => {
-    setLoading(true);
+  const fetchBookmarks = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const params = new URLSearchParams();
 
     const filter = searchParams.get("filter");
@@ -77,12 +79,12 @@ function BookmarkPageContent() {
   }, []);
 
   useEffect(() => {
-    fetchBookmarks();
+    fetchBookmarks(false);
     fetchCounts();
   }, [fetchBookmarks, fetchCounts]);
 
   const handleRefresh = () => {
-    fetchBookmarks();
+    fetchBookmarks(true);
     fetchCounts();
   };
 
@@ -172,7 +174,7 @@ function BookmarkPageContent() {
                     onClick={() => {
                       const params = new URLSearchParams(searchParams.toString());
                       params.set("page", String(page - 1));
-                      window.location.search = params.toString();
+                      router.push(`/?${params.toString()}`);
                     }}
                     className="cursor-pointer"
                   >
@@ -188,7 +190,7 @@ function BookmarkPageContent() {
                     onClick={() => {
                       const params = new URLSearchParams(searchParams.toString());
                       params.set("page", String(page + 1));
-                      window.location.search = params.toString();
+                      router.push(`/?${params.toString()}`);
                     }}
                     className="cursor-pointer"
                   >

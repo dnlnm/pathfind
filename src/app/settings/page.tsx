@@ -30,12 +30,18 @@ function SettingsContent() {
     const [githubToken, setGithubToken] = useState("");
     const [savingToken, setSavingToken] = useState(false);
     const [syncingStars, setSyncingStars] = useState(false);
+    const [paginationLimit, setPaginationLimit] = useState(30);
+    const [savingLimit, setSavingLimit] = useState(false);
 
     useEffect(() => {
-        // Fetch GitHub token on load
         fetch("/api/settings/github")
             .then(res => res.json())
             .then(data => setGithubToken(data.token || ""));
+
+        // Fetch Pagination limit on load
+        fetch("/api/settings/pagination")
+            .then(res => res.json())
+            .then(data => setPaginationLimit(data.limit || 30));
     }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
@@ -159,6 +165,27 @@ function SettingsContent() {
         setSyncingStars(false);
     };
 
+    const handleSavePaginationLimit = async () => {
+        setSavingLimit(true);
+        try {
+            const res = await fetch("/api/settings/pagination", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ limit: paginationLimit }),
+            });
+            if (res.ok) {
+                toast.success("Pagination limit updated");
+                router.refresh();
+            } else {
+                const data = await res.json();
+                toast.error(data.error || "Failed to update limit");
+            }
+        } catch {
+            toast.error("Something went wrong");
+        }
+        setSavingLimit(false);
+    };
+
     return (
         <SidebarProvider>
             <AppSidebar bookmarkCounts={{ all: 0, readLater: 0, archived: 0 }} />
@@ -169,6 +196,42 @@ function SettingsContent() {
                 </header>
 
                 <main className="flex-1 p-4 md:p-6 max-w-2xl mx-auto w-full space-y-6">
+                    {/* Appearance & Behavior */}
+                    <Card className="border-border/40 bg-card/50">
+                        <CardHeader>
+                            <CardTitle>Appearance & Behavior</CardTitle>
+                            <CardDescription>Customize your browsing experience</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="pagination-limit">Bookmarks per page</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="pagination-limit"
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        value={paginationLimit}
+                                        onChange={(e) => setPaginationLimit(parseInt(e.target.value) || 0)}
+                                        className="bg-background/50"
+                                    />
+                                    <Button
+                                        onClick={handleSavePaginationLimit}
+                                        disabled={savingLimit}
+                                        className="cursor-pointer shrink-0"
+                                    >
+                                        {savingLimit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                    </Button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                    Set how many bookmarks to show per page (1-100).
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Separator className="bg-border/30" />
+
                     {/* Password Change */}
                     <Card className="border-border/40 bg-card/50">
                         <CardHeader>

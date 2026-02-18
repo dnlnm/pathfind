@@ -36,12 +36,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = db.prepare("SELECT pagination_limit FROM users WHERE id = ?").get(session.user.id) as { pagination_limit: number };
+    const defaultLimit = user?.pagination_limit || 30;
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
     const tag = searchParams.get("tag") || "";
     const filter = searchParams.get("filter") || "all";
     const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "30");
+    const limit = parseInt(searchParams.get("limit") || String(defaultLimit));
     const offset = (page - 1) * limit;
 
     let whereClauses = ["b.user_id = ?"];

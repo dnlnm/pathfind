@@ -1,10 +1,10 @@
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "pathfind.db");
 
 // Ensure data directory exists
-import fs from "fs";
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
@@ -21,6 +21,7 @@ db.exec(`
     name TEXT,
     password TEXT NOT NULL,
     github_token TEXT,
+    pagination_limit INTEGER DEFAULT 30,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -61,15 +62,24 @@ db.exec(`
 
 // Migration: add thumbnail column if missing (for existing DBs)
 try {
-    db.exec(`ALTER TABLE bookmarks ADD COLUMN thumbnail TEXT`);
-} catch {
-    // Column already exists
+    db.exec("ALTER TABLE bookmarks ADD COLUMN thumbnail TEXT");
+} catch (e) {
+    // Column already exists or error
 }
 
 // Migration: add github_token to users if missing
 try {
-    db.exec(`ALTER TABLE users ADD COLUMN github_token TEXT`);
-} catch { }
+    db.exec("ALTER TABLE users ADD COLUMN github_token TEXT");
+} catch (e) {
+    // Column already exists
+}
+
+// Migration: add pagination_limit to users if missing
+try {
+    db.exec("ALTER TABLE users ADD COLUMN pagination_limit INTEGER DEFAULT 30");
+} catch (e) {
+    // Column already exists
+}
 
 export default db;
 

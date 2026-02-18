@@ -89,7 +89,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
 
     return (
         <Card className="group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden">
-            <CardContent className="p-4">
+            <CardContent className="p-3">
                 <div className="flex items-start gap-3">
                     {/* Favicon */}
                     <div className="mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden">
@@ -165,7 +165,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
                         </div>
 
                         {bookmark.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-muted-foreground line-clamp-1">
                                 {bookmark.description}
                             </p>
                         )}
@@ -200,7 +200,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh }: BookmarkCardProps)
 
                     {/* Thumbnail */}
                     {bookmark.thumbnail && (
-                        <div className="hidden sm:block shrink-0 ml-2 w-28 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative">
+                        <div className="hidden sm:block shrink-0 ml-2 w-36 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative">
                             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                                 <Globe className="h-6 w-6" />
                             </div>
