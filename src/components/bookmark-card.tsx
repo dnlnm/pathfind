@@ -45,6 +45,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                 body: JSON.stringify({
                     [field]: !bookmark[field],
                     tags: bookmark.tags.map((t) => t.name),
+                    collections: bookmark.collections?.map((c) => c.id),
                 }),
             });
             if (res.ok) {
@@ -204,13 +205,27 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                                     {tag.name}
                                 </Badge>
                             ))}
+                            {bookmark.collections?.map((col) => (
+                                <Badge
+                                    key={col.id}
+                                    variant="outline"
+                                    className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-primary/20 transition-colors gap-1 border-primary/20"
+                                    onClick={() => router.push(`/?collection=${col.id}`)}
+                                >
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                    {col.name}
+                                </Badge>
+                            ))}
                             {bookmark.isReadLater && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-amber-500/30 text-amber-500">
                                     <Clock className="h-2.5 w-2.5 mr-0.5" />
                                     read later
                                 </Badge>
                             )}
-                            <span className="text-[10px] text-muted-foreground/50 ml-auto whitespace-nowrap">
+                            <span
+                                className="text-[10px] text-muted-foreground/50 ml-auto whitespace-nowrap"
+                                suppressHydrationWarning
+                            >
                                 {new Date(bookmark.createdAt).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",

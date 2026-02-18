@@ -53,11 +53,13 @@ function BookmarkPageContent() {
 
     const filter = searchParams.get("filter");
     const tag = searchParams.get("tag");
+    const collection = searchParams.get("collection");
     const q = searchParams.get("q");
     const p = searchParams.get("page");
 
     if (filter) params.set("filter", filter);
     if (tag) params.set("tag", tag);
+    if (collection) params.set("collection", collection);
     if (q) params.set("q", q);
     if (p) params.set("page", p);
     params.set("sort", sortBy);
@@ -104,7 +106,7 @@ function BookmarkPageContent() {
   useEffect(() => {
     fetchBookmarks(false);
     fetchCounts();
-  }, [fetchBookmarks, fetchCounts, sortBy]);
+  }, [fetchBookmarks, fetchCounts]);
 
   const handleRefresh = () => {
     fetchBookmarks(true);
@@ -124,17 +126,33 @@ function BookmarkPageContent() {
 
   const currentFilter = searchParams.get("filter") || "all";
   const currentTag = searchParams.get("tag") || "";
+  const currentCollectionId = searchParams.get("collection") || "";
   const currentQuery = searchParams.get("q") || "";
 
-  const pageTitle = currentTag
-    ? `Tag: ${currentTag}`
-    : currentQuery
-      ? `Search: "${currentQuery}"`
-      : currentFilter === "readlater"
-        ? "Read Later"
-        : currentFilter === "archived"
-          ? "Archived"
-          : "All Bookmarks";
+  const [currentCollectionName, setCurrentCollectionName] = useState("");
+
+  useEffect(() => {
+    if (currentCollectionId) {
+      fetch(`/api/collections/${currentCollectionId}`)
+        .then(res => res.json())
+        .then(data => setCurrentCollectionName(data.name))
+        .catch(() => setCurrentCollectionName("Collection"));
+    } else {
+      setCurrentCollectionName("");
+    }
+  }, [currentCollectionId]);
+
+  const pageTitle = currentCollectionId
+    ? `Collection: ${currentCollectionName || "..."}`
+    : currentTag
+      ? `Tag: ${currentTag}`
+      : currentQuery
+        ? `Search: "${currentQuery}"`
+        : currentFilter === "readlater"
+          ? "Read Later"
+          : currentFilter === "archived"
+            ? "Archived"
+            : "All Bookmarks";
 
   return (
     <SidebarProvider>
@@ -192,7 +210,7 @@ function BookmarkPageContent() {
           </div>
 
           {/* Bookmark list */}
-          {loading ? (
+          {loading && bookmarks.length === 0 ? (
             <div className={cn(
               "w-full",
               viewMode === "grid"
@@ -224,7 +242,8 @@ function BookmarkPageContent() {
           ) : (
             <>
               <div className={cn(
-                "w-full",
+                "w-full transition-opacity duration-300",
+                loading && "opacity-50 pointer-events-none",
                 viewMode === "grid"
                   ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
                   : "space-y-2"

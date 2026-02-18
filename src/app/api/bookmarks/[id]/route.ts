@@ -12,6 +12,14 @@ function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] 
   `).all(bookmarkId) as { id: string; name: string }[];
 }
 
+function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string }[] {
+    return db.prepare(`
+    SELECT c.id, c.name FROM collections c
+    JOIN bookmark_collections bc ON bc.collection_id = c.id
+    WHERE bc.bookmark_id = ?
+  `).all(bookmarkId) as { id: string; name: string }[];
+}
+
 function toBookmarkResponse(row: DbBookmark) {
     return {
         id: row.id,
@@ -27,6 +35,7 @@ function toBookmarkResponse(row: DbBookmark) {
         updatedAt: row.updated_at,
         userId: row.user_id,
         tags: getTagsForBookmark(row.id),
+        collections: getCollectionsForBookmark(row.id),
     };
 }
 
@@ -116,6 +125,15 @@ export async function PUT(
             insertTag.run(generateId(), normalized);
             const tagRow = getTag.get(normalized) as { id: string };
             linkTag.run(id, tagRow.id);
+        }
+    }
+
+    // Update collections
+    db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
+    if (body.collections && body.collections.length > 0) {
+        const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
+        for (const collectionId of body.collections) {
+            linkCollection.run(id, collectionId);
         }
     }
 

@@ -12,6 +12,14 @@ function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] 
   `).all(bookmarkId) as { id: string; name: string }[];
 }
 
+function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string }[] {
+    return db.prepare(`
+    SELECT c.id, c.name FROM collections c
+    JOIN bookmark_collections bc ON bc.collection_id = c.id
+    WHERE bc.bookmark_id = ?
+  `).all(bookmarkId) as { id: string; name: string }[];
+}
+
 function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
     return {
         id: row.id,
@@ -27,6 +35,7 @@ function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
         updatedAt: row.updated_at,
         userId: row.user_id,
         tags: getTagsForBookmark(row.id),
+        collections: getCollectionsForBookmark(row.id),
     };
 }
 
@@ -42,6 +51,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
     const tag = searchParams.get("tag") || "";
+    const collectionId = searchParams.get("collection");
     const filter = searchParams.get("filter") || "all";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || String(defaultLimit));
@@ -69,6 +79,11 @@ export async function GET(request: NextRequest) {
     if (tag) {
         whereClauses.push("b.id IN (SELECT bt.bookmark_id FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id WHERE t.name = ?)");
         params.push(tag);
+    }
+
+    if (collectionId) {
+        whereClauses.push("b.id IN (SELECT bc.bookmark_id FROM bookmark_collections bc WHERE bc.collection_id = ?)");
+        params.push(collectionId);
     }
 
     const whereStr = whereClauses.join(" AND ");
@@ -145,6 +160,14 @@ export async function POST(request: NextRequest) {
             insertTag.run(generateId(), normalized);
             const tagRow = getTag.get(normalized) as { id: string };
             linkTag.run(id, tagRow.id);
+        }
+    }
+
+    // Connect collections
+    if (body.collections && body.collections.length > 0) {
+        const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
+        for (const collectionId of body.collections) {
+            linkCollection.run(id, collectionId);
         }
     }
 

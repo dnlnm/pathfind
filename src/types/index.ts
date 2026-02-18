@@ -33,6 +33,22 @@ export interface DbBookmarkTag {
     tag_id: string;
 }
 
+export interface DbCollection {
+    id: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    color: string | null;
+    user_id: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DbBookmarkCollection {
+    bookmark_id: string;
+    collection_id: string;
+}
+
 // Frontend-facing types
 export interface BookmarkWithTags {
     id: string;
@@ -48,11 +64,21 @@ export interface BookmarkWithTags {
     updatedAt: string;
     userId: string;
     tags: { id: string; name: string }[];
+    collections?: { id: string; name: string }[];
 }
 
 export interface TagWithCount {
     id: string;
     name: string;
     createdAt: string;
+    count: number;
+}
+
+export interface CollectionWithCount {
+    id: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    color: string | null;
     count: number;
 }

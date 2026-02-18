@@ -36,9 +36,20 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
     const [fetching, setFetching] = useState(false);
     const [thumbnail, setThumbnail] = useState("");
     const [generating, setGenerating] = useState(false);
+    const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+    const [availableCollections, setAvailableCollections] = useState<{ id: string; name: string }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isEditing = !!bookmark;
+
+    useEffect(() => {
+        if (open) {
+            fetch("/api/collections")
+                .then(res => res.json())
+                .then(data => setAvailableCollections(data))
+                .catch(() => { });
+        }
+    }, [open]);
 
     useEffect(() => {
         if (bookmark) {
@@ -49,6 +60,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
             setTags(bookmark.tags.map((t) => t.name));
             setIsReadLater(bookmark.isReadLater);
             setThumbnail(bookmark.thumbnail || "");
+            setSelectedCollections(bookmark.collections?.map(c => c.id) || []);
         } else {
             resetForm();
         }
@@ -63,6 +75,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
         setTags([]);
         setIsReadLater(false);
         setThumbnail("");
+        setSelectedCollections([]);
     };
 
     const fetchMetadata = async () => {
@@ -173,6 +186,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                     tags,
                     isReadLater,
                     thumbnail: thumbnail || null,
+                    collections: selectedCollections,
                 }),
             });
 
@@ -282,6 +296,32 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                             rows={3}
                             className="bg-background/50 resize-none"
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Collections</Label>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            {availableCollections.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic">No collections created yet.</p>
+                            ) : (
+                                availableCollections.map((collection) => (
+                                    <Badge
+                                        key={collection.id}
+                                        variant={selectedCollections.includes(collection.id) ? "default" : "outline"}
+                                        className="cursor-pointer"
+                                        onClick={() => {
+                                            setSelectedCollections(prev =>
+                                                prev.includes(collection.id)
+                                                    ? prev.filter(id => id !== collection.id)
+                                                    : [...prev, collection.id]
+                                            );
+                                        }}
+                                    >
+                                        {collection.name}
+                                    </Badge>
+                                ))
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-2">

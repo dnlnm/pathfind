@@ -1,0 +1,82 @@
+import { NextResponse, NextRequest } from "next/server";
+import db from "@/lib/db";
+import { auth } from "@/lib/auth";
+
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth();
+    const { id } = await params;
+
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const collection = db.prepare("SELECT * FROM collections WHERE id = ? AND user_id = ?").get(id, session.user.id);
+
+    if (!collection) {
+        return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(collection);
+}
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth();
+    const { id } = await params;
+
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+        const body = await request.json();
+        const { name, description, icon, color } = body;
+
+        const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, session.user.id);
+        if (!collection) {
+            return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+        }
+
+        db.prepare(`
+            UPDATE collections 
+            SET name = COALESCE(?, name), 
+                description = COALESCE(?, description),
+                icon = COALESCE(?, icon),
+                color = COALESCE(?, color),
+                updated_at = datetime('now')
+            WHERE id = ?
+        `).run(name, description, icon, color, id);
+
+        const updated = db.prepare("SELECT * FROM collections WHERE id = ?").get(id);
+        return NextResponse.json(updated);
+    } catch (error) {
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
+
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await auth();
+    const { id } = await params;
+
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, session.user.id);
+    if (!collection) {
+        return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+    }
+
+    db.prepare("DELETE FROM bookmark_collections WHERE collection_id = ?").run(id);
+    db.prepare("DELETE FROM collections WHERE id = ?").run(id);
+
+    return NextResponse.json({ success: true });
+}

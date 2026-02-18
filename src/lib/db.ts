@@ -64,8 +64,29 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS collections (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    color TEXT,
+    user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS bookmark_collections (
+    bookmark_id TEXT NOT NULL,
+    collection_id TEXT NOT NULL,
+    PRIMARY KEY (bookmark_id, collection_id),
+    FOREIGN KEY (bookmark_id) REFERENCES bookmarks(id) ON DELETE CASCADE,
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
+  CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
 `);
 
 // Migration: add thumbnail column if missing (for existing DBs)
