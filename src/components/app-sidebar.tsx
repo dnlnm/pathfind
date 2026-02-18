@@ -16,6 +16,7 @@ import {
     SidebarMenuBadge,
     SidebarMenuButton,
     SidebarMenuItem,
+    useSidebar,
 } from "@/components/ui/sidebar";
 import {
     DropdownMenu,
@@ -49,6 +50,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSidebarProps) {
     const router = useRouter();
+    const { setOpenMobile } = useSidebar();
     const searchParams = useSearchParams();
     const currentFilter = searchParams.get("filter") || "all";
     const currentTag = searchParams.get("tag") || "";
@@ -80,6 +82,7 @@ export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSide
     }, [fetchTags, fetchCollections, refreshTrigger]);
 
     const navigate = (filter: string, tag?: string, collectionId?: string) => {
+        setOpenMobile(false);
         const params = new URLSearchParams();
         if (filter !== "all") params.set("filter", filter);
         if (tag) params.set("tag", tag);
@@ -278,7 +281,10 @@ export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSide
                                 className="w-[--radix-popper-anchor-width]"
                             >
                                 <DropdownMenuItem
-                                    onClick={() => router.push("/settings")}
+                                    onClick={() => {
+                                        setOpenMobile(false);
+                                        router.push("/settings");
+                                    }}
                                     className="cursor-pointer"
                                 >
                                     Settings

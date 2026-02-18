@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppLayout } from "@/components/app-layout";
 import { Header } from "@/components/header";
 import { BookmarkCard } from "@/components/bookmark-card";
 import { BookmarkForm } from "@/components/bookmark-form";
@@ -155,156 +154,153 @@ function BookmarkPageContent() {
             : "All Bookmarks";
 
   return (
-    <SidebarProvider>
-      <AppSidebar bookmarkCounts={counts} refreshTrigger={refreshTrigger} />
-      <SidebarInset>
-        <Header onAddBookmark={() => setFormOpen(true)} />
+    <AppLayout bookmarkCounts={counts} refreshTrigger={refreshTrigger}>
+      <Header onAddBookmark={() => setFormOpen(true)} />
 
-        <main className="flex-1 p-4 md:p-6 max-w-5xl mx-auto w-full">
-          {/* Page title */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">{pageTitle}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {total} bookmark{total !== 1 ? "s" : ""}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Sort Dropdown */}
-              <div className="flex items-center gap-2">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-9 w-[140px] bg-background/50 border-border/40 text-xs cursor-pointer">
-                    <SortAsc className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest" className="text-xs cursor-pointer">Newest First</SelectItem>
-                    <SelectItem value="oldest" className="text-xs cursor-pointer">Oldest First</SelectItem>
-                    <SelectItem value="title_asc" className="text-xs cursor-pointer">Title (A-Z)</SelectItem>
-                    <SelectItem value="title_desc" className="text-xs cursor-pointer">Title (Z-A)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* View Toggle */}
-              <div className="flex items-center border border-border/40 rounded-lg p-0.5 bg-muted/30">
-                <Button
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-7 cursor-pointer"
-                  onClick={() => toggleViewMode("list")}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-7 cursor-pointer"
-                  onClick={() => toggleViewMode("grid")}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+      <main className="flex-1 p-4 md:p-6 max-w-5xl mx-auto w-full">
+        {/* Page title */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">{pageTitle}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {total} bookmark{total !== 1 ? "s" : ""}
+            </p>
           </div>
 
-          {/* Bookmark list */}
-          {loading && bookmarks.length === 0 ? (
+          <div className="flex items-center gap-3">
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-9 w-[140px] bg-background/50 border-border/40 text-xs cursor-pointer">
+                  <SortAsc className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest" className="text-xs cursor-pointer">Newest First</SelectItem>
+                  <SelectItem value="oldest" className="text-xs cursor-pointer">Oldest First</SelectItem>
+                  <SelectItem value="title_asc" className="text-xs cursor-pointer">Title (A-Z)</SelectItem>
+                  <SelectItem value="title_desc" className="text-xs cursor-pointer">Title (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex items-center border border-border/40 rounded-lg p-0.5 bg-muted/30">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-7 w-7 cursor-pointer"
+                onClick={() => toggleViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-7 w-7 cursor-pointer"
+                onClick={() => toggleViewMode("grid")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Bookmark list */}
+        {loading && bookmarks.length === 0 ? (
+          <div className={cn(
+            "w-full",
+            viewMode === "grid"
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              : "space-y-3"
+          )}>
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className={cn(
+                "rounded-xl",
+                viewMode === "grid" ? "aspect-[4/5]" : "h-24 w-full"
+              )} />
+            ))}
+          </div>
+        ) : bookmarks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+              <Compass className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-medium text-muted-foreground">
+              {currentQuery ? "No bookmarks found" : "No bookmarks yet"}
+            </h3>
+            <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
+              {currentQuery
+                ? "Try a different search term"
+                : "Click the \"Add Bookmark\" button to save your first link"
+              }
+            </p>
+          </div>
+        ) : (
+          <>
             <div className={cn(
-              "w-full",
+              "w-full transition-opacity duration-300",
+              loading && "opacity-50 pointer-events-none",
               viewMode === "grid"
                 ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                : "space-y-3"
+                : "space-y-2"
             )}>
-              {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className={cn(
-                  "rounded-xl",
-                  viewMode === "grid" ? "aspect-[4/5]" : "h-24 w-full"
-                )} />
+              {bookmarks.map((bookmark) => (
+                <BookmarkCard
+                  key={bookmark.id}
+                  bookmark={bookmark}
+                  onEdit={handleEdit}
+                  onRefresh={handleRefresh}
+                  layout={viewMode}
+                />
               ))}
             </div>
-          ) : bookmarks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-                <Compass className="h-8 w-8 text-muted-foreground/50" />
-              </div>
-              <h3 className="text-lg font-medium text-muted-foreground">
-                {currentQuery ? "No bookmarks found" : "No bookmarks yet"}
-              </h3>
-              <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
-                {currentQuery
-                  ? "Try a different search term"
-                  : "Click the \"Add Bookmark\" button to save your first link"
-                }
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className={cn(
-                "w-full transition-opacity duration-300",
-                loading && "opacity-50 pointer-events-none",
-                viewMode === "grid"
-                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                  : "space-y-2"
-              )}>
-                {bookmarks.map((bookmark) => (
-                  <BookmarkCard
-                    key={bookmark.id}
-                    bookmark={bookmark}
-                    onEdit={handleEdit}
-                    onRefresh={handleRefresh}
-                    layout={viewMode}
-                  />
-                ))}
-              </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-8">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set("page", String(page - 1));
-                      router.push(`/?${params.toString()}`);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground px-3">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= totalPages}
-                    onClick={() => {
-                      const params = new URLSearchParams(searchParams.toString());
-                      params.set("page", String(page + 1));
-                      router.push(`/?${params.toString()}`);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </main>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("page", String(page - 1));
+                    router.push(`/?${params.toString()}`);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground px-3">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("page", String(page + 1));
+                    router.push(`/?${params.toString()}`);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </main>
 
-        <BookmarkForm
-          open={formOpen}
-          onOpenChange={handleFormClose}
-          bookmark={editingBookmark}
-          onSuccess={handleRefresh}
-        />
-      </SidebarInset>
-    </SidebarProvider>
+      <BookmarkForm
+        open={formOpen}
+        onOpenChange={handleFormClose}
+        bookmark={editingBookmark}
+        onSuccess={handleRefresh}
+      />
+    </AppLayout>
   );
 }
 
