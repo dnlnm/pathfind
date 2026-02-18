@@ -32,6 +32,10 @@ function SettingsContent() {
     const [syncingStars, setSyncingStars] = useState(false);
     const [paginationLimit, setPaginationLimit] = useState(30);
     const [savingLimit, setSavingLimit] = useState(false);
+    const [domainColors, setDomainColors] = useState<{ domain: string; color: string }[]>([]);
+    const [newDomain, setNewDomain] = useState("");
+    const [newColor, setNewColor] = useState("#6366f1");
+    const [addingColor, setAddingColor] = useState(false);
 
     useEffect(() => {
         fetch("/api/settings/github")
@@ -42,6 +46,11 @@ function SettingsContent() {
         fetch("/api/settings/pagination")
             .then(res => res.json())
             .then(data => setPaginationLimit(data.limit || 30));
+
+        // Fetch domain colors
+        fetch("/api/settings/domain-colors")
+            .then(res => res.json())
+            .then(data => setDomainColors(data));
     }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
@@ -186,6 +195,43 @@ function SettingsContent() {
         setSavingLimit(false);
     };
 
+    const handleAddDomainColor = async () => {
+        if (!newDomain) return;
+        setAddingColor(true);
+        try {
+            const res = await fetch("/api/settings/domain-colors", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ domain: newDomain, color: newColor }),
+            });
+            if (res.ok) {
+                toast.success(`Color set for ${newDomain}`);
+                const updated = await fetch("/api/settings/domain-colors").then(r => r.json());
+                setDomainColors(updated);
+                setNewDomain("");
+            }
+        } catch {
+            toast.error("Failed to add domain color");
+        }
+        setAddingColor(false);
+    };
+
+    const handleDeleteDomainColor = async (domain: string) => {
+        try {
+            const res = await fetch("/api/settings/domain-colors", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ domain }),
+            });
+            if (res.ok) {
+                setDomainColors(prev => prev.filter(dc => dc.domain !== domain));
+                toast.success(`Removed color for ${domain}`);
+            }
+        } catch {
+            toast.error("Failed to delete domain color");
+        }
+    };
+
     return (
         <SidebarProvider>
             <AppSidebar bookmarkCounts={{ all: 0, readLater: 0, archived: 0 }} />
@@ -202,7 +248,7 @@ function SettingsContent() {
                             <CardTitle>Appearance & Behavior</CardTitle>
                             <CardDescription>Customize your browsing experience</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-6">
                             <div className="space-y-2">
                                 <Label htmlFor="pagination-limit">Bookmarks per page</Label>
                                 <div className="flex gap-2">
@@ -226,6 +272,66 @@ function SettingsContent() {
                                 <p className="text-[10px] text-muted-foreground mt-1">
                                     Set how many bookmarks to show per page (1-100).
                                 </p>
+                            </div>
+
+                            <Separator className="bg-border/20" />
+
+                            <div className="space-y-4">
+                                <Label>Custom Domain Colors</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Set specific background colors for thumbnails based on their website domain.
+                                </p>
+
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="example.com"
+                                            value={newDomain}
+                                            onChange={(e) => setNewDomain(e.target.value)}
+                                            className="bg-background/50"
+                                        />
+                                        <div className="flex items-center gap-2 px-2 bg-background/50 border border-border/50 rounded-md">
+                                            <input
+                                                type="color"
+                                                value={newColor}
+                                                onChange={(e) => setNewColor(e.target.value)}
+                                                className="w-6 h-6 border-0 bg-transparent cursor-pointer"
+                                            />
+                                            <code className="text-xs font-mono uppercase truncate w-16">{newColor}</code>
+                                        </div>
+                                        <Button
+                                            onClick={handleAddDomainColor}
+                                            disabled={addingColor || !newDomain}
+                                            className="cursor-pointer shrink-0"
+                                        >
+                                            Add
+                                        </Button>
+                                    </div>
+
+                                    {domainColors.length > 0 && (
+                                        <div className="grid grid-cols-1 gap-2 mt-2">
+                                            {domainColors.map((dc) => (
+                                                <div key={dc.domain} className="flex items-center justify-between p-2 rounded-lg bg-background/30 border border-border/30">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="w-4 h-4 rounded-full border border-white/20"
+                                                            style={{ backgroundColor: dc.color }}
+                                                        />
+                                                        <span className="text-sm font-medium">{dc.domain}</span>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteDomainColor(dc.domain)}
+                                                        className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

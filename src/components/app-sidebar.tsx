@@ -33,9 +33,10 @@ interface SidebarTag {
 interface AppSidebarProps {
     bookmarkCounts: { all: number; readLater: number; archived: number };
     userName?: string;
+    refreshTrigger?: number;
 }
 
-export function AppSidebar({ bookmarkCounts, userName }: AppSidebarProps) {
+export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSidebarProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const currentFilter = searchParams.get("filter") || "all";
@@ -52,7 +53,7 @@ export function AppSidebar({ bookmarkCounts, userName }: AppSidebarProps) {
 
     useEffect(() => {
         fetchTags();
-    }, [fetchTags]);
+    }, [fetchTags, refreshTrigger]);
 
     const navigate = (filter: string, tag?: string) => {
         const params = new URLSearchParams();

@@ -24,6 +24,7 @@ function BookmarkPageContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<BookmarkWithTags | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchBookmarks = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -86,6 +87,7 @@ function BookmarkPageContent() {
   const handleRefresh = () => {
     fetchBookmarks(true);
     fetchCounts();
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleEdit = (bookmark: BookmarkWithTags) => {
@@ -114,7 +116,7 @@ function BookmarkPageContent() {
 
   return (
     <SidebarProvider>
-      <AppSidebar bookmarkCounts={counts} />
+      <AppSidebar bookmarkCounts={counts} refreshTrigger={refreshTrigger} />
       <SidebarInset>
         <Header onAddBookmark={() => setFormOpen(true)} />
 

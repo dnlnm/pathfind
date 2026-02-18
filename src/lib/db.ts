@@ -56,6 +56,14 @@ db.exec(`
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS domain_colors (
+    user_id TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    color TEXT NOT NULL,
+    PRIMARY KEY (user_id, domain),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
 `);
