@@ -32,7 +32,8 @@ import {
     Mail,
     Key,
     Copy,
-    Check
+    Check,
+    Send
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,9 @@ function SettingsContent() {
     const [githubToken, setGithubToken] = useState("");
     const [savingToken, setSavingToken] = useState(false);
     const [syncingStars, setSyncingStars] = useState(false);
+    const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "" });
+    const [linkingToken, setLinkingToken] = useState<string | null>(null);
+    const [isGeneratingTelegramToken, setIsGeneratingTelegramToken] = useState(false);
     const [paginationLimit, setPaginationLimit] = useState(30);
     const [savingLimit, setSavingLimit] = useState(false);
     const [domainColors, setDomainColors] = useState<{ domain: string; color: string }[]>([]);
@@ -112,6 +116,10 @@ function SettingsContent() {
         fetch("/api/tokens")
             .then(res => res.json())
             .then(data => setApiTokens(Array.isArray(data) ? data : []));
+
+        fetch("/api/settings/telegram")
+            .then(res => res.json())
+            .then(data => setTelegramStatus(data));
     }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
@@ -353,6 +361,34 @@ function SettingsContent() {
         }
     };
 
+    const handleGenerateTelegramToken = async () => {
+        setIsGeneratingTelegramToken(true);
+        try {
+            const res = await fetch("/api/settings/telegram", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                setLinkingToken(data.token);
+                toast.success("Telegram token generated");
+            }
+        } catch {
+            toast.error("Failed to generate token");
+        }
+        setIsGeneratingTelegramToken(false);
+    };
+
+    const handleUnlinkTelegram = async () => {
+        if (!confirm("Are you sure you want to unlink your Telegram account?")) return;
+        try {
+            const res = await fetch("/api/settings/telegram", { method: "DELETE" });
+            if (res.ok) {
+                setTelegramStatus({ ...telegramStatus, isLinked: false });
+                toast.success("Telegram account unlinked");
+            }
+        } catch {
+            toast.error("Failed to unlink Telegram");
+        }
+    };
+
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         setCopiedToken(text);
@@ -570,6 +606,75 @@ function SettingsContent() {
                                             )}
                                             Sync Starred Repositories
                                         </Button>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4">
+                                        <div className={cn(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                            telegramStatus.isLinked ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
+                                        )}>
+                                            {telegramStatus.isLinked ? "Linked" : "Not Linked"}
+                                        </div>
+                                    </div>
+                                    <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                                        <div className="w-12 h-12 rounded-2xl bg-[#0088cc] flex items-center justify-center shadow-lg">
+                                            <Send className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <CardTitle>Telegram Bot</CardTitle>
+                                            <CardDescription>Save bookmarks by sending links to our bot.</CardDescription>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        {telegramStatus.isLinked ? (
+                                            <div className="space-y-4">
+                                                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                        <span className="text-sm font-medium">Your Telegram account is connected</span>
+                                                    </div>
+                                                    <Button variant="ghost" size="sm" onClick={handleUnlinkTelegram} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                                        Unlink
+                                                    </Button>
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                    Open <a href={`https://t.me/${telegramStatus.botUsername}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a> and send any link to save it.
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <p className="text-sm text-muted-foreground">
+                                                    To link your account, click the button below to generate a linking token and then send it to the bot.
+                                                </p>
+
+                                                {linkingToken ? (
+                                                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3">
+                                                        <div className="text-xs font-bold text-primary uppercase tracking-wider">How to link:</div>
+                                                        <ol className="text-xs space-y-2 list-decimal list-inside text-muted-foreground">
+                                                            <li>Open <a href={`https://t.me/${telegramStatus.botUsername}?start=${linkingToken}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a></li>
+                                                            <li>Click "Start" or send the message <code>/start {linkingToken}</code></li>
+                                                        </ol>
+                                                        <div className="flex gap-2 pt-2">
+                                                            <Input readOnly value={`/start ${linkingToken}`} className="font-mono text-xs bg-background/50" />
+                                                            <Button size="icon" variant="outline" className="shrink-0" onClick={() => copyToClipboard(`/start ${linkingToken}`)}>
+                                                                {copiedToken === `/start ${linkingToken}` ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <Button
+                                                        onClick={handleGenerateTelegramToken}
+                                                        disabled={isGeneratingTelegramToken}
+                                                        className="w-full gap-2"
+                                                    >
+                                                        {isGeneratingTelegramToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                                        Generate Linking Token
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
 

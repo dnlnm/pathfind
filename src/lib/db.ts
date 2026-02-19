@@ -122,6 +122,19 @@ try {
   // Column already exists
 }
 
+// Migration: add telegram columns to users if missing
+try {
+  db.exec("ALTER TABLE users ADD COLUMN telegram_chat_id TEXT");
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN telegram_linking_token TEXT");
+} catch (e) {
+  // Column already exists
+}
+
 export default db;
 
 // Helper to generate IDs
