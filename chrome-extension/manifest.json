@@ -1,0 +1,13 @@
+{
+    "manifest_version": 3,
+    "name": "Pathfind Chrome Extension",
+    "version": "1.0.0",
+    "description": "Save bookmarks to your self-hosted Pathfind instance.",
+    "action": {
+        "default_popup": "index.html"
+    },
+    "permissions": [
+        "activeTab",
+        "storage"
+    ]
+}
