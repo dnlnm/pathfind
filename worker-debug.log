@@ -83,3 +83,5 @@
 [2026-02-23T21:54:15.461Z] [Worker] Total items extracted: 25
 [2026-02-23T21:54:15.462Z] [Worker] First item target link: https://www.reddit.com/r/truenas/comments/1rcq4s4/huntarr_get_this_uninstalled_if_you_are_running_it/
 [2026-02-23T21:54:15.464Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T22:11:39.852Z] [Worker] Background worker started
+[2026-02-23T22:11:39.854Z] [Worker] Scheduler loop started
