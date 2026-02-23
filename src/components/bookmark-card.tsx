@@ -28,15 +28,27 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface BookmarkCardProps {
     bookmark: BookmarkWithTags;
     onEdit: (bookmark: BookmarkWithTags) => void;
     onRefresh: () => void;
     layout?: "list" | "grid";
+    isSelected?: boolean;
+    onSelect?: (id: string, selected: boolean) => void;
+    selectionMode?: boolean;
 }
 
-export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: BookmarkCardProps) {
+export function BookmarkCard({
+    bookmark,
+    onEdit,
+    onRefresh,
+    layout = "list",
+    isSelected = false,
+    onSelect,
+    selectionMode = false
+}: BookmarkCardProps) {
     const router = useRouter();
 
     const handleToggle = async (field: "isReadLater" | "isArchived") => {
@@ -89,15 +101,29 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
         }
     })();
 
+    const twentyFavicon = `https://twenty-icons.com/${hostname}`;
+
     const tagList = bookmark.tags;
 
     const isGrid = layout === "grid";
 
     return (
-        <Card className={cn(
-            "group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden flex flex-col p-0 gap-0",
-            isGrid ? "rounded-2xl h-[400px]" : "h-[110px]"
-        )}>
+        <Card
+            className={cn(
+                "group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden flex flex-col p-0 gap-0 relative",
+                isGrid ? "rounded-2xl h-[340px]" : "h-[110px]",
+                isSelected ? "ring-2 ring-primary bg-primary/5" : "",
+                selectionMode ? "cursor-pointer select-none" : ""
+            )}
+            onClick={() => {
+                if (selectionMode) {
+                    onSelect?.(bookmark.id, !isSelected);
+                }
+            }}
+        >
+            {isSelected && (
+                <div className="absolute inset-0 bg-primary/5 z-10 pointer-events-none" />
+            )}
             {isGrid && bookmark.thumbnail && (
                 <div className="w-full aspect-video rounded-t-2xl border-b border-border/20 bg-muted/30 overflow-hidden relative shrink-0">
                     <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
@@ -113,6 +139,16 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                         }}
                         loading="lazy"
                     />
+                    {selectionMode && (
+                        <div className="absolute top-3 left-3 z-30">
+                            <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={(checked) => onSelect?.(bookmark.id, !!checked)}
+                                className="bg-background/80 shadow-sm border-white/20"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
             <CardContent className={cn(
@@ -120,24 +156,59 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                 isGrid ? "p-4" : ""
             )}>
                 <div className={cn("flex gap-3 h-full", isGrid ? "flex-col gap-2 items-start" : "items-stretch")}>
-                    {/* Favicon - only in list view or if no thumbnail in grid */}
-                    {(!isGrid || !bookmark.thumbnail) && (
-                        <div className={`mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden ${isGrid ? "w-10 h-10 mt-0" : ""}`}>
-                            {bookmark.favicon ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                    src={bookmark.favicon}
-                                    alt=""
-                                    className="w-5 h-5 object-contain"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = "none";
-                                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-                                    }}
+                    {/* Left Column: Favicon & Checkbox */}
+                    <div className={cn(
+                        "flex flex-col items-center gap-2.5 shrink-0",
+                        (!isGrid && !selectionMode) ? "hidden sm:flex" : "flex"
+                    )}>
+                        {(!isGrid || !bookmark.thumbnail) && (
+                            <div className={cn(
+                                "mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden",
+                                isGrid ? "w-10 h-10 mt-0" : ""
+                            )}>
+                                {bookmark.favicon ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={bookmark.favicon}
+                                        alt=""
+                                        className="w-5 h-5 object-contain"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            if (target.src !== twentyFavicon) {
+                                                target.src = twentyFavicon;
+                                            } else {
+                                                target.style.display = "none";
+                                                target.nextElementSibling?.classList.remove("hidden");
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={twentyFavicon}
+                                        alt=""
+                                        className="w-5 h-5 object-contain"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = "none";
+                                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+                                        }}
+                                    />
+                                )}
+                                <Globe className={cn("h-4 w-4 text-muted-foreground hidden")} />
+                            </div>
+                        )}
+
+                        {selectionMode && (!isGrid || !bookmark.thumbnail) && (
+                            <div className="flex items-center justify-center py-1">
+                                <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => onSelect?.(bookmark.id, !!checked)}
+                                    className="bg-background/80 shadow-sm"
+                                    onClick={(e) => e.stopPropagation()}
                                 />
-                            ) : null}
-                            <Globe className={`h-4 w-4 text-muted-foreground ${bookmark.favicon ? "hidden" : ""}`} />
-                        </div>
-                    )}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1 w-full">
@@ -147,56 +218,50 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                                     href={bookmark.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`text-sm font-medium text-foreground hover:text-primary transition-colors line-clamp-1 inline-flex items-center gap-1.5 ${isGrid ? "text-base leading-tight" : ""}`}
+                                    className={`text-sm font-medium text-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 w-full ${isGrid ? "text-base leading-tight" : ""}`}
+                                    onClick={(e) => {
+                                        if (selectionMode) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            onSelect?.(bookmark.id, !isSelected);
+                                        }
+                                    }}
                                 >
-                                    {bookmark.title || bookmark.url}
+                                    {!isGrid && (
+                                        <>
+                                            <img
+                                                src={bookmark.favicon || twentyFavicon}
+                                                alt=""
+                                                className="w-3.5 h-3.5 object-contain sm:hidden"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    if (target.src !== twentyFavicon) {
+                                                        target.src = twentyFavicon;
+                                                    } else {
+                                                        target.classList.add("hidden");
+                                                        target.nextElementSibling?.classList.remove("hidden");
+                                                    }
+                                                }}
+                                            />
+                                            <Globe className={cn("h-3 w-3 text-muted-foreground/50 sm:hidden hidden")} />
+                                        </>
+                                    )}
+                                    <span className={cn("truncate", isGrid ? "line-clamp-2 white-space-normal" : "flex-1")}>
+                                        {bookmark.title || bookmark.url}
+                                    </span>
                                     <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
                                 </a>
-                                <p className="text-xs text-muted-foreground/70 truncate mt-0.5">
+                                <p className="text-xs text-muted-foreground/70 truncate mt-0.5 hidden sm:block">
                                     {hostname}
                                 </p>
                             </div>
-
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className={`h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer ${isGrid ? "opacity-100" : ""}`}
-                                    >
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem onClick={() => onEdit(bookmark)} className="cursor-pointer">
-                                        <Pencil className="h-4 w-4 mr-2" />
-                                        Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleToggle("isReadLater")} className="cursor-pointer">
-                                        <Clock className="h-4 w-4 mr-2" />
-                                        {bookmark.isReadLater ? "Remove from Read Later" : "Read Later"}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleToggle("isArchived")} className="cursor-pointer">
-                                        {bookmark.isArchived ? (
-                                            <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
-                                        ) : (
-                                            <><Archive className="h-4 w-4 mr-2" /> Archive</>
-                                        )}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        onClick={handleDelete}
-                                        className="text-destructive focus:text-destructive cursor-pointer"
-                                    >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
 
                         {bookmark.description && (
-                            <p className={`text-xs text-muted-foreground ${isGrid ? "line-clamp-2" : "line-clamp-1"}`}>
+                            <p className={cn(
+                                "text-xs text-muted-foreground",
+                                isGrid ? "line-clamp-2" : "truncate"
+                            )}>
                                 {bookmark.description}
                             </p>
                         )}
@@ -208,7 +273,15 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                                     key={tag.id}
                                     variant="secondary"
                                     className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors"
-                                    onClick={() => router.push(`/?tag=${tag.name}`)}
+                                    onClick={(e) => {
+                                        if (selectionMode) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            onSelect?.(bookmark.id, !isSelected);
+                                        } else {
+                                            router.push(`/?tag=${tag.name}`);
+                                        }
+                                    }}
                                 >
                                     {tag.name}
                                 </Badge>
@@ -218,7 +291,15 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                                     key={col.id}
                                     variant="outline"
                                     className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-primary/20 transition-colors gap-1 border-primary/20"
-                                    onClick={() => router.push(`/?collection=${col.id}`)}
+                                    onClick={(e) => {
+                                        if (selectionMode) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            onSelect?.(bookmark.id, !isSelected);
+                                        } else {
+                                            router.push(`/?collection=${col.id}`);
+                                        }
+                                    }}
                                 >
                                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                                     {col.name}
@@ -230,21 +311,64 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                                     read later
                                 </Badge>
                             )}
-                            <span
-                                className="text-[10px] text-muted-foreground/50 ml-auto whitespace-nowrap"
-                                suppressHydrationWarning
-                            >
-                                {new Date(bookmark.createdAt).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    day: "numeric",
-                                })}
-                            </span>
+                            <div className="flex items-center gap-1.5 ml-auto">
+                                {!selectionMode && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className={cn(
+                                                    "h-6 w-6 transition-opacity shrink-0 cursor-pointer",
+                                                    isGrid ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                                                )}
+                                            >
+                                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuItem onClick={() => onEdit(bookmark)} className="cursor-pointer">
+                                                <Pencil className="h-4 w-4 mr-2" />
+                                                Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleToggle("isReadLater")} className="cursor-pointer">
+                                                <Clock className="h-4 w-4 mr-2" />
+                                                {bookmark.isReadLater ? "Remove from Read Later" : "Read Later"}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleToggle("isArchived")} className="cursor-pointer">
+                                                {bookmark.isArchived ? (
+                                                    <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
+                                                ) : (
+                                                    <><Archive className="h-4 w-4 mr-2" /> Archive</>
+                                                )}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                onClick={handleDelete}
+                                                className="text-destructive focus:text-destructive cursor-pointer"
+                                            >
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                                <span
+                                    className="text-[10px] text-muted-foreground/50 whitespace-nowrap"
+                                    suppressHydrationWarning
+                                >
+                                    {new Date(bookmark.createdAt).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                    })}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
                     {/* Thumbnail (List View Only) */}
                     {!isGrid && bookmark.thumbnail && (
-                        <div className="hidden sm:block shrink-0 ml-2 w-36 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative self-center">
+                        <div className="shrink-0 ml-2 w-24 h-16 sm:w-36 sm:h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative self-center">
                             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                                 <Globe className="h-6 w-6" />
                             </div>

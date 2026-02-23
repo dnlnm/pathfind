@@ -53,18 +53,43 @@ export async function fetchUrlMetadata(url: string) {
 
                     if (postData) {
                         const title = postData.title || postData.display_name_prefixed || postData.name || null;
-                        let thumbnail = postData.preview?.images[0]?.source?.url?.replace(/&amp;/g, "&") ||
-                            (postData.thumbnail?.startsWith("http") ? postData.thumbnail : null);
 
-                        if (!thumbnail && title) {
-                            thumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=reddit.com`;
+                        // Extract thumbnail with gallery support
+                        let thumbnail = null;
+
+                        if (postData.is_gallery && postData.media_metadata) {
+                            // Focus on the first item in media_metadata
+                            const firstMediaId = Object.keys(postData.media_metadata)[0];
+                            const firstMedia = postData.media_metadata[firstMediaId];
+                            if (firstMedia?.s?.u) {
+                                thumbnail = firstMedia.s.u.replace(/&amp;/g, "&");
+                            }
+                        }
+
+                        // Try Video/Oembed thumbnails (YouTube, native Video, etc.)
+                        if (!thumbnail) {
+                            const media = postData.secure_media || postData.media;
+                            if (media?.oembed?.thumbnail_url) {
+                                thumbnail = media.oembed.thumbnail_url;
+                            }
+                        }
+
+                        if (!thumbnail) {
+                            thumbnail = postData.preview?.images[0]?.source?.url?.replace(/&amp;/g, "&") ||
+                                (postData.thumbnail?.startsWith("http") ? postData.thumbnail : null);
+                        }
+
+                        let finalThumbnail = thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail;
+
+                        if (!finalThumbnail && title) {
+                            finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=reddit.com`;
                         }
 
                         const result = {
                             title,
                             description: postData.selftext?.substring(0, 200) || postData.public_description || postData.description?.substring(0, 200) || null,
-                            favicon: "https://www.reddit.com/favicon.ico",
-                            thumbnail
+                            favicon: await imageUrlToBase64("https://www.reddit.com/favicon.ico", 50 * 1024),
+                            thumbnail: finalThumbnail
                         };
                         console.log(`[Metadata] Reddit JSON Success:`, result.title);
                         if (result.title) return result;
@@ -112,6 +137,11 @@ export async function fetchUrlMetadata(url: string) {
         const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
         let title = getMeta("og:title") || getMeta("twitter:title") || (titleMatch ? decodeHtml(titleMatch[1].trim()) : null);
 
+        if (title) {
+            // Remove notification counts like (1) or [10+] from the start of the title
+            title = title.replace(/^[\(\[]\d+\+?[\)\]]\s*/, "").trim();
+        }
+
         if (title && isReddit) {
             title = title.replace(/ - Reddit$/i, "").replace(/^Reddit - /i, "").trim();
         }
@@ -137,22 +167,25 @@ export async function fetchUrlMetadata(url: string) {
                 if (isReddit) {
                     favicon = "https://www.reddit.com/favicon.ico";
                 } else {
-                    favicon = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
+                    favicon = `https://twenty-icons.com/${urlObj.hostname}`;
                 }
             } catch {
                 favicon = null;
             }
         }
 
-        if (!thumbnail && title) {
-            thumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(urlObj.hostname)}`;
+        let finalThumbnail = thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail;
+        const hostname = isReddit ? "reddit.com" : urlObj.hostname;
+
+        if (!finalThumbnail && title) {
+            finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`;
         }
 
         const result = {
             title,
             description,
             favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
-            thumbnail: thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail
+            thumbnail: finalThumbnail
         };
         console.log(`[Metadata] Final result:`, result.title);
         return result;
@@ -166,28 +199,50 @@ async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise
     try {
         if (!url || !url.startsWith('http')) return url;
 
+        // Clean up Reddit preview URLs which are often blocked or blurred
+        // Example: https://preview.redd.it/xyz.jpg?width=640&blur=40... -> https://i.redd.it/xyz.jpg
+        let targetUrl = url;
+        if (url.includes("preview.redd.it")) {
+            const match = url.match(/preview\.redd\.it\/([^?]+)/);
+            if (match) {
+                targetUrl = `https://i.redd.it/${match[1]}`;
+            }
+        }
+
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(targetUrl, {
+            signal: controller.signal,
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Referer": "https://www.reddit.com/"
+            },
+        });
         clearTimeout(timeout);
 
-        if (!response.ok) return url;
+        if (!response.ok) {
+            console.warn(`[Metadata] Failed to fetch image: ${response.status} ${targetUrl}`);
+            return null;
+        }
 
         const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.startsWith('image/')) return url;
+        if (!contentType || !contentType.startsWith('image/')) {
+            console.warn(`[Metadata] Invalid image content type: ${contentType} ${targetUrl}`);
+            return null;
+        }
 
         const buffer = await response.arrayBuffer();
         if (buffer.byteLength > maxSize) {
             console.warn(`[Metadata] Image too large: ${buffer.byteLength} bytes`);
-            return url;
+            return null;
         }
 
         const base64 = Buffer.from(buffer).toString('base64');
         return `data:${contentType};base64,${base64}`;
     } catch (e) {
         console.error(`[Metadata] Failed to convert image to base64: ${url}`, e);
-        return url;
+        return null;
     }
 }
 

@@ -38,6 +38,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
     const [generating, setGenerating] = useState(false);
     const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
     const [availableCollections, setAvailableCollections] = useState<{ id: string; name: string }[]>([]);
+    const [isDuplicate, setIsDuplicate] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isEditing = !!bookmark;
@@ -66,6 +67,27 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
         }
     }, [bookmark, open]);
 
+    useEffect(() => {
+        if (isEditing || !url || !open) {
+            setIsDuplicate(false);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/bookmarks/check?url=${encodeURIComponent(url.trim())}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsDuplicate(data.bookmarked);
+                }
+            } catch {
+                // Silently fail
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [url, isEditing, open]);
+
     const resetForm = () => {
         setUrl("");
         setTitle("");
@@ -76,16 +98,17 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
         setIsReadLater(false);
         setThumbnail("");
         setSelectedCollections([]);
+        setIsDuplicate(false);
     };
 
-    const fetchMetadata = async () => {
-        if (!url) return;
+    const fetchMetadata = async (targetUrl: string = url) => {
+        if (!targetUrl) return;
         setFetching(true);
         try {
             const res = await fetch("/api/metadata", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url }),
+                body: JSON.stringify({ url: targetUrl }),
             });
             if (res.ok) {
                 const data = await res.json();
@@ -141,7 +164,16 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
 
     const handleUrlBlur = () => {
         if (url && !isEditing && !title && !description) {
-            fetchMetadata();
+            fetchMetadata(url);
+        }
+    };
+
+    const handleUrlPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        const pastedText = e.clipboardData.getData("text");
+        if (pastedText && (pastedText.startsWith("http://") || pastedText.startsWith("https://"))) {
+            if (!isEditing && !title && !description) {
+                fetchMetadata(pastedText);
+            }
         }
     };
 
@@ -191,7 +223,12 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
             });
 
             if (res.ok) {
-                toast.success(isEditing ? "Bookmark updated" : "Bookmark saved");
+                const data = await res.json();
+                if (data.isUpdate && !isEditing) {
+                    toast.success("Existing bookmark updated successfully");
+                } else {
+                    toast.success(isEditing ? "Bookmark updated" : "Bookmark saved");
+                }
                 onOpenChange(false);
                 resetForm();
                 onSuccess();
@@ -223,6 +260,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
                                 onBlur={handleUrlBlur}
+                                onPaste={handleUrlPaste}
                                 required
                                 className="bg-background/50"
                             />
@@ -230,6 +268,11 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                             )}
                         </div>
+                        {isDuplicate && !isEditing && (
+                            <p className="text-xs font-medium text-amber-600 dark:text-amber-500 mt-1.5 flex items-center">
+                                This link is already saved. Submitting will update your existing bookmark.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -382,7 +425,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                                     variant="outline"
                                     size="sm"
                                     className="h-8 text-[11px] gap-1.5 cursor-pointer"
-                                    onClick={fetchMetadata}
+                                    onClick={() => fetchMetadata()}
                                     disabled={fetching || !url}
                                 >
                                     <RefreshCw className={cn("h-3.5 w-3.5", fetching && "animate-spin")} />
@@ -433,6 +476,8 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
                                 </span>
                             ) : isEditing ? (
                                 "Update"
+                            ) : isDuplicate ? (
+                                "Update Bookmark"
                             ) : (
                                 "Save Bookmark"
                             )}

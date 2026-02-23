@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
     Download,
@@ -33,15 +34,24 @@ import {
     Key,
     Copy,
     Check,
-    Send
+    Send,
+    Rss
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type TabType = "general" | "integrations" | "security" | "data";
+type TabType = "general" | "integrations" | "security" | "data" | "tasks";
 
 function SettingsContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabType>("general");
+
+    useEffect(() => {
+        const tab = searchParams.get("tab") as TabType;
+        if (tab && ["general", "integrations", "security", "data", "tasks"].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
     const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0 });
 
     // Form/Settings states
@@ -52,6 +62,10 @@ function SettingsContent() {
     const [importing, setImporting] = useState(false);
     const [githubToken, setGithubToken] = useState("");
     const [savingToken, setSavingToken] = useState(false);
+    const [redditRssUrl, setRedditRssUrl] = useState("");
+    const [lastRedditSync, setLastRedditSync] = useState<string | null>(null);
+    const [savingReddit, setSavingReddit] = useState(false);
+    const [syncingReddit, setSyncingReddit] = useState(false);
     const [syncingStars, setSyncingStars] = useState(false);
     const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "" });
     const [linkingToken, setLinkingToken] = useState<string | null>(null);
@@ -67,6 +81,9 @@ function SettingsContent() {
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [newlyCreatedToken, setNewlyCreatedToken] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
+    const [taskStats, setTaskStats] = useState<any>(null);
+    const [isRetrying, setIsRetrying] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
 
     useEffect(() => {
         const fetchCounts = async () => {
@@ -99,6 +116,12 @@ function SettingsContent() {
             .then(res => res.json())
             .then(data => setGithubToken(data.token || ""));
 
+        fetch("/api/settings/reddit")
+            .then(res => res.json())
+            .then(data => {
+                setRedditRssUrl(data.url || "");
+                setLastRedditSync(data.lastSync || null);
+            });
 
         fetch("/api/settings/domain-colors")
             .then(res => res.json())
@@ -115,6 +138,16 @@ function SettingsContent() {
         fetch("/api/settings/telegram")
             .then(res => res.json())
             .then(data => setTelegramStatus(data));
+
+        const fetchTasks = () => {
+            fetch("/api/tasks")
+                .then(res => res.json())
+                .then(data => setTaskStats(data))
+                .catch(() => { });
+        };
+        fetchTasks();
+        const interval = setInterval(fetchTasks, 3000);
+        return () => clearInterval(interval);
     }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
@@ -236,6 +269,46 @@ function SettingsContent() {
             toast.error("Sync failed");
         }
         setSyncingStars(false);
+    };
+
+    const handleSaveRedditRss = async () => {
+        setSavingReddit(true);
+        try {
+            const res = await fetch("/api/settings/reddit", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: redditRssUrl }),
+            });
+            if (res.ok) {
+                toast.success("Reddit RSS feed saved");
+            } else {
+                toast.error("Failed to save Reddit RSS feed");
+            }
+        } catch {
+            toast.error("Something went wrong");
+        }
+        setSavingReddit(false);
+    };
+
+    const handleSyncReddit = async () => {
+        if (!redditRssUrl) {
+            toast.error("Please save your Reddit RSS feed URL first");
+            return;
+        }
+
+        setSyncingReddit(true);
+        try {
+            const res = await fetch("/api/reddit/sync", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Sync job started in background");
+            } else {
+                toast.error(data.error || "Sync failed");
+            }
+        } catch {
+            toast.error("Sync failed");
+        }
+        setSyncingReddit(false);
     };
 
     const handleAddDomainColor = async () => {
@@ -370,11 +443,46 @@ function SettingsContent() {
         setTimeout(() => setCopiedToken(null), 2000);
     };
 
+    const handleRetryFailed = async () => {
+        setIsRetrying(true);
+        try {
+            const res = await fetch("/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "retry_failed" }),
+            });
+            if (res.ok) {
+                toast.success("Retrying failed tasks");
+            }
+        } catch {
+            toast.error("Failed to retry tasks");
+        }
+        setIsRetrying(false);
+    };
+
+    const handleClearTasks = async (action: 'clear_completed' | 'clear_all') => {
+        setIsClearing(true);
+        try {
+            const res = await fetch("/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action }),
+            });
+            if (res.ok) {
+                toast.success("Tasks cleared");
+            }
+        } catch {
+            toast.error("Failed to clear tasks");
+        }
+        setIsClearing(false);
+    };
+
     const tabs = [
         { id: "general" as TabType, label: "General", icon: Settings2, description: "Display and behavior settings" },
         { id: "integrations" as TabType, label: "Integrations", icon: Share2, description: "Connect external services" },
         { id: "security" as TabType, label: "Security", icon: ShieldCheck, description: "Manage your credentials" },
         { id: "data" as TabType, label: "Data Management", icon: Database, description: "Import and export your data" },
+        { id: "tasks" as TabType, label: "Background Tasks", icon: RefreshCw, description: "Monitor active and pending jobs" },
     ];
 
     return (
@@ -392,7 +500,10 @@ function SettingsContent() {
                     {tabs.map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => {
+                                setActiveTab(tab.id);
+                                router.push(`/settings?tab=${tab.id}`, { scroll: false });
+                            }}
                             className={cn(
                                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer text-left",
                                 activeTab === tab.id
@@ -553,6 +664,76 @@ function SettingsContent() {
                                             )}
                                             Sync Starred Repositories
                                         </Button>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4">
+                                        <div className={cn(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                            redditRssUrl ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
+                                        )}>
+                                            {redditRssUrl ? "Active" : "Not Configured"}
+                                        </div>
+                                    </div>
+                                    <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                                        <div className="w-12 h-12 rounded-2xl bg-[#ff4500] flex items-center justify-center shadow-lg">
+                                            <Rss className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <CardTitle>Reddit</CardTitle>
+                                            <CardDescription>Sync your saved posts via private RSS feed.</CardDescription>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="space-y-3">
+                                            <Label htmlFor="reddit-rss">Private RSS Feed URL</Label>
+                                            <div className="flex gap-3">
+                                                <Input
+                                                    id="reddit-rss"
+                                                    placeholder="https://www.reddit.com/user/me/saved/.rss?feed=xxx&user=xxx"
+                                                    value={redditRssUrl}
+                                                    onChange={(e) => setRedditRssUrl(e.target.value)}
+                                                    className="bg-background/50 h-10"
+                                                />
+                                                <Button
+                                                    onClick={handleSaveRedditRss}
+                                                    disabled={savingReddit}
+                                                    className="cursor-pointer px-6"
+                                                >
+                                                    {savingReddit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                                </Button>
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 space-y-2">
+                                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                    You can find your private RSS key in your <a href="https://www.reddit.com/prefs/feeds/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline font-medium">Reddit Preferences &gt; Feeds</a>. Look for the "RSS" button next to "your saved links".
+                                                </p>
+                                            </div>
+
+                                            <Button
+                                                variant="secondary"
+                                                className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
+                                                onClick={handleSyncReddit}
+                                                disabled={syncingReddit || !redditRssUrl}
+                                            >
+                                                {syncingReddit ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <RefreshCw className="h-4 w-4" />
+                                                )}
+                                                Sync Saved Posts
+                                            </Button>
+                                            <div className="flex justify-between items-center px-1">
+                                                <p className="text-[10px] text-muted-foreground italic">
+                                                    Syncs automatically every hour
+                                                </p>
+                                                {lastRedditSync && (
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        Last synced: {new Date(lastRedditSync).toLocaleString()}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </CardContent>
                                 </Card>
 
@@ -908,6 +1089,112 @@ function SettingsContent() {
                                                 </Button>
                                             </div>
                                         </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )}
+
+                        {activeTab === "tasks" && (
+                            <div className="space-y-6">
+                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                                        <div>
+                                            <CardTitle className="text-lg">Job Statistics</CardTitle>
+                                            <CardDescription>Overall progress of your background operations.</CardDescription>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleRetryFailed}
+                                                disabled={isRetrying || !taskStats?.failed}
+                                                className="h-8 text-[11px] gap-1.5 cursor-pointer"
+                                            >
+                                                <RefreshCw className={cn("h-3 w-3", isRetrying && "animate-spin")} />
+                                                Retry Failed
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleClearTasks('clear_completed')}
+                                                disabled={isClearing || !taskStats?.completed}
+                                                className="h-8 text-[11px] gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                                Clear Done
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            {[
+                                                { label: "Pending", value: taskStats?.pending || 0, color: "text-muted-foreground", bg: "bg-muted/10" },
+                                                { label: "Processing", value: taskStats?.processing || 0, color: "text-primary", bg: "bg-primary/10" },
+                                                { label: "Completed", value: taskStats?.completed || 0, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                                                { label: "Failed", value: taskStats?.failed || 0, color: "text-destructive", bg: "bg-destructive/10" },
+                                            ].map((stat) => (
+                                                <div key={stat.label} className={cn("p-3 rounded-2xl border border-border/20", stat.bg)}>
+                                                    <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">{stat.label}</p>
+                                                    <p className={cn("text-2xl font-bold mt-0.5", stat.color)}>{stat.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {taskStats?.processing + taskStats?.pending > 0 && (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between text-xs mb-1">
+                                                    <span className="text-muted-foreground font-medium flex items-center gap-2">
+                                                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                        Currently Processing
+                                                    </span>
+                                                    <span className="text-muted-foreground font-mono">
+                                                        {Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100)}%
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-primary transition-all duration-700"
+                                                        style={{ width: `${(taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">Processing Queue</CardTitle>
+                                        <CardDescription>The last few active or pending jobs.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {taskStats?.activeJobs && taskStats.activeJobs.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {taskStats.activeJobs.map((job: any) => (
+                                                    <div key={job.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-border/20">
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                                <RefreshCw className="h-4 w-4 text-primary animate-spin" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium truncate">
+                                                                    {job.title || job.url || "New Link"}
+                                                                </p>
+                                                                <p className="text-[10px] text-muted-foreground truncate">{job.url}</p>
+                                                            </div>
+                                                        </div>
+                                                        <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 capitalize">
+                                                            {job.type.replace('_', ' ')}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="py-8 text-center border border-dashed border-border/40 rounded-2xl bg-muted/5">
+                                                <Database className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                                                <p className="text-sm text-muted-foreground">No active jobs in the queue.</p>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </div>

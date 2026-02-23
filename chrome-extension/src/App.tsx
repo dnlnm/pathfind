@@ -25,6 +25,7 @@ export default function App() {
   const [isReadLater, setIsReadLater] = useState(false)
 
   const [success, setSuccess] = useState(false)
+  const [isUpdate, setIsUpdate] = useState(false)
   const [error, setError] = useState('')
 
   // Config form state
@@ -32,6 +33,11 @@ export default function App() {
   const [configToken, setConfigToken] = useState('')
 
   useEffect(() => {
+    const cleanTitle = (title: string) => {
+      // Remove notification counts like (1) or [10+] from the start of the title
+      return title.replace(/^[\(\[]\d+\+?[\)\]]\s*/, '').trim();
+    };
+
     // Load config from storage
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.get(['pathfind_url', 'pathfind_token'], (result: { [key: string]: any }) => {
@@ -45,8 +51,14 @@ export default function App() {
         // Get current tab
         chrome.tabs.query({ active: true, currentWindow: true }, async (tabs: chrome.tabs.Tab[]) => {
           if (tabs[0] && tabs[0].url) {
-            setBookmarkUrl(tabs[0].url)
-            setBookmarkTitle(tabs[0].title || '')
+            const url = tabs[0].url;
+            if (!url.startsWith('http')) {
+              setLoading(false);
+              return;
+            }
+
+            setBookmarkUrl(url)
+            setBookmarkTitle(cleanTitle(tabs[0].title || ''))
 
             if (result.pathfind_url && result.pathfind_token) {
               try {
@@ -57,6 +69,7 @@ export default function App() {
                   const data = await res.json();
                   if (data.bookmarked) {
                     setSuccess(true);
+                    setIsUpdate(true); // Treat initial presence as an existing record to update if modified
                   }
                 }
               } catch (e) {
@@ -119,6 +132,8 @@ export default function App() {
         throw new Error(`Failed to save: ${res.statusText}`)
       }
 
+      const data = await res.json()
+      setIsUpdate(data.isUpdate || false)
       setSuccess(true)
 
       // Notify background script to update badge
@@ -219,7 +234,7 @@ export default function App() {
           <CardContent className="px-6 space-y-4 pt-0">
             {success && (
               <div className="bg-emerald-500/15 text-emerald-500 text-sm p-3 rounded-md mb-2 font-medium text-center">
-                Bookmark saved successfully!
+                {isUpdate ? 'Bookmark updated successfully!' : 'Bookmark saved successfully!'}
               </div>
             )}
 
@@ -234,7 +249,7 @@ export default function App() {
               <Input
                 id="title"
                 value={bookmarkTitle}
-                onChange={(e) => setBookmarkTitle(e.target.value)}
+                onChange={(e) => { setBookmarkTitle(e.target.value); setSuccess(false); }}
               />
             </div>
 
@@ -243,7 +258,7 @@ export default function App() {
               <Input
                 id="url"
                 value={bookmarkUrl}
-                onChange={(e) => setBookmarkUrl(e.target.value)}
+                onChange={(e) => { setBookmarkUrl(e.target.value); setSuccess(false); }}
               />
             </div>
 
@@ -254,7 +269,7 @@ export default function App() {
                 className="resize-none h-20"
                 placeholder="Add your notes here..."
                 value={bookmarkNotes}
-                onChange={(e) => setBookmarkNotes(e.target.value)}
+                onChange={(e) => { setBookmarkNotes(e.target.value); setSuccess(false); }}
               />
             </div>
 
@@ -262,7 +277,7 @@ export default function App() {
               <Checkbox
                 id="read-later"
                 checked={isReadLater}
-                onCheckedChange={(c: boolean | 'indeterminate') => setIsReadLater(c === true)}
+                onCheckedChange={(c: boolean | 'indeterminate') => { setIsReadLater(c === true); setSuccess(false); }}
               />
               <Label htmlFor="read-later" className="font-normal cursor-pointer">
                 Read Later
@@ -277,7 +292,7 @@ export default function App() {
               disabled={saving || !bookmarkUrl || success}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {saving ? 'Saving...' : success ? 'Saved' : 'Save Bookmark'}
+              {saving ? 'Saving...' : success ? (isUpdate ? 'Updated' : 'Saved') : 'Save Bookmark'}
             </Button>
           </CardFooter>
         </Card>

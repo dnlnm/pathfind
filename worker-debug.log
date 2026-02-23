@@ -1,0 +1,85 @@
+[2026-02-23T20:51:13.813Z] [Worker] Background worker started
+[2026-02-23T20:51:31.877Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T20:51:32.975Z] [Worker] Reddit response status: 200
+[2026-02-23T20:51:32.976Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T20:51:33.029Z] [Worker] Body length: 210379
+[2026-02-23T20:51:33.030Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbfybe"
+[2026-02-23T20:51:33.030Z] [Worker] Detected Reddit JSON format
+[2026-02-23T20:51:33.032Z] [Worker] Found 25 children in JSON
+[2026-02-23T20:51:33.033Z] [Worker] Total items extracted: 25
+[2026-02-23T20:51:33.033Z] [Worker] First item target link: https://www.redgifs.com/ifr/springgreenvaluablesable/?1/
+[2026-02-23T20:51:33.036Z] [Worker] Synced 25 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T20:58:52.112Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T20:58:53.215Z] [Worker] Reddit response status: 200
+[2026-02-23T20:58:53.215Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T20:58:53.226Z] [Worker] Body length: 210379
+[2026-02-23T20:58:53.227Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbfybe"
+[2026-02-23T20:58:53.227Z] [Worker] Detected Reddit JSON format
+[2026-02-23T20:58:53.230Z] [Worker] Found 25 children in JSON
+[2026-02-23T20:58:53.231Z] [Worker] Total items extracted: 25
+[2026-02-23T20:58:53.231Z] [Worker] First item target link: https://www.redgifs.com/ifr/springgreenvaluablesable/?1/
+[2026-02-23T20:58:53.235Z] [Worker] Synced 25 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:00:46.529Z] [Worker] Background worker started
+[2026-02-23T21:00:58.556Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T21:01:00.313Z] [Worker] Reddit response status: 200
+[2026-02-23T21:01:00.314Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T21:01:00.323Z] [Worker] Body length: 210379
+[2026-02-23T21:01:00.324Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbfybe"
+[2026-02-23T21:01:00.325Z] [Worker] Detected Reddit JSON format
+[2026-02-23T21:01:00.327Z] [Worker] Found 25 children in JSON
+[2026-02-23T21:01:00.328Z] [Worker] Total items extracted: 25
+[2026-02-23T21:01:00.329Z] [Worker] First item target link: https://www.reddit.com/r/FuckingLikeCrazy/comments/1rc2l0q/girls_like_these_are_the_reason_one_gets_addicted/
+[2026-02-23T21:01:00.334Z] [Worker] Synced 25 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:08:51.399Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T21:08:53.131Z] [Worker] Reddit response status: 200
+[2026-02-23T21:08:53.132Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T21:08:53.141Z] [Worker] Body length: 208044
+[2026-02-23T21:08:53.142Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbk6nt"
+[2026-02-23T21:08:53.142Z] [Worker] Detected Reddit JSON format
+[2026-02-23T21:08:53.145Z] [Worker] Found 25 children in JSON
+[2026-02-23T21:08:53.146Z] [Worker] Total items extracted: 25
+[2026-02-23T21:08:53.147Z] [Worker] First item target link: https://www.reddit.com/r/programming/comments/1rcj41t/code_isnt_whats_slowing_projects_down/
+[2026-02-23T21:08:53.148Z] [Worker] Synced 1 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:26:33.500Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T21:26:34.605Z] [Worker] Reddit response status: 200
+[2026-02-23T21:26:34.606Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T21:26:34.615Z] [Worker] Body length: 208045
+[2026-02-23T21:26:34.616Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbk6nt"
+[2026-02-23T21:26:34.617Z] [Worker] Detected Reddit JSON format
+[2026-02-23T21:26:34.619Z] [Worker] Found 25 children in JSON
+[2026-02-23T21:26:34.620Z] [Worker] Total items extracted: 25
+[2026-02-23T21:26:34.621Z] [Worker] First item target link: https://www.reddit.com/r/programming/comments/1rcj41t/code_isnt_whats_slowing_projects_down/
+[2026-02-23T21:26:34.624Z] [Worker] Synced 25 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:31:32.591Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T21:31:33.669Z] [Worker] Reddit response status: 200
+[2026-02-23T21:31:33.670Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T21:31:33.822Z] [Worker] Body length: 208045
+[2026-02-23T21:31:33.824Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbk6nt"
+[2026-02-23T21:31:33.825Z] [Worker] Detected Reddit JSON format
+[2026-02-23T21:31:33.827Z] [Worker] Found 25 children in JSON
+[2026-02-23T21:31:33.828Z] [Worker] Total items extracted: 25
+[2026-02-23T21:31:33.829Z] [Worker] First item target link: https://www.reddit.com/r/programming/comments/1rcj41t/code_isnt_whats_slowing_projects_down/
+[2026-02-23T21:31:33.830Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:37:44.331Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T21:37:45.927Z] [Worker] Reddit response status: 200
+[2026-02-23T21:37:45.928Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T21:37:46.182Z] [Worker] Body length: 200893
+[2026-02-23T21:37:46.183Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbj412"
+[2026-02-23T21:37:46.184Z] [Worker] Detected Reddit JSON format
+[2026-02-23T21:37:46.186Z] [Worker] Found 25 children in JSON
+[2026-02-23T21:37:46.187Z] [Worker] Total items extracted: 25
+[2026-02-23T21:37:46.187Z] [Worker] First item target link: https://www.reddit.com/r/truenas/comments/1rcq4s4/huntarr_get_this_uninstalled_if_you_are_running_it/
+[2026-02-23T21:37:46.190Z] [Worker] Synced 2 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:54:11.373Z] [Worker] Background worker started
+[2026-02-23T21:54:11.375Z] [Worker] Scheduler loop started
+[2026-02-23T21:54:11.376Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T21:54:14.390Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T21:54:15.446Z] [Worker] Reddit response status: 200
+[2026-02-23T21:54:15.447Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T21:54:15.456Z] [Worker] Body length: 200892
+[2026-02-23T21:54:15.457Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbj412"
+[2026-02-23T21:54:15.458Z] [Worker] Detected Reddit JSON format
+[2026-02-23T21:54:15.460Z] [Worker] Found 25 children in JSON
+[2026-02-23T21:54:15.461Z] [Worker] Total items extracted: 25
+[2026-02-23T21:54:15.462Z] [Worker] First item target link: https://www.reddit.com/r/truenas/comments/1rcq4s4/huntarr_get_this_uninstalled_if_you_are_running_it/
+[2026-02-23T21:54:15.464Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86

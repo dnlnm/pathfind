@@ -94,11 +94,27 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    payload TEXT NOT NULL, -- JSON string
+    status TEXT DEFAULT 'pending', -- pending, processing, completed, failed
+    progress INTEGER DEFAULT 0,
+    attempts INTEGER DEFAULT 0,
+    error TEXT,
+    user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
   CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
   CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
   CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
+  CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+  CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
 
   -- Full Text Search Table
   CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
@@ -169,6 +185,18 @@ try {
 
 try {
   db.exec("ALTER TABLE users ADD COLUMN telegram_linking_token TEXT");
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN reddit_rss_url TEXT");
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN last_reddit_sync_at DATETIME");
 } catch (e) {
   // Column already exists
 }

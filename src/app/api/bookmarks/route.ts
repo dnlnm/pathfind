@@ -129,31 +129,55 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
+    const existing = db.prepare("SELECT * FROM bookmarks WHERE url = ? AND user_id = ?").get(url, userAuth.id) as DbBookmark | undefined;
+
     // Auto-fetch metadata if any info is missing
-    let finalTitle = title || null;
-    let finalDescription = description || null;
-    let finalFavicon: string | null = null;
-    let finalThumbnail = thumbnail || null;
+    let finalTitle = title || (existing?.title) || null;
+    let finalDescription = description || (existing?.description) || null;
+    let finalFavicon: string | null = existing?.favicon || null;
+    let finalThumbnail = thumbnail || (existing?.thumbnail) || null;
 
     if (!finalTitle || !finalDescription || !finalFavicon || !finalThumbnail) {
         const fetched = await fetchUrlMetadata(url);
         finalTitle = finalTitle || fetched.title;
         finalDescription = finalDescription || fetched.description;
-        finalFavicon = fetched.favicon;
+        finalFavicon = finalFavicon || fetched.favicon;
         if (!finalThumbnail) {
             finalThumbnail = fetched.thumbnail;
         }
     }
 
-    const id = generateId();
+    let id: string;
+    let isUpdate = false;
 
-    db.prepare(`
-    INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, user_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, userAuth.id);
+    if (existing) {
+        id = existing.id;
+        isUpdate = true;
+
+        let finalNotes = notes !== undefined ? notes : existing.notes;
+
+        db.prepare(`
+            UPDATE bookmarks 
+            SET title = ?, description = ?, notes = ?, favicon = ?, thumbnail = ?, is_read_later = ?, updated_at = datetime('now')
+            WHERE id = ?
+        `).run(finalTitle, finalDescription, finalNotes, finalFavicon, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, id);
+
+        if (body.tags !== undefined) {
+            db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
+        }
+        if (body.collections !== undefined) {
+            db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
+        }
+    } else {
+        id = generateId();
+        db.prepare(`
+            INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, userAuth.id);
+    }
 
     // Create/connect tags
-    if (tags && tags.length > 0) {
+    if ((!isUpdate || body.tags !== undefined) && tags && tags.length > 0) {
         const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
         const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
         const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
@@ -167,7 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Connect collections
-    if (body.collections && body.collections.length > 0) {
+    if ((!isUpdate || body.collections !== undefined) && body.collections && body.collections.length > 0) {
         const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
         for (const collectionId of body.collections) {
             linkCollection.run(id, collectionId);
@@ -175,5 +199,5 @@ export async function POST(request: NextRequest) {
     }
 
     const created = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;
-    return NextResponse.json(toBookmarkWithTags(created), { status: 201 });
+    return NextResponse.json({ ...toBookmarkWithTags(created), isUpdate }, { status: isUpdate ? 200 : 201 });
 }

@@ -26,6 +26,8 @@ import {
 import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronUp, Plus, MoreHorizontal } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface SidebarTag {
     id: string;
@@ -190,33 +192,34 @@ export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSide
                     <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/70">
                         Tags
                     </SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {tags.length === 0 ? (
-                                <SidebarMenuItem>
-                                    <SidebarMenuButton disabled className="text-muted-foreground/50">
-                                        <Tag className="h-4 w-4" />
-                                        <span className="italic">No tags yet</span>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            ) : (
-                                tags.map((tag) => (
-                                    <SidebarMenuItem key={tag.id}>
-                                        <SidebarMenuButton
-                                            onClick={() => navigate("all", tag.name)}
-                                            isActive={currentTag === tag.name}
-                                            className="cursor-pointer"
-                                        >
-                                            <Tag className="h-4 w-4" />
-                                            <span>{tag.name}</span>
-                                        </SidebarMenuButton>
-                                        <SidebarMenuBadge className="text-xs text-muted-foreground">
+                    <SidebarGroupContent className="px-4 py-2">
+                        {tags.length === 0 ? (
+                            <div className="flex items-center gap-2 text-muted-foreground/50 text-sm italic">
+                                <Tag className="h-4 w-4" />
+                                <span>No tags yet</span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                                {tags.map((tag) => (
+                                    <Badge
+                                        key={tag.id}
+                                        variant={currentTag === tag.name ? "default" : "secondary"}
+                                        className={cn(
+                                            "cursor-pointer px-2.5 py-0.5 text-[11px] transition-all",
+                                            currentTag === tag.name
+                                                ? "hover:bg-primary/90"
+                                                : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        )}
+                                        onClick={() => navigate("all", tag.name)}
+                                    >
+                                        {tag.name}
+                                        <span className="ml-1.5 opacity-50 text-[10px] font-normal">
                                             {tag._count.bookmarks}
-                                        </SidebarMenuBadge>
-                                    </SidebarMenuItem>
-                                ))
-                            )}
-                        </SidebarMenu>
+                                        </span>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                     </SidebarGroupContent>
                 </SidebarGroup>
             </SidebarContent>

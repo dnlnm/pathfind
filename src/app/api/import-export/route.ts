@@ -82,6 +82,12 @@ export async function POST(request: Request) {
             const bmId = generateId();
             insertBookmark.run(bmId, bm.url, bm.title || null, session.user!.id!);
 
+            // Create a background job to fetch metadata (description, thumbnail, favicon, etc.)
+            db.prepare(`
+                INSERT INTO jobs (id, type, payload, user_id)
+                VALUES (?, ?, ?, ?)
+            `).run(generateId(), 'metadata_fetch', JSON.stringify({ bookmarkId: bmId }), session.user!.id!);
+
             for (const tagName of bm.tags) {
                 insertTag.run(generateId(), tagName);
                 const tagRow = getTag.get(tagName) as { id: string };
