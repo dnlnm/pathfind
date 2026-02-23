@@ -8,6 +8,11 @@
     },
     "permissions": [
         "activeTab",
-        "storage"
-    ]
+        "storage",
+        "tabs"
+    ],
+    "background": {
+        "service_worker": "src/background.ts",
+        "type": "module"
+    }
 }

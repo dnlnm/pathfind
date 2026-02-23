@@ -41,14 +41,30 @@ export default function App() {
           setShowConfig(true)
         }
         setLoading(false)
-      })
 
-      // Get current tab
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs: chrome.tabs.Tab[]) => {
-        if (tabs[0]) {
-          setBookmarkUrl(tabs[0].url || '')
-          setBookmarkTitle(tabs[0].title || '')
-        }
+        // Get current tab
+        chrome.tabs.query({ active: true, currentWindow: true }, async (tabs: chrome.tabs.Tab[]) => {
+          if (tabs[0] && tabs[0].url) {
+            setBookmarkUrl(tabs[0].url)
+            setBookmarkTitle(tabs[0].title || '')
+
+            if (result.pathfind_url && result.pathfind_token) {
+              try {
+                const res = await fetch(`${result.pathfind_url}/api/bookmarks/check?url=${encodeURIComponent(tabs[0].url)}`, {
+                  headers: { 'Authorization': `Bearer ${result.pathfind_token}` }
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.bookmarked) {
+                    setSuccess(true);
+                  }
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }
+        })
       })
     } else {
       // Local dev fallback
@@ -104,6 +120,19 @@ export default function App() {
       }
 
       setSuccess(true)
+
+      // Notify background script to update badge
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0] && tabs[0].id) {
+            chrome.runtime.sendMessage({
+              action: 'bookmarkSaved',
+              tabId: tabs[0].id
+            })
+          }
+        })
+      }
+
       setTimeout(() => {
         if (typeof chrome !== 'undefined' && chrome.notifications) {
           window.close() // Close popup on success after slight delay
