@@ -56,8 +56,6 @@ function SettingsContent() {
     const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "" });
     const [linkingToken, setLinkingToken] = useState<string | null>(null);
     const [isGeneratingTelegramToken, setIsGeneratingTelegramToken] = useState(false);
-    const [paginationLimit, setPaginationLimit] = useState(30);
-    const [savingLimit, setSavingLimit] = useState(false);
     const [domainColors, setDomainColors] = useState<{ domain: string; color: string }[]>([]);
     const [newDomain, setNewDomain] = useState("");
     const [newColor, setNewColor] = useState("#6366f1");
@@ -101,9 +99,6 @@ function SettingsContent() {
             .then(res => res.json())
             .then(data => setGithubToken(data.token || ""));
 
-        fetch("/api/settings/pagination")
-            .then(res => res.json())
-            .then(data => setPaginationLimit(data.limit || 30));
 
         fetch("/api/settings/domain-colors")
             .then(res => res.json())
@@ -241,27 +236,6 @@ function SettingsContent() {
             toast.error("Sync failed");
         }
         setSyncingStars(false);
-    };
-
-    const handleSavePaginationLimit = async () => {
-        setSavingLimit(true);
-        try {
-            const res = await fetch("/api/settings/pagination", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ limit: paginationLimit }),
-            });
-            if (res.ok) {
-                toast.success("Pagination limit updated");
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || "Failed to update limit");
-            }
-        } catch {
-            toast.error("Something went wrong");
-        }
-        setSavingLimit(false);
     };
 
     const handleAddDomainColor = async () => {
@@ -458,33 +432,6 @@ function SettingsContent() {
                                         <CardDescription>Customize how PathFind looks and behaves for you.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="pagination-limit">Bookmarks per page</Label>
-                                            <div className="flex gap-3">
-                                                <Input
-                                                    id="pagination-limit"
-                                                    type="number"
-                                                    min="1"
-                                                    max="100"
-                                                    value={paginationLimit}
-                                                    onChange={(e) => setPaginationLimit(parseInt(e.target.value) || 0)}
-                                                    className="bg-background/50 h-10"
-                                                />
-                                                <Button
-                                                    onClick={handleSavePaginationLimit}
-                                                    disabled={savingLimit}
-                                                    className="cursor-pointer px-6"
-                                                >
-                                                    {savingLimit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
-                                                </Button>
-                                            </div>
-                                            <p className="text-[11px] text-muted-foreground">
-                                                Determines the number of items fetched during pagination (range: 1-100).
-                                            </p>
-                                        </div>
-
-                                        <Separator className="bg-border/20" />
-
                                         <div className="space-y-4">
                                             <div className="flex flex-col gap-1">
                                                 <Label>Custom Domain Colors</Label>

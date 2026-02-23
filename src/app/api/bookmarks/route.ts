@@ -71,9 +71,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (query) {
-        whereClauses.push("(b.title LIKE ? OR b.url LIKE ? OR b.description LIKE ? OR b.notes LIKE ?)");
-        const q = `%${query}%`;
-        params.push(q, q, q, q);
+        // Use FTS5 for search. We append * to each word to allow prefix matching (e.g., "dev" matches "development")
+        const ftsQuery = query.trim().split(/\s+/).filter(t => t.length > 0).map(t => `${t}*`).join(' ');
+        if (ftsQuery) {
+            whereClauses.push("b.id IN (SELECT id FROM bookmarks_fts WHERE bookmarks_fts MATCH ?)");
+            params.push(ftsQuery);
+        }
     }
 
     if (tag) {

@@ -27,6 +27,8 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { cn } from "@/lib/utils";
+
 interface BookmarkCardProps {
     bookmark: BookmarkWithTags;
     onEdit: (bookmark: BookmarkWithTags) => void;
@@ -92,7 +94,10 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
     const isGrid = layout === "grid";
 
     return (
-        <Card className={`group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden h-full flex flex-col p-0 gap-0 ${isGrid ? "rounded-2xl" : ""}`}>
+        <Card className={cn(
+            "group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden flex flex-col p-0 gap-0",
+            isGrid ? "rounded-2xl h-[400px]" : "h-[110px]"
+        )}>
             {isGrid && bookmark.thumbnail && (
                 <div className="w-full aspect-video rounded-t-2xl border-b border-border/20 bg-muted/30 overflow-hidden relative shrink-0">
                     <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
@@ -110,8 +115,11 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                     />
                 </div>
             )}
-            <CardContent className={`p-3 flex-1 flex flex-col ${isGrid ? "p-4" : ""}`}>
-                <div className={`flex items-start gap-3 ${isGrid ? "flex-col gap-2" : ""}`}>
+            <CardContent className={cn(
+                "p-3 flex-1 flex flex-col min-h-0",
+                isGrid ? "p-4" : ""
+            )}>
+                <div className={cn("flex gap-3 h-full", isGrid ? "flex-col gap-2 items-start" : "items-stretch")}>
                     {/* Favicon - only in list view or if no thumbnail in grid */}
                     {(!isGrid || !bookmark.thumbnail) && (
                         <div className={`mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden ${isGrid ? "w-10 h-10 mt-0" : ""}`}>
@@ -194,7 +202,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
                         )}
 
                         {/* Tags & Date */}
-                        <div className={`flex items-center gap-2 flex-wrap pt-1 ${isGrid ? "mt-auto" : ""}`}>
+                        <div className="flex items-center gap-2 flex-wrap pt-1 mt-auto">
                             {tagList.map((tag) => (
                                 <Badge
                                     key={tag.id}
@@ -236,7 +244,7 @@ export function BookmarkCard({ bookmark, onEdit, onRefresh, layout = "list" }: B
 
                     {/* Thumbnail (List View Only) */}
                     {!isGrid && bookmark.thumbnail && (
-                        <div className="hidden sm:block shrink-0 ml-2 w-36 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative">
+                        <div className="hidden sm:block shrink-0 ml-2 w-36 h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative self-center">
                             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                                 <Globe className="h-6 w-6" />
                             </div>

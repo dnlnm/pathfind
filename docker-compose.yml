@@ -13,6 +13,8 @@ services:
       - AUTH_SECRET=${AUTH_SECRET:-change-me-to-a-random-secret-in-production}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@pathfind.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - AUTH_URL=${AUTH_URL:-https://pathfind.nxim.dev}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://pathfind.nxim.dev}
       - AUTH_TRUST_HOST=true
     restart: always
 

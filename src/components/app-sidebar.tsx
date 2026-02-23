@@ -12,7 +12,6 @@ import {
     SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
-    SidebarMenuAction,
     SidebarMenuBadge,
     SidebarMenuButton,
     SidebarMenuItem,
@@ -24,7 +23,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronUp, Plus, MoreHorizontal, Edit, Trash } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronUp, Plus, MoreHorizontal } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 
@@ -88,23 +87,6 @@ export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSide
         if (tag) params.set("tag", tag);
         if (collectionId) params.set("collection", collectionId);
         router.push(`/?${params.toString()}`);
-    };
-
-    const handleDeleteCollection = async (id: string, name: string) => {
-        if (!confirm(`Are you sure you want to delete the collection "${name}"?`)) return;
-
-        try {
-            const res = await fetch(`/api/collections/${id}`, { method: "DELETE" });
-            if (res.ok) {
-                toast.success("Collection deleted");
-                fetchCollections();
-                if (currentCollectionId === id) {
-                    router.push("/");
-                }
-            }
-        } catch {
-            toast.error("Failed to delete collection");
-        }
     };
 
     const navItems = [
@@ -192,29 +174,8 @@ export function AppSidebar({ bookmarkCounts, userName, refreshTrigger }: AppSide
                                             <span>{collection.name}</span>
                                         </SidebarMenuButton>
 
-                                        <SidebarMenuAction
-                                            showOnHover
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingCollectionId(collection.id);
-                                                setCollectionFormOpen(true);
-                                            }}
-                                            className="right-7"
-                                        >
-                                            <Edit className="h-3 w-3" />
-                                            <span className="sr-only">Edit collection</span>
-                                        </SidebarMenuAction>
-                                        <SidebarMenuAction
-                                            showOnHover
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteCollection(collection.id, collection.name);
-                                            }}
-                                            className="text-destructive/70 hover:text-destructive"
-                                        >
-                                            <Trash className="h-3 w-3" />
-                                            <span className="sr-only">Delete collection</span>
-                                        </SidebarMenuAction>
+                                        {/* Edit and Trash moved to collection page */}
+
                                         <SidebarMenuBadge className="text-xs text-muted-foreground group-hover/menu-item:hidden">
                                             {collection._count.bookmarks}
                                         </SidebarMenuBadge>

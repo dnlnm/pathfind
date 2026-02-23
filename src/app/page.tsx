@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { Header } from "@/components/header";
 import { BookmarkCard } from "@/components/bookmark-card";
@@ -9,8 +9,18 @@ import { BookmarkForm } from "@/components/bookmark-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookmarkWithTags } from "@/types";
-import { Compass, ChevronLeft, ChevronRight, LayoutGrid, List, SortAsc } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Compass, LayoutGrid, List, SortAsc, Edit, Trash } from "lucide-react";
+import { CollectionForm } from "@/components/collection-form";
+import { toast } from "sonner";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -25,6 +35,7 @@ function BookmarkPageContent() {
   const searchParams = useSearchParams();
   const [bookmarks, setBookmarks] = useState<BookmarkWithTags[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0 });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -34,11 +45,27 @@ function BookmarkPageContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [sortBy, setSortBy] = useState("newest");
+  const [collectionFormOpen, setCollectionFormOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [columns, setColumns] = useState(1);
 
   // Load view mode from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("bookmark-view-mode");
     if (saved === "grid") setViewMode("grid");
+
+    const updateCols = () => {
+      // These match tailwind breakpoints (sm = 640px, lg = 1024px)
+      if (window.innerWidth >= 1024) setColumns(3);
+      else if (window.innerWidth >= 640) setColumns(2);
+      else setColumns(1);
+    };
+    updateCols();
+    window.addEventListener("resize", updateCols);
+    return () => window.removeEventListener("resize", updateCols);
   }, []);
 
   const toggleViewMode = (mode: "list" | "grid") => {
@@ -46,28 +73,38 @@ function BookmarkPageContent() {
     localStorage.setItem("bookmark-view-mode", mode);
   };
 
-  const fetchBookmarks = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const fetchBookmarks = useCallback(async (targetPage: number) => {
+    if (targetPage === 1) setLoading(true);
+    else setIsFetchingNextPage(true);
+
     const params = new URLSearchParams();
 
     const filter = searchParams.get("filter");
     const tag = searchParams.get("tag");
     const collection = searchParams.get("collection");
     const q = searchParams.get("q");
-    const p = searchParams.get("page");
 
     if (filter) params.set("filter", filter);
     if (tag) params.set("tag", tag);
     if (collection) params.set("collection", collection);
     if (q) params.set("q", q);
-    if (p) params.set("page", p);
+
+    params.set("page", String(targetPage));
     params.set("sort", sortBy);
 
     try {
       const res = await fetch(`/api/bookmarks?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setBookmarks(data.bookmarks);
+        if (targetPage === 1) {
+          setBookmarks(data.bookmarks);
+        } else {
+          setBookmarks(prev => {
+            const existingIds = new Set(prev.map(b => b.id));
+            const newUnique = data.bookmarks.filter((b: BookmarkWithTags) => !existingIds.has(b.id));
+            return [...prev, ...newUnique];
+          });
+        }
         setTotal(data.total);
         setPage(data.page);
         setTotalPages(data.totalPages);
@@ -76,6 +113,7 @@ function BookmarkPageContent() {
       // Silent fail
     }
     setLoading(false);
+    setIsFetchingNextPage(false);
   }, [searchParams, sortBy]);
 
   const fetchCounts = useCallback(async () => {
@@ -103,13 +141,12 @@ function BookmarkPageContent() {
   }, []);
 
   useEffect(() => {
-    fetchBookmarks(false);
+    fetchBookmarks(1);
     fetchCounts();
-  }, [fetchBookmarks, fetchCounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, sortBy, refreshTrigger]);
 
   const handleRefresh = () => {
-    fetchBookmarks(true);
-    fetchCounts();
     setRefreshTrigger(prev => prev + 1);
   };
 
@@ -121,6 +158,25 @@ function BookmarkPageContent() {
   const handleFormClose = (open: boolean) => {
     setFormOpen(open);
     if (!open) setEditingBookmark(null);
+  };
+
+  const handleDeleteCollection = async () => {
+    if (!currentCollectionId) return;
+    setIsDeleting(true);
+
+    try {
+      const res = await fetch(`/api/collections/${currentCollectionId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Collection deleted");
+        setDeleteDialogOpen(false);
+        router.push("/");
+        handleRefresh();
+      }
+    } catch {
+      toast.error("Failed to delete collection");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const currentFilter = searchParams.get("filter") || "all";
@@ -139,7 +195,7 @@ function BookmarkPageContent() {
     } else {
       setCurrentCollectionName("");
     }
-  }, [currentCollectionId]);
+  }, [currentCollectionId, refreshTrigger]);
 
   const pageTitle = currentCollectionId
     ? `Collection: ${currentCollectionName || "..."}`
@@ -153,6 +209,31 @@ function BookmarkPageContent() {
             ? "Archived"
             : "All Bookmarks";
 
+  const itemsPerRow = viewMode === "grid" ? columns : 1;
+  const rowCount = Math.ceil(bookmarks.length / itemsPerRow);
+
+  const virtualizer = useWindowVirtualizer({
+    count: rowCount,
+    estimateSize: () => (viewMode === "grid" ? 400 + 16 : 110 + 8),
+    overscan: 2,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  useEffect(() => {
+    if (!virtualItems.length) return;
+
+    const lastRenderedRow = virtualItems[virtualItems.length - 1];
+    if (
+      lastRenderedRow.index >= rowCount - 1 &&
+      !isFetchingNextPage &&
+      !loading &&
+      page < totalPages
+    ) {
+      fetchBookmarks(page + 1);
+    }
+  }, [virtualItems, isFetchingNextPage, loading, page, totalPages, rowCount, fetchBookmarks]);
+
   return (
     <AppLayout bookmarkCounts={counts} refreshTrigger={refreshTrigger}>
       <Header onAddBookmark={() => setFormOpen(true)} />
@@ -160,11 +241,38 @@ function BookmarkPageContent() {
       <main className="flex-1 p-4 md:p-6 max-w-5xl mx-auto w-full">
         {/* Page title */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">{pageTitle}</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {total} bookmark{total !== 1 ? "s" : ""}
-            </p>
+          <div className="flex items-center gap-2">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight">{pageTitle}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {total} bookmark{total !== 1 ? "s" : ""}
+              </p>
+            </div>
+            {currentCollectionId && (
+              <div className="flex items-center gap-1 ml-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={() => {
+                    setEditingCollectionId(currentCollectionId);
+                    setCollectionFormOpen(true);
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                  <span className="sr-only">Edit collection</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash className="h-4 w-4" />
+                  <span className="sr-only">Delete collection</span>
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -217,7 +325,7 @@ function BookmarkPageContent() {
             {[...Array(6)].map((_, i) => (
               <Skeleton key={i} className={cn(
                 "rounded-xl",
-                viewMode === "grid" ? "aspect-[4/5]" : "h-24 w-full"
+                viewMode === "grid" ? "h-[400px]" : "h-[110px] w-full"
               )} />
             ))}
           </div>
@@ -238,56 +346,51 @@ function BookmarkPageContent() {
           </div>
         ) : (
           <>
-            <div className={cn(
-              "w-full transition-opacity duration-300",
-              loading && "opacity-50 pointer-events-none",
-              viewMode === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                : "space-y-2"
-            )}>
-              {bookmarks.map((bookmark) => (
-                <BookmarkCard
-                  key={bookmark.id}
-                  bookmark={bookmark}
-                  onEdit={handleEdit}
-                  onRefresh={handleRefresh}
-                  layout={viewMode}
-                />
-              ))}
+            <div
+              className="w-full relative transition-opacity duration-300"
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                opacity: loading && page === 1 ? 0.5 : 1,
+                pointerEvents: loading && page === 1 ? "none" : "auto",
+              }}
+            >
+              {virtualItems.map((virtualRow) => {
+                const startIdx = virtualRow.index * itemsPerRow;
+                const rowItems = bookmarks.slice(startIdx, startIdx + itemsPerRow);
+
+                return (
+                  <div
+                    key={virtualRow.index}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    className={cn(
+                      "absolute top-0 left-0 w-full",
+                      viewMode === "grid"
+                        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4"
+                        : "flex flex-col pb-2"
+                    )}
+                    style={{
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    {rowItems.map((bookmark) => (
+                      <BookmarkCard
+                        key={bookmark.id}
+                        bookmark={bookmark}
+                        onEdit={handleEdit}
+                        onRefresh={handleRefresh}
+                        layout={viewMode}
+                      />
+                    ))}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-8">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set("page", String(page - 1));
-                    router.push(`/?${params.toString()}`);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground px-3">
-                  Page {page} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.set("page", String(page + 1));
-                    router.push(`/?${params.toString()}`);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+            {/* Infinite loading indicator */}
+            {isFetchingNextPage && (
+              <div className="w-full flex items-center justify-center py-6 mt-4">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             )}
           </>
@@ -300,6 +403,44 @@ function BookmarkPageContent() {
         bookmark={editingBookmark}
         onSuccess={handleRefresh}
       />
+
+      <CollectionForm
+        open={collectionFormOpen}
+        onOpenChange={setCollectionFormOpen}
+        collectionId={editingCollectionId}
+        onSuccess={handleRefresh}
+      />
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border/50">
+          <DialogHeader>
+            <DialogTitle>Delete Collection</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the collection <span className="font-semibold text-foreground">"{currentCollectionName}"</span>?
+              This will not delete the bookmarks within it, but they will no longer be part of this collection.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteCollection}
+              disabled={isDeleting}
+              className="cursor-pointer"
+            >
+              {isDeleting ? "Deleting..." : "Delete Collection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

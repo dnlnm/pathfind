@@ -99,7 +99,45 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
   CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
   CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
+
+  -- Full Text Search Table
+  CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
+    id UNINDEXED,
+    user_id UNINDEXED,
+    title,
+    description,
+    notes,
+    url
+  );
+
+  -- Triggers to keep FTS table in sync
+  CREATE TRIGGER IF NOT EXISTS bookmarks_ai AFTER INSERT ON bookmarks BEGIN
+    INSERT INTO bookmarks_fts(id, user_id, title, description, notes, url)
+    VALUES (new.id, new.user_id, new.title, new.description, new.notes, new.url);
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
+    DELETE FROM bookmarks_fts WHERE id = old.id;
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS bookmarks_au AFTER UPDATE ON bookmarks BEGIN
+    UPDATE bookmarks_fts SET
+      title = new.title,
+      description = new.description,
+      notes = new.notes,
+      url = new.url
+    WHERE id = old.id;
+  END;
 `);
+
+// Migration: Initial population of FTS table if empty
+const ftsCount = (db.prepare("SELECT COUNT(*) as count FROM bookmarks_fts").get() as { count: number }).count;
+if (ftsCount === 0) {
+  db.exec(`
+    INSERT INTO bookmarks_fts(id, user_id, title, description, notes, url)
+    SELECT id, user_id, title, description, notes, url FROM bookmarks;
+  `);
+}
 
 // Migration: add thumbnail column if missing (for existing DBs)
 try {
