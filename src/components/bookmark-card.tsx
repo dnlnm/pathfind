@@ -272,7 +272,7 @@ export function BookmarkCard({
                                 <Badge
                                     key={tag.id}
                                     variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors"
+                                    className="text-xs px-2 py-0 h-6 cursor-pointer hover:bg-primary/20 hover:text-primary transition-colors"
                                     onClick={(e) => {
                                         if (selectionMode) {
                                             e.preventDefault();
@@ -290,7 +290,7 @@ export function BookmarkCard({
                                 <Badge
                                     key={col.id}
                                     variant="outline"
-                                    className="text-[10px] px-1.5 py-0 h-5 cursor-pointer hover:bg-primary/20 transition-colors gap-1 border-primary/20"
+                                    className="text-xs px-2 py-0 h-6 cursor-pointer hover:bg-primary/20 transition-colors gap-1 border-primary/20"
                                     onClick={(e) => {
                                         if (selectionMode) {
                                             e.preventDefault();
@@ -306,8 +306,8 @@ export function BookmarkCard({
                                 </Badge>
                             ))}
                             {bookmark.isReadLater && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-amber-500/30 text-amber-500">
-                                    <Clock className="h-2.5 w-2.5 mr-0.5" />
+                                <Badge variant="outline" className="text-xs px-2 py-0 h-6 border-amber-500/30 text-amber-500">
+                                    <Clock className="h-3 w-3 mr-1" />
                                     read later
                                 </Badge>
                             )}
