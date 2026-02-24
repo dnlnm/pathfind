@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
+import { generateEmbedding } from "@/lib/gemini";
 import { DbBookmark, BookmarkWithTags } from "@/types";
 
 function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] {
@@ -221,5 +222,25 @@ export async function POST(request: NextRequest) {
     }
 
     const created = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;
+
+    // Asynchronously generate embedding in the background
+    (async () => {
+        try {
+            const textToEmbed = `${finalTitle || ''} ${finalDescription || ''} ${notes || ''}`.trim();
+            if (textToEmbed) {
+                const embedding = await generateEmbedding(textToEmbed);
+                if (embedding) {
+                    const row = db.prepare("SELECT rowid FROM bookmarks WHERE id = ?").get(id) as { rowid: number };
+                    if (row) {
+                        const f32arr = new Float32Array(embedding);
+                        db.prepare("INSERT OR REPLACE INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(row.rowid), f32arr);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Background embedding failed:", error);
+        }
+    })();
+
     return NextResponse.json({ ...toBookmarkWithTags(created), isUpdate }, { status: isUpdate ? 200 : 201 });
 }

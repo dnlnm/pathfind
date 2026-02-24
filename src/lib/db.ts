@@ -9,6 +9,10 @@ fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
 
+// Load sqlite-vec extension
+import * as sqliteVec from "sqlite-vec";
+sqliteVec.load(db);
+
 // Enable WAL mode for better concurrent performance
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
@@ -144,6 +148,15 @@ db.exec(`
       notes = new.notes,
       url = new.url
     WHERE id = old.id;
+  END;
+
+  -- Vector Search Table using sqlite-vec
+  CREATE VIRTUAL TABLE IF NOT EXISTS vec_bookmarks USING vec0(
+    embedding float[768]
+  );
+
+  CREATE TRIGGER IF NOT EXISTS vec_bookmarks_ad AFTER DELETE ON bookmarks BEGIN
+    DELETE FROM vec_bookmarks WHERE rowid = old.rowid;
   END;
 `);
 

@@ -116,8 +116,12 @@ function BookmarkPageContent() {
     params.set("page", String(targetPage));
     params.set("sort", sortBy);
 
+    const isAiSearch = searchParams.get("ai") === "true";
+    const useSemantic = isAiSearch && q;
+
     try {
-      const res = await fetch(`/api/bookmarks?${params.toString()}`);
+      const endpoint = useSemantic ? `/api/search/semantic` : `/api/bookmarks`;
+      const res = await fetch(`${endpoint}?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         if (targetPage === 1) {
@@ -303,12 +307,14 @@ function BookmarkPageContent() {
     }
   }, [currentCollectionId, refreshTrigger]);
 
+  const isAiSearch = searchParams.get("ai") === "true";
+
   const pageTitle = currentCollectionId
     ? `Collection: ${currentCollectionName || "..."}`
     : currentTag
       ? `Tag: ${currentTag}`
       : currentQuery
-        ? `Search: "${currentQuery}"`
+        ? `${isAiSearch ? "✨ AI Search" : "Search"}: "${currentQuery}"`
         : currentFilter === "readlater"
           ? "Read Later"
           : currentFilter === "archived"
@@ -463,7 +469,7 @@ function BookmarkPageContent() {
             </h3>
             <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
               {currentQuery
-                ? "Try a different search term"
+                ? isAiSearch ? "Try a different semantic search term" : "Try a different search term"
                 : "Click the \"Add Bookmark\" button to save your first link"
               }
             </p>
