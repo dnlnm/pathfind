@@ -22,9 +22,14 @@ interface BookmarkFormProps {
     onOpenChange: (open: boolean) => void;
     bookmark?: BookmarkWithTags | null;
     onSuccess: () => void;
+    initialValues?: {
+        url?: string;
+        title?: string;
+        description?: string;
+    } | null;
 }
 
-export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: BookmarkFormProps) {
+export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialValues }: BookmarkFormProps) {
     const [url, setUrl] = useState("");
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -40,53 +45,6 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
     const [availableCollections, setAvailableCollections] = useState<{ id: string; name: string }[]>([]);
     const [isDuplicate, setIsDuplicate] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const isEditing = !!bookmark;
-
-    useEffect(() => {
-        if (open) {
-            fetch("/api/collections")
-                .then(res => res.json())
-                .then(data => setAvailableCollections(data))
-                .catch(() => { });
-        }
-    }, [open]);
-
-    useEffect(() => {
-        if (bookmark) {
-            setUrl(bookmark.url);
-            setTitle(bookmark.title || "");
-            setDescription(bookmark.description || "");
-            setNotes(bookmark.notes || "");
-            setTags(bookmark.tags.map((t) => t.name));
-            setIsReadLater(bookmark.isReadLater);
-            setThumbnail(bookmark.thumbnail || "");
-            setSelectedCollections(bookmark.collections?.map(c => c.id) || []);
-        } else {
-            resetForm();
-        }
-    }, [bookmark, open]);
-
-    useEffect(() => {
-        if (isEditing || !url || !open) {
-            setIsDuplicate(false);
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            try {
-                const res = await fetch(`/api/bookmarks/check?url=${encodeURIComponent(url.trim())}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setIsDuplicate(data.bookmarked);
-                }
-            } catch {
-                // Silently fail
-            }
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [url, isEditing, open]);
 
     const resetForm = () => {
         setUrl("");
@@ -121,6 +79,64 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess }: Bookma
         }
         setFetching(false);
     };
+
+    const isEditing = !!bookmark;
+
+    useEffect(() => {
+        if (open) {
+            fetch("/api/collections")
+                .then(res => res.json())
+                .then(data => setAvailableCollections(data))
+                .catch(() => { });
+        }
+    }, [open]);
+
+    useEffect(() => {
+        if (bookmark) {
+            setUrl(bookmark.url);
+            setTitle(bookmark.title || "");
+            setDescription(bookmark.description || "");
+            setNotes(bookmark.notes || "");
+            setTags(bookmark.tags.map((t) => t.name));
+            setIsReadLater(bookmark.isReadLater);
+            setThumbnail(bookmark.thumbnail || "");
+            setSelectedCollections(bookmark.collections?.map(c => c.id) || []);
+        } else {
+            resetForm();
+            if (open && initialValues) {
+                if (initialValues.url) setUrl(initialValues.url);
+                if (initialValues.title) setTitle(initialValues.title);
+                if (initialValues.description) setDescription(initialValues.description);
+
+                // If we got a URL but no title/desc, fetch them automatically
+                if (initialValues.url && !initialValues.title) {
+                    fetchMetadata(initialValues.url);
+                }
+            }
+        }
+    }, [bookmark, open, initialValues]);
+
+    useEffect(() => {
+        if (isEditing || !url || !open) {
+            setIsDuplicate(false);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/bookmarks/check?url=${encodeURIComponent(url.trim())}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsDuplicate(data.bookmarked);
+                }
+            } catch {
+                // Silently fail
+            }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [url, isEditing, open]);
+
 
     const generateDynamicThumbnail = async () => {
         if (!title && !url) {

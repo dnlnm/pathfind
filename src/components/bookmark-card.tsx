@@ -111,7 +111,7 @@ export function BookmarkCard({
         <Card
             className={cn(
                 "group border-border/40 bg-card/50 hover:bg-card/80 hover:border-border/60 transition-all duration-200 overflow-hidden flex flex-col p-0 gap-0 relative",
-                isGrid ? "rounded-2xl h-[340px]" : "h-[110px]",
+                isGrid ? "rounded-2xl h-[340px]" : "min-h-[110px]",
                 isSelected ? "ring-2 ring-primary bg-primary/5" : "",
                 selectionMode ? "cursor-pointer select-none" : ""
             )}
@@ -211,7 +211,7 @@ export function BookmarkCard({
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-1 w-full">
+                    <div className="flex-1 min-w-0 space-y-1 w-full flex flex-col">
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                                 <a
@@ -312,7 +312,7 @@ export function BookmarkCard({
                                 </Badge>
                             )}
                             <div className="flex items-center gap-1.5 ml-auto">
-                                {!selectionMode && (
+                                <div className={cn("flex shrink-0", selectionMode ? "invisible pointer-events-none" : "")}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button
@@ -352,7 +352,7 @@ export function BookmarkCard({
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                )}
+                                </div>
                                 <span
                                     className="text-[10px] text-muted-foreground/50 whitespace-nowrap"
                                     suppressHydrationWarning

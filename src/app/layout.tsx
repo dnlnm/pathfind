@@ -4,6 +4,15 @@ import "./globals.css";
 export const metadata: Metadata = {
     title: "Pathfind",
     description: "Your personal bookmark manager",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: "default",
+        title: "Pathfind",
+    },
+    formatDetection: {
+        telephone: false,
+    },
 };
 
 import { SidebarProvider } from "@/components/ui/sidebar";

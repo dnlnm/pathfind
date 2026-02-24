@@ -27,21 +27,19 @@ async function runSchedulerLoop() {
     logDebug("[Worker] Scheduler loop started");
     while (true) {
         try {
-            // Find users with reddit RSS URL who haven't synced in the last hour
-            // OR have never synced (last_reddit_sync_at is NULL)
-            const usersDueForSync = db.prepare(`
+            // Find users for Reddit sync
+            const redditUsers = db.prepare(`
                 SELECT id FROM users 
                 WHERE reddit_rss_url IS NOT NULL 
+                AND reddit_sync_enabled = 1
                 AND (
                     last_reddit_sync_at IS NULL 
                     OR last_reddit_sync_at < datetime('now', '-1 hour')
                 )
             `).all() as { id: string }[];
 
-            for (const user of usersDueForSync) {
+            for (const user of redditUsers) {
                 const userId = user.id;
-
-                // Check if there's already a pending or processing reddit_rss_sync job for this user
                 const existingJob = db.prepare(`
                     SELECT id FROM jobs 
                     WHERE user_id = ? 
@@ -55,6 +53,36 @@ async function runSchedulerLoop() {
                     db.prepare(`
                         INSERT INTO jobs (id, type, payload, status, user_id)
                         VALUES (?, 'reddit_rss_sync', ?, 'pending', ?)
+                    `).run(id, JSON.stringify({ userId }), userId);
+                }
+            }
+
+            // Find users for GitHub sync
+            const githubUsers = db.prepare(`
+                SELECT id FROM users 
+                WHERE github_token IS NOT NULL 
+                AND github_sync_enabled = 1
+                AND (
+                    last_github_sync_at IS NULL 
+                    OR last_github_sync_at < datetime('now', '-1 hour')
+                )
+            `).all() as { id: string }[];
+
+            for (const user of githubUsers) {
+                const userId = user.id;
+                const existingJob = db.prepare(`
+                    SELECT id FROM jobs 
+                    WHERE user_id = ? 
+                    AND type = 'github_starred_sync' 
+                    AND status IN ('pending', 'processing')
+                `).get(userId);
+
+                if (!existingJob) {
+                    logDebug(`[Worker] Scheduling automatic GitHub sync for user ${userId}`);
+                    const id = generateId();
+                    db.prepare(`
+                        INSERT INTO jobs (id, type, payload, status, user_id)
+                        VALUES (?, 'github_starred_sync', ?, 'pending', ?)
                     `).run(id, JSON.stringify({ userId }), userId);
                 }
             }
@@ -107,6 +135,8 @@ async function processNextJob(): Promise<boolean> {
             await handleMetadataFetch(job, payload);
         } else if (job.type === 'reddit_rss_sync') {
             await handleRedditRssSync(job, payload);
+        } else if (job.type === 'github_starred_sync') {
+            await handleGithubStarredSync(job, payload);
         } else if (job.type === 'ai_tagging') {
             // AI tagging logic would go here later
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -321,4 +351,77 @@ async function handleMetadataFetch(job: any, payload: any) {
         metadata.thumbnail || '',
         bookmarkId
     );
+}
+
+async function handleGithubStarredSync(job: any, payload: any) {
+    const { userId } = payload;
+    const user = db.prepare("SELECT github_token FROM users WHERE id = ?").get(userId) as { github_token: string | null };
+
+    if (!user?.github_token) {
+        throw new Error("GitHub token not configured");
+    }
+
+    logDebug(`[Worker] Syncing GitHub stars for user ${userId}`);
+
+    const response = await fetch("https://api.github.com/user/starred", {
+        headers: {
+            Authorization: `token ${user.github_token}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "PathFind-App",
+        },
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`GitHub API error: ${response.status} ${err}`);
+    }
+
+    const stars = await response.json();
+    let syncedCount = 0;
+
+    // Ensure "github" tag exists
+    const githubTagId = generateId();
+    db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)").run(githubTagId, "github");
+    const tagRow = db.prepare("SELECT id FROM tags WHERE name = ?").get("github") as { id: string };
+
+    const insertBookmark = db.prepare(`
+        INSERT INTO bookmarks (id, url, title, description, user_id)
+        VALUES (?, ?, ?, ?, ?)
+    `);
+    const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
+    const checkExisting = db.prepare("SELECT id FROM bookmarks WHERE url = ? AND user_id = ?");
+
+    const syncTransaction = db.transaction(() => {
+        for (const repo of stars) {
+            const existing = checkExisting.get(repo.html_url, userId);
+            if (existing) continue;
+
+            const bmId = generateId();
+            insertBookmark.run(
+                bmId,
+                repo.html_url,
+                repo.full_name,
+                repo.description || null,
+                userId
+            );
+
+            linkTag.run(bmId, tagRow.id);
+
+            // Queue a metadata fetch job
+            const metadataJobId = generateId();
+            db.prepare(`
+                INSERT INTO jobs (id, type, payload, status, user_id)
+                VALUES (?, 'metadata_fetch', ?, 'pending', ?)
+            `).run(metadataJobId, JSON.stringify({ bookmarkId: bmId }), userId);
+
+            syncedCount++;
+        }
+    });
+
+    syncTransaction();
+
+    // Update the last sync time
+    db.prepare("UPDATE users SET last_github_sync_at = datetime('now') WHERE id = ?").run(userId);
+
+    logDebug(`[Worker] Synced ${syncedCount} new GitHub stars for user ${userId}`);
 }

@@ -65,6 +65,7 @@ function BookmarkPageContent() {
   const [bulkTagDialogOpen, setBulkTagDialogOpen] = useState(false);
   const [newBulkTag, setNewBulkTag] = useState("");
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [sharedData, setSharedData] = useState<{ url?: string; title?: string; description?: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/collections")
@@ -168,6 +169,35 @@ function BookmarkPageContent() {
     fetchCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, sortBy, refreshTrigger]);
+
+  useEffect(() => {
+    const title = searchParams.get("title");
+    const text = searchParams.get("text");
+    const url = searchParams.get("url");
+
+    if (title || text || url) {
+      // Find URL in text if url parameter is missing
+      let extractedUrl = url || "";
+      if (!extractedUrl && text) {
+        const urlMatch = text.match(/https?:\/\/[^\s]+/);
+        if (urlMatch) extractedUrl = urlMatch[0];
+      }
+
+      setSharedData({
+        url: extractedUrl,
+        title: title || (text && text !== extractedUrl ? text : ""),
+      });
+      setFormOpen(true);
+
+      // Clean up the URL
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("title");
+      params.delete("text");
+      params.delete("url");
+      const query = params.toString();
+      router.replace(query ? `?${query}` : "/");
+    }
+  }, [searchParams, router]);
 
   const handleRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -710,6 +740,7 @@ function BookmarkPageContent() {
         onOpenChange={handleFormClose}
         bookmark={editingBookmark}
         onSuccess={handleRefresh}
+        initialValues={sharedData}
       />
 
       <CollectionForm

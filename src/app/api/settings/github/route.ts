@@ -8,10 +8,11 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { token } = await request.json();
+    const { token, syncEnabled } = await request.json();
 
-    db.prepare("UPDATE users SET github_token = ?, updated_at = datetime('now') WHERE id = ?").run(
+    db.prepare("UPDATE users SET github_token = ?, github_sync_enabled = ?, updated_at = datetime('now') WHERE id = ?").run(
         token || null,
+        syncEnabled ? 1 : 0,
         session.user.id
     );
 
@@ -24,7 +25,11 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = db.prepare("SELECT github_token FROM users WHERE id = ?").get(session.user.id) as { github_token: string | null };
+    const user = db.prepare("SELECT github_token, github_sync_enabled, last_github_sync_at FROM users WHERE id = ?").get(session.user.id) as { github_token: string | null; github_sync_enabled: number; last_github_sync_at: string | null };
 
-    return NextResponse.json({ token: user?.github_token || "" });
+    return NextResponse.json({
+        token: user?.github_token || "",
+        syncEnabled: user?.github_sync_enabled === 1,
+        lastSync: user?.last_github_sync_at || null
+    });
 }

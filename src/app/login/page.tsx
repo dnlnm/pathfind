@@ -13,7 +13,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
-import { Compass } from "lucide-react";
+import { FlickeringGrid } from "@/components/ui/flickering-grid";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -43,9 +43,18 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-            {/* Subtle grid background */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
+            {/* Flickering Grid background */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+                <FlickeringGrid
+                    className="h-full w-full"
+                    squareSize={4}
+                    gridGap={6}
+                    color="#ffffff"
+                    maxOpacity={0.15}
+                    flickerChance={0.1}
+                />
+            </div>
 
             {/* Gradient glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
@@ -53,7 +62,17 @@ export default function LoginPage() {
             <Card className="w-full max-w-md relative z-10 border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl">
                 <CardHeader className="text-center space-y-4 pb-2">
                     <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center">
-                        <Compass className="h-7 w-7 text-primary" />
+                        <div
+                            className="h-7 w-7 bg-primary"
+                            style={{
+                                maskImage: 'url(/icon.svg)',
+                                WebkitMaskImage: 'url(/icon.svg)',
+                                maskSize: 'contain',
+                                WebkitMaskSize: 'contain',
+                                maskRepeat: 'no-repeat',
+                                WebkitMaskRepeat: 'no-repeat'
+                            }}
+                        />
                     </div>
                     <div>
                         <CardTitle className="text-2xl font-bold tracking-tight">PathFind</CardTitle>

@@ -202,31 +202,45 @@ async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise
         // Clean up Reddit preview URLs which are often blocked or blurred
         // Example: https://preview.redd.it/xyz.jpg?width=640&blur=40... -> https://i.redd.it/xyz.jpg
         let targetUrl = url;
-        if (url.includes("preview.redd.it")) {
-            const match = url.match(/preview\.redd\.it\/([^?]+)/);
+        if (url.includes("preview.redd.it") || url.includes("external-preview.redd.it")) {
+            const match = url.match(/(?:preview|external-preview)\.redd\.it\/([^?]+)/);
             if (match) {
                 targetUrl = `https://i.redd.it/${match[1]}`;
             }
         }
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const fetchImage = async (imgUrl: string) => {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            try {
+                const res = await fetch(imgUrl, {
+                    signal: controller.signal,
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+                    },
+                });
+                clearTimeout(timeout);
+                return res;
+            } catch (err) {
+                clearTimeout(timeout);
+                throw err;
+            }
+        };
 
-        const response = await fetch(targetUrl, {
-            signal: controller.signal,
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Referer": "https://www.reddit.com/"
-            },
-        });
-        clearTimeout(timeout);
+        let response = await fetchImage(targetUrl).catch(() => ({ ok: false, status: 0 } as any));
+
+        if (!response.ok && targetUrl !== url) {
+            // Fall back to the original signed preview URL if the bare i.redd.it fails (usually 403/404)
+            response = await fetchImage(url).catch(() => ({ ok: false, status: 0 } as any));
+        }
 
         if (!response.ok) {
-            console.warn(`[Metadata] Failed to fetch image: ${response.status} ${targetUrl}`);
+            console.warn(`[Metadata] Failed to fetch image: ${response.status} ${url}`);
             return null;
         }
 
-        const contentType = response.headers.get('content-type');
+        const contentType = response.headers?.get('content-type');
         if (!contentType || !contentType.startsWith('image/')) {
             console.warn(`[Metadata] Invalid image content type: ${contentType} ${targetUrl}`);
             return null;

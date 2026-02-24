@@ -202,6 +202,24 @@ try {
   // Column already exists
 }
 
+try {
+  db.exec("ALTER TABLE users ADD COLUMN github_sync_enabled INTEGER DEFAULT 0");
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN reddit_sync_enabled INTEGER DEFAULT 0");
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN last_github_sync_at DATETIME");
+} catch (e) {
+  // Column already exists
+}
+
 export default db;
 
 // Helper to generate IDs

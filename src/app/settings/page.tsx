@@ -14,6 +14,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -61,12 +62,15 @@ function SettingsContent() {
     const [changingPassword, setChangingPassword] = useState(false);
     const [importing, setImporting] = useState(false);
     const [githubToken, setGithubToken] = useState("");
+    const [lastGithubSync, setLastGithubSync] = useState<string | null>(null);
     const [savingToken, setSavingToken] = useState(false);
     const [redditRssUrl, setRedditRssUrl] = useState("");
     const [lastRedditSync, setLastRedditSync] = useState<string | null>(null);
     const [savingReddit, setSavingReddit] = useState(false);
     const [syncingReddit, setSyncingReddit] = useState(false);
     const [syncingStars, setSyncingStars] = useState(false);
+    const [githubSyncEnabled, setGithubSyncEnabled] = useState(false);
+    const [redditSyncEnabled, setRedditSyncEnabled] = useState(false);
     const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "" });
     const [linkingToken, setLinkingToken] = useState<string | null>(null);
     const [isGeneratingTelegramToken, setIsGeneratingTelegramToken] = useState(false);
@@ -114,13 +118,18 @@ function SettingsContent() {
 
         fetch("/api/settings/github")
             .then(res => res.json())
-            .then(data => setGithubToken(data.token || ""));
+            .then(data => {
+                setGithubToken(data.token || "");
+                setGithubSyncEnabled(data.syncEnabled || false);
+                setLastGithubSync(data.lastSync || null);
+            });
 
         fetch("/api/settings/reddit")
             .then(res => res.json())
             .then(data => {
                 setRedditRssUrl(data.url || "");
                 setLastRedditSync(data.lastSync || null);
+                setRedditSyncEnabled(data.syncEnabled || false);
             });
 
         fetch("/api/settings/domain-colors")
@@ -237,17 +246,30 @@ function SettingsContent() {
             const res = await fetch("/api/settings/github", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: githubToken }),
+                body: JSON.stringify({ token: githubToken, syncEnabled: githubSyncEnabled }),
             });
             if (res.ok) {
-                toast.success("GitHub token saved");
+                toast.success("GitHub settings saved");
             } else {
-                toast.error("Failed to save token");
+                toast.error("Failed to save settings");
             }
         } catch {
             toast.error("Something went wrong");
         }
         setSavingToken(false);
+    };
+
+    const handleToggleGithubSync = async (enabled: boolean) => {
+        setGithubSyncEnabled(enabled);
+        try {
+            await fetch("/api/settings/github", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: githubToken, syncEnabled: enabled }),
+            });
+        } catch {
+            // Background fail
+        }
     };
 
     const handleSyncStars = async () => {
@@ -261,7 +283,7 @@ function SettingsContent() {
             const res = await fetch("/api/github/sync", { method: "POST" });
             const data = await res.json();
             if (res.ok) {
-                toast.success(`Synced ${data.count} new repositories`);
+                toast.success("Sync job started in background");
             } else {
                 toast.error(data.error || "Sync failed");
             }
@@ -277,17 +299,30 @@ function SettingsContent() {
             const res = await fetch("/api/settings/reddit", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: redditRssUrl }),
+                body: JSON.stringify({ url: redditRssUrl, syncEnabled: redditSyncEnabled }),
             });
             if (res.ok) {
-                toast.success("Reddit RSS feed saved");
+                toast.success("Reddit settings saved");
             } else {
-                toast.error("Failed to save Reddit RSS feed");
+                toast.error("Failed to save Reddit settings");
             }
         } catch {
             toast.error("Something went wrong");
         }
         setSavingReddit(false);
+    };
+
+    const handleToggleRedditSync = async (enabled: boolean) => {
+        setRedditSyncEnabled(enabled);
+        try {
+            await fetch("/api/settings/reddit", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: redditRssUrl, syncEnabled: enabled }),
+            });
+        } catch {
+            // Background fail
+        }
     };
 
     const handleSyncReddit = async () => {
@@ -587,8 +622,11 @@ function SettingsContent() {
                         <div className="space-y-6">
                             <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
                                 <div className="absolute top-0 right-0 p-4">
-                                    <div className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                        Active
+                                    <div className={cn(
+                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                        githubToken && githubSyncEnabled ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        {githubToken && githubSyncEnabled ? "Active" : "Disabled"}
                                     </div>
                                 </div>
                                 <CardHeader className="flex flex-row items-center gap-4 space-y-0">
@@ -624,6 +662,16 @@ function SettingsContent() {
                                             <ShieldCheck className="h-3 w-3" />
                                             Requires <code className="bg-muted px-1 rounded">public_repo</code> or <code className="bg-muted px-1 rounded">repo</code> scope.
                                         </p>
+                                        <div className="flex items-center justify-between pt-2">
+                                            <Label htmlFor="github-sync-toggle" className="text-xs font-normal text-muted-foreground cursor-pointer">
+                                                Enable automatic background sync (every hour)
+                                            </Label>
+                                            <Switch
+                                                id="github-sync-toggle"
+                                                checked={githubSyncEnabled}
+                                                onCheckedChange={(checked) => handleToggleGithubSync(checked)}
+                                            />
+                                        </div>
                                     </div>
 
                                     <Button
@@ -639,6 +687,16 @@ function SettingsContent() {
                                         )}
                                         Sync Starred Repositories
                                     </Button>
+                                    <div className="flex justify-between items-center px-1">
+                                        <p className="text-[10px] text-muted-foreground italic">
+                                            Syncs automatically every hour
+                                        </p>
+                                        {lastGithubSync && (
+                                            <p className="text-[10px] text-muted-foreground">
+                                                Last synced: {new Date(lastGithubSync).toLocaleString()}
+                                            </p>
+                                        )}
+                                    </div>
                                 </CardContent>
                             </Card>
 
@@ -646,9 +704,9 @@ function SettingsContent() {
                                 <div className="absolute top-0 right-0 p-4">
                                     <div className={cn(
                                         "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                        redditRssUrl ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
+                                        redditRssUrl && redditSyncEnabled ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
                                     )}>
-                                        {redditRssUrl ? "Active" : "Not Configured"}
+                                        {redditRssUrl && redditSyncEnabled ? "Active" : "Disabled"}
                                     </div>
                                 </div>
                                 <CardHeader className="flex flex-row items-center gap-4 space-y-0">
@@ -683,6 +741,16 @@ function SettingsContent() {
                                             <p className="text-[11px] text-muted-foreground leading-relaxed">
                                                 You can find your private RSS key in your <a href="https://www.reddit.com/prefs/feeds/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline font-medium">Reddit Preferences &gt; Feeds</a>. Look for the "RSS" button next to "your saved links".
                                             </p>
+                                        </div>
+                                        <div className="flex items-center justify-between py-1">
+                                            <Label htmlFor="reddit-sync-toggle" className="text-xs font-normal text-muted-foreground cursor-pointer">
+                                                Enable automatic background sync (every hour)
+                                            </Label>
+                                            <Switch
+                                                id="reddit-sync-toggle"
+                                                checked={redditSyncEnabled}
+                                                onCheckedChange={(checked) => handleToggleRedditSync(checked)}
+                                            />
                                         </div>
 
                                         <Button
