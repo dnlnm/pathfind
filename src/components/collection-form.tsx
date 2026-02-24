@@ -71,7 +71,8 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
                 onOpenChange(false);
                 onSuccess();
             } else {
-                toast.error("Failed to save collection");
+                const data = await res.json();
+                toast.error(data.error || "Failed to save collection");
             }
         } catch {
             toast.error("Something went wrong");

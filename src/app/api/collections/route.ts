@@ -41,6 +41,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Name is required" }, { status: 400 });
         }
 
+        // Check for existing collection with same name for this user
+        const existing = db.prepare("SELECT id FROM collections WHERE name = ? COLLATE NOCASE AND user_id = ?").get(name, userAuth.id);
+        if (existing) {
+            return NextResponse.json({ error: "A collection with this name already exists" }, { status: 400 });
+        }
+
         const id = generateId();
         db.prepare(`
             INSERT INTO collections (id, name, description, icon, color, user_id)

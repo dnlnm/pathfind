@@ -111,6 +111,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
   CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_name_user_id ON collections(name COLLATE NOCASE, user_id);
   CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
   CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);

@@ -494,529 +494,80 @@ function SettingsContent() {
                 </h1>
             </header>
 
-            <div className="flex flex-col md:flex-row h-[calc(100vh-57px)]">
-                {/* Settings Navigation */}
-                <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border/40 p-4 md:p-6 space-y-1">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => {
-                                setActiveTab(tab.id);
-                                router.push(`/settings?tab=${tab.id}`, { scroll: false });
-                            }}
-                            className={cn(
-                                "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer text-left",
-                                activeTab === tab.id
-                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            <tab.icon className={cn("h-4.5 w-4.5", activeTab === tab.id ? "text-primary-foreground" : "text-muted-foreground/70")} />
-                            <div className="flex flex-col">
-                                <span className="text-sm font-medium">{tab.label}</span>
-                            </div>
-                        </button>
-                    ))}
-                </aside>
+            {/* Settings Content Area */}
+            <main className="flex-1 overflow-y-auto p-4 md:p-10 h-[calc(100vh-57px)]">
+                <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-400">
 
-                {/* Settings Content Area */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-10">
-                    <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-400">
+                    {/* Page Header within Content */}
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            {tabs.find(t => t.id === activeTab)?.label}
+                        </h2>
+                        <p className="text-muted-foreground">
+                            {tabs.find(t => t.id === activeTab)?.description}
+                        </p>
+                    </div>
 
-                        {/* Page Header within Content */}
-                        <div>
-                            <h2 className="text-2xl font-bold tracking-tight">
-                                {tabs.find(t => t.id === activeTab)?.label}
-                            </h2>
-                            <p className="text-muted-foreground">
-                                {tabs.find(t => t.id === activeTab)?.description}
-                            </p>
-                        </div>
+                    <Separator className="bg-border/40" />
 
-                        <Separator className="bg-border/40" />
-
-                        {activeTab === "general" && (
-                            <div className="space-y-6">
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Appearance</CardTitle>
-                                        <CardDescription>Customize how PathFind looks and behaves for you.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="space-y-4">
-                                            <div className="flex flex-col gap-1">
-                                                <Label>Custom Domain Colors</Label>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Assign specific accent colors to domains for visual grouping.
-                                                </p>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        placeholder="example.com"
-                                                        value={newDomain}
-                                                        onChange={(e) => setNewDomain(e.target.value)}
-                                                        className="bg-background/50"
-                                                    />
-                                                    <div className="flex items-center gap-2 px-3 bg-background/50 border border-border/50 rounded-md h-10">
-                                                        <input
-                                                            type="color"
-                                                            value={newColor}
-                                                            onChange={(e) => setNewColor(e.target.value)}
-                                                            className="w-6 h-6 border-0 bg-transparent cursor-pointer"
-                                                        />
-                                                        <code className="text-[10px] font-mono uppercase truncate w-14">{newColor}</code>
-                                                    </div>
-                                                    <Button
-                                                        onClick={handleAddDomainColor}
-                                                        disabled={addingColor || !newDomain}
-                                                        className="cursor-pointer shrink-0"
-                                                    >
-                                                        <Plus className="h-4 w-4 mr-2" />
-                                                        Add
-                                                    </Button>
-                                                </div>
-
-                                                {domainColors.length > 0 && (
-                                                    <div className="grid grid-cols-1 gap-2 border border-border/20 rounded-xl p-2 bg-muted/20">
-                                                        {domainColors.map((dc) => (
-                                                            <div key={dc.domain} className="flex items-center justify-between p-2.5 rounded-lg bg-card/60 border border-border/30 hover:border-border transition-colors">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div
-                                                                        className="w-3.5 h-3.5 rounded-full border border-white/10 shadow-sm"
-                                                                        style={{ backgroundColor: dc.color }}
-                                                                    />
-                                                                    <span className="text-sm font-medium tracking-tight">{dc.domain}</span>
-                                                                </div>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleDeleteDomainColor(dc.domain)}
-                                                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-
-                        {activeTab === "integrations" && (
-                            <div className="space-y-6">
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4">
-                                        <div className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                            Active
-                                        </div>
-                                    </div>
-                                    <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-                                        <div className="w-12 h-12 rounded-2xl bg-[#24292f] flex items-center justify-center shadow-lg">
-                                            <Github className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <CardTitle>GitHub</CardTitle>
-                                            <CardDescription>Sync your starred repositories automatically.</CardDescription>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="github-token">Personal Access Token</Label>
-                                            <div className="flex gap-3">
-                                                <Input
-                                                    id="github-token"
-                                                    type="password"
-                                                    placeholder="ghp_xxxxxxxxxxxx"
-                                                    value={githubToken}
-                                                    onChange={(e) => setGithubToken(e.target.value)}
-                                                    className="bg-background/50 h-10"
-                                                />
-                                                <Button
-                                                    onClick={handleSaveGithubToken}
-                                                    disabled={savingToken}
-                                                    className="cursor-pointer px-6"
-                                                >
-                                                    {savingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                                                </Button>
-                                            </div>
-                                            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                                                <ShieldCheck className="h-3 w-3" />
-                                                Requires <code className="bg-muted px-1 rounded">public_repo</code> or <code className="bg-muted px-1 rounded">repo</code> scope.
+                    {activeTab === "general" && (
+                        <div className="space-y-6">
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Appearance</CardTitle>
+                                    <CardDescription>Customize how PathFind looks and behaves for you.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="flex flex-col gap-1">
+                                            <Label>Custom Domain Colors</Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                Assign specific accent colors to domains for visual grouping.
                                             </p>
                                         </div>
 
-                                        <Button
-                                            variant="secondary"
-                                            className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
-                                            onClick={handleSyncStars}
-                                            disabled={syncingStars || !githubToken}
-                                        >
-                                            {syncingStars ? (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <RefreshCw className="h-4 w-4" />
-                                            )}
-                                            Sync Starred Repositories
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4">
-                                        <div className={cn(
-                                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                            redditRssUrl ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
-                                        )}>
-                                            {redditRssUrl ? "Active" : "Not Configured"}
-                                        </div>
-                                    </div>
-                                    <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-                                        <div className="w-12 h-12 rounded-2xl bg-[#ff4500] flex items-center justify-center shadow-lg">
-                                            <Rss className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <CardTitle>Reddit</CardTitle>
-                                            <CardDescription>Sync your saved posts via private RSS feed.</CardDescription>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="reddit-rss">Private RSS Feed URL</Label>
-                                            <div className="flex gap-3">
+                                        <div className="space-y-4">
+                                            <div className="flex gap-2">
                                                 <Input
-                                                    id="reddit-rss"
-                                                    placeholder="https://www.reddit.com/user/me/saved/.rss?feed=xxx&user=xxx"
-                                                    value={redditRssUrl}
-                                                    onChange={(e) => setRedditRssUrl(e.target.value)}
-                                                    className="bg-background/50 h-10"
-                                                />
-                                                <Button
-                                                    onClick={handleSaveRedditRss}
-                                                    disabled={savingReddit}
-                                                    className="cursor-pointer px-6"
-                                                >
-                                                    {savingReddit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                                                </Button>
-                                            </div>
-                                            <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 space-y-2">
-                                                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                                    You can find your private RSS key in your <a href="https://www.reddit.com/prefs/feeds/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline font-medium">Reddit Preferences &gt; Feeds</a>. Look for the "RSS" button next to "your saved links".
-                                                </p>
-                                            </div>
-
-                                            <Button
-                                                variant="secondary"
-                                                className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
-                                                onClick={handleSyncReddit}
-                                                disabled={syncingReddit || !redditRssUrl}
-                                            >
-                                                {syncingReddit ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <RefreshCw className="h-4 w-4" />
-                                                )}
-                                                Sync Saved Posts
-                                            </Button>
-                                            <div className="flex justify-between items-center px-1">
-                                                <p className="text-[10px] text-muted-foreground italic">
-                                                    Syncs automatically every hour
-                                                </p>
-                                                {lastRedditSync && (
-                                                    <p className="text-[10px] text-muted-foreground">
-                                                        Last synced: {new Date(lastRedditSync).toLocaleString()}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4">
-                                        <div className={cn(
-                                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                            telegramStatus.isLinked ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
-                                        )}>
-                                            {telegramStatus.isLinked ? "Linked" : "Not Linked"}
-                                        </div>
-                                    </div>
-                                    <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-                                        <div className="w-12 h-12 rounded-2xl bg-[#0088cc] flex items-center justify-center shadow-lg">
-                                            <Send className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <CardTitle>Telegram Bot</CardTitle>
-                                            <CardDescription>Save bookmarks by sending links to our bot.</CardDescription>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        {telegramStatus.isLinked ? (
-                                            <div className="space-y-4">
-                                                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                        <span className="text-sm font-medium">Your Telegram account is connected</span>
-                                                    </div>
-                                                    <Button variant="ghost" size="sm" onClick={handleUnlinkTelegram} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                                                        Unlink
-                                                    </Button>
-                                                </div>
-                                                <div className="text-[11px] text-muted-foreground">
-                                                    Open <a href={`https://t.me/${telegramStatus.botUsername}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a> and send any link to save it.
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <p className="text-sm text-muted-foreground">
-                                                    To link your account, click the button below to generate a linking token and then send it to the bot.
-                                                </p>
-
-                                                {linkingToken ? (
-                                                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3">
-                                                        <div className="text-xs font-bold text-primary uppercase tracking-wider">How to link:</div>
-                                                        <ol className="text-xs space-y-2 list-decimal list-inside text-muted-foreground">
-                                                            <li>Open <a href={`https://t.me/${telegramStatus.botUsername}?start=${linkingToken}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a></li>
-                                                            <li>Click "Start" or send the message <code>/start {linkingToken}</code></li>
-                                                        </ol>
-                                                        <div className="flex gap-2 pt-2">
-                                                            <Input readOnly value={`/start ${linkingToken}`} className="font-mono text-xs bg-background/50" />
-                                                            <Button size="icon" variant="outline" className="shrink-0" onClick={() => copyToClipboard(`/start ${linkingToken}`)}>
-                                                                {copiedToken === `/start ${linkingToken}` ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <Button
-                                                        onClick={handleGenerateTelegramToken}
-                                                        disabled={isGeneratingTelegramToken}
-                                                        className="w-full gap-2"
-                                                    >
-                                                        {isGeneratingTelegramToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                                        Generate Linking Token
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
-                                {/* Placeholder for future integrations */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {[
-                                        { name: "Browser Extension", icon: Share2, desc: "Sync directly from your browser" },
-                                        { name: "Readwise", icon: Share2, desc: "Import your highlights and notes" },
-                                    ].map((item) => (
-                                        <Card key={item.name} className="border-border/40 bg-card/20 opacity-60 grayscale cursor-not-allowed">
-                                            <CardContent className="p-4 flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-                                                    <item.icon className="h-5 w-5 text-muted-foreground" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-sm font-semibold">{item.name}</h4>
-                                                    <p className="text-[11px] text-muted-foreground">Coming Soon</p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === "security" && (
-                            <div className="space-y-6">
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                                <Mail className="h-4 w-4 text-blue-500" />
-                                            </div>
-                                            <CardTitle className="text-lg">Email Address</CardTitle>
-                                        </div>
-                                        <CardDescription>Update the email associated with your account.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="email">Email address</Label>
-                                            <div className="flex gap-3">
-                                                <Input
-                                                    id="email"
-                                                    type="email"
-                                                    placeholder="you@example.com"
-                                                    value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    className="bg-background/50 h-10"
-                                                />
-                                                <Button
-                                                    onClick={handleSaveEmail}
-                                                    disabled={savingEmail}
-                                                    className="cursor-pointer px-6"
-                                                >
-                                                    {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <Separator className="bg-border/20" />
-
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                                                <Lock className="h-4 w-4 text-orange-500" />
-                                            </div>
-                                            <CardTitle className="text-lg">Change Password</CardTitle>
-                                        </div>
-                                        <CardDescription>Ensure your account is using a strong, unique password.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <form onSubmit={handlePasswordChange} className="space-y-5">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="current-password">Current Password</Label>
-                                                <Input
-                                                    id="current-password"
-                                                    type="password"
-                                                    value={currentPassword}
-                                                    onChange={(e) => setCurrentPassword(e.target.value)}
-                                                    required
+                                                    placeholder="example.com"
+                                                    value={newDomain}
+                                                    onChange={(e) => setNewDomain(e.target.value)}
                                                     className="bg-background/50"
                                                 />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="new-password">New Password</Label>
-                                                <Input
-                                                    id="new-password"
-                                                    type="password"
-                                                    value={newPassword}
-                                                    onChange={(e) => setNewPassword(e.target.value)}
-                                                    required
-                                                    className="bg-background/50"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                                                <Input
-                                                    id="confirm-password"
-                                                    type="password"
-                                                    value={confirmPassword}
-                                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                                    required
-                                                    className="bg-background/50"
-                                                />
-                                            </div>
-                                            <Button type="submit" disabled={changingPassword} className="w-full sm:w-auto px-10 cursor-pointer">
-                                                {changingPassword ? (
-                                                    <span className="flex items-center gap-2">
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                        Updating…
-                                                    </span>
-                                                ) : (
-                                                    "Update Password"
-                                                )}
-                                            </Button>
-                                        </form>
-                                    </CardContent>
-                                </Card>
-
-                                <Separator className="bg-border/20" />
-
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                                                <Key className="h-4 w-4 text-emerald-500" />
-                                            </div>
-                                            <CardTitle className="text-lg">API Tokens</CardTitle>
-                                        </div>
-                                        <CardDescription>Generate tokens for programmatic access to your bookmarks.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="space-y-3">
-                                            <Label htmlFor="token-name">New Token Name</Label>
-                                            <div className="flex gap-3">
-                                                <Input
-                                                    id="token-name"
-                                                    placeholder="e.g. Mobile App, GitHub Action"
-                                                    value={newTokenName}
-                                                    onChange={(e) => setNewTokenName(e.target.value)}
-                                                    className="bg-background/50 h-10"
-                                                />
-                                                <Button
-                                                    onClick={handleCreateToken}
-                                                    disabled={isCreatingToken || !newTokenName}
-                                                    className="cursor-pointer px-6"
-                                                >
-                                                    {isCreatingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {newlyCreatedToken && (
-                                            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-3 animate-in zoom-in-95 duration-300">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Token Created</span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-7 text-[10px] hover:bg-emerald-500/20"
-                                                        onClick={() => setNewlyCreatedToken(null)}
-                                                    >
-                                                        Dismiss
-                                                    </Button>
-                                                </div>
-                                                <p className="text-[11px] text-emerald-400/80">
-                                                    Make sure to copy your personal access token now. You won't be able to see it again!
-                                                </p>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        readOnly
-                                                        value={newlyCreatedToken}
-                                                        className="font-mono text-xs bg-black/20 border-emerald-500/30"
+                                                <div className="flex items-center gap-2 px-3 bg-background/50 border border-border/50 rounded-md h-10">
+                                                    <input
+                                                        type="color"
+                                                        value={newColor}
+                                                        onChange={(e) => setNewColor(e.target.value)}
+                                                        className="w-6 h-6 border-0 bg-transparent cursor-pointer"
                                                     />
-                                                    <Button
-                                                        size="icon"
-                                                        variant="outline"
-                                                        className="shrink-0 border-emerald-500/30 hover:bg-emerald-500/20"
-                                                        onClick={() => copyToClipboard(newlyCreatedToken)}
-                                                    >
-                                                        {copiedToken === newlyCreatedToken ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                                                    </Button>
+                                                    <code className="text-[10px] font-mono uppercase truncate w-14">{newColor}</code>
                                                 </div>
+                                                <Button
+                                                    onClick={handleAddDomainColor}
+                                                    disabled={addingColor || !newDomain}
+                                                    className="cursor-pointer shrink-0"
+                                                >
+                                                    <Plus className="h-4 w-4 mr-2" />
+                                                    Add
+                                                </Button>
                                             </div>
-                                        )}
 
-                                        <Separator className="bg-border/20" />
-
-                                        <div className="space-y-3">
-                                            <h4 className="text-sm font-medium">Active Tokens</h4>
-                                            {apiTokens.length === 0 ? (
-                                                <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border/40 rounded-xl">
-                                                    No active tokens found.
-                                                </p>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    {apiTokens.map((token) => (
-                                                        <div key={token.id} className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
-                                                            <div className="space-y-1">
-                                                                <div className="text-sm font-medium">{token.name}</div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{token.masked_token || 'pf_****...****'}</code>
-                                                                    <span className="text-[10px] text-muted-foreground">
-                                                                        Last used: {token.last_used_at ? new Date(token.last_used_at).toLocaleDateString() : 'Never'}
-                                                                    </span>
-                                                                </div>
+                                            {domainColors.length > 0 && (
+                                                <div className="grid grid-cols-1 gap-2 border border-border/20 rounded-xl p-2 bg-muted/20">
+                                                    {domainColors.map((dc) => (
+                                                        <div key={dc.domain} className="flex items-center justify-between p-2.5 rounded-lg bg-card/60 border border-border/30 hover:border-border transition-colors">
+                                                            <div className="flex items-center gap-3">
+                                                                <div
+                                                                    className="w-3.5 h-3.5 rounded-full border border-white/10 shadow-sm"
+                                                                    style={{ backgroundColor: dc.color }}
+                                                                />
+                                                                <span className="text-sm font-medium tracking-tight">{dc.domain}</span>
                                                             </div>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => handleDeleteToken(token.id)}
+                                                                onClick={() => handleDeleteDomainColor(dc.domain)}
                                                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
@@ -1026,182 +577,605 @@ function SettingsContent() {
                                                 </div>
                                             )}
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
 
-                        {activeTab === "data" && (
-                            <div className="space-y-6">
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Portability</CardTitle>
-                                        <CardDescription>
-                                            Move your data in and out of PathFind using standard formats.
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="space-y-3 p-4 rounded-2xl border border-border/30 bg-muted/30">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                                        <Upload className="h-4 w-4" />
-                                                    </div>
-                                                    <span className="font-semibold text-sm">Import</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Upload a Netscape HTML bookmark file (from Chrome, Safari, etc).
+                    {activeTab === "integrations" && (
+                        <div className="space-y-6">
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4">
+                                    <div className="bg-blue-500/10 text-blue-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        Active
+                                    </div>
+                                </div>
+                                <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#24292f] flex items-center justify-center shadow-lg">
+                                        <Github className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <CardTitle>GitHub</CardTitle>
+                                        <CardDescription>Sync your starred repositories automatically.</CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-3">
+                                        <Label htmlFor="github-token">Personal Access Token</Label>
+                                        <div className="flex gap-3">
+                                            <Input
+                                                id="github-token"
+                                                type="password"
+                                                placeholder="ghp_xxxxxxxxxxxx"
+                                                value={githubToken}
+                                                onChange={(e) => setGithubToken(e.target.value)}
+                                                className="bg-background/50 h-10"
+                                            />
+                                            <Button
+                                                onClick={handleSaveGithubToken}
+                                                disabled={savingToken}
+                                                className="cursor-pointer px-6"
+                                            >
+                                                {savingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                            </Button>
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                                            <ShieldCheck className="h-3 w-3" />
+                                            Requires <code className="bg-muted px-1 rounded">public_repo</code> or <code className="bg-muted px-1 rounded">repo</code> scope.
+                                        </p>
+                                    </div>
+
+                                    <Button
+                                        variant="secondary"
+                                        className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
+                                        onClick={handleSyncStars}
+                                        disabled={syncingStars || !githubToken}
+                                    >
+                                        {syncingStars ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <RefreshCw className="h-4 w-4" />
+                                        )}
+                                        Sync Starred Repositories
+                                    </Button>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4">
+                                    <div className={cn(
+                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                        redditRssUrl ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        {redditRssUrl ? "Active" : "Not Configured"}
+                                    </div>
+                                </div>
+                                <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#ff4500] flex items-center justify-center shadow-lg">
+                                        <Rss className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <CardTitle>Reddit</CardTitle>
+                                        <CardDescription>Sync your saved posts via private RSS feed.</CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-3">
+                                        <Label htmlFor="reddit-rss">Private RSS Feed URL</Label>
+                                        <div className="flex gap-3">
+                                            <Input
+                                                id="reddit-rss"
+                                                placeholder="https://www.reddit.com/user/me/saved/.rss?feed=xxx&user=xxx"
+                                                value={redditRssUrl}
+                                                onChange={(e) => setRedditRssUrl(e.target.value)}
+                                                className="bg-background/50 h-10"
+                                            />
+                                            <Button
+                                                onClick={handleSaveRedditRss}
+                                                disabled={savingReddit}
+                                                className="cursor-pointer px-6"
+                                            >
+                                                {savingReddit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                            </Button>
+                                        </div>
+                                        <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 space-y-2">
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                You can find your private RSS key in your <a href="https://www.reddit.com/prefs/feeds/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline font-medium">Reddit Preferences &gt; Feeds</a>. Look for the "RSS" button next to "your saved links".
+                                            </p>
+                                        </div>
+
+                                        <Button
+                                            variant="secondary"
+                                            className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
+                                            onClick={handleSyncReddit}
+                                            disabled={syncingReddit || !redditRssUrl}
+                                        >
+                                            {syncingReddit ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <RefreshCw className="h-4 w-4" />
+                                            )}
+                                            Sync Saved Posts
+                                        </Button>
+                                        <div className="flex justify-between items-center px-1">
+                                            <p className="text-[10px] text-muted-foreground italic">
+                                                Syncs automatically every hour
+                                            </p>
+                                            {lastRedditSync && (
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    Last synced: {new Date(lastRedditSync).toLocaleString()}
                                                 </p>
-                                                <div className="relative">
-                                                    <input
-                                                        type="file"
-                                                        accept=".html,.htm"
-                                                        onChange={handleImport}
-                                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                                        id="import-file"
-                                                    />
-                                                    <Button variant="outline" asChild className="w-full gap-2 cursor-pointer bg-background/50">
-                                                        <label htmlFor="import-file">
-                                                            {importing ? (
-                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                            ) : (
-                                                                <Upload className="h-4 w-4" />
-                                                            )}
-                                                            Choose File
-                                                        </label>
-                                                    </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4">
+                                    <div className={cn(
+                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                        telegramStatus.isLinked ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        {telegramStatus.isLinked ? "Linked" : "Not Linked"}
+                                    </div>
+                                </div>
+                                <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                                    <div className="w-12 h-12 rounded-2xl bg-[#0088cc] flex items-center justify-center shadow-lg">
+                                        <Send className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <CardTitle>Telegram Bot</CardTitle>
+                                        <CardDescription>Save bookmarks by sending links to our bot.</CardDescription>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    {telegramStatus.isLinked ? (
+                                        <div className="space-y-4">
+                                            <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                    <span className="text-sm font-medium">Your Telegram account is connected</span>
                                                 </div>
+                                                <Button variant="ghost" size="sm" onClick={handleUnlinkTelegram} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                                    Unlink
+                                                </Button>
                                             </div>
+                                            <div className="text-[11px] text-muted-foreground">
+                                                Open <a href={`https://t.me/${telegramStatus.botUsername}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a> and send any link to save it.
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <p className="text-sm text-muted-foreground">
+                                                To link your account, click the button below to generate a linking token and then send it to the bot.
+                                            </p>
 
-                                            <div className="space-y-3 p-4 rounded-2xl border border-border/30 bg-muted/30">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                                        <Download className="h-4 w-4" />
+                                            {linkingToken ? (
+                                                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3">
+                                                    <div className="text-xs font-bold text-primary uppercase tracking-wider">How to link:</div>
+                                                    <ol className="text-xs space-y-2 list-decimal list-inside text-muted-foreground">
+                                                        <li>Open <a href={`https://t.me/${telegramStatus.botUsername}?start=${linkingToken}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a></li>
+                                                        <li>Click "Start" or send the message <code>/start {linkingToken}</code></li>
+                                                    </ol>
+                                                    <div className="flex gap-2 pt-2">
+                                                        <Input readOnly value={`/start ${linkingToken}`} className="font-mono text-xs bg-background/50" />
+                                                        <Button size="icon" variant="outline" className="shrink-0" onClick={() => copyToClipboard(`/start ${linkingToken}`)}>
+                                                            {copiedToken === `/start ${linkingToken}` ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                                        </Button>
                                                     </div>
-                                                    <span className="font-semibold text-sm">Export</span>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Download all your PathFind bookmarks as a standard HTML file.
-                                                </p>
-                                                <Button variant="outline" onClick={handleExport} className="w-full gap-2 cursor-pointer bg-background/50">
-                                                    <Download className="h-4 w-4" />
-                                                    Export All
+                                            ) : (
+                                                <Button
+                                                    onClick={handleGenerateTelegramToken}
+                                                    disabled={isGeneratingTelegramToken}
+                                                    className="w-full gap-2"
+                                                >
+                                                    {isGeneratingTelegramToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                                    Generate Linking Token
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Placeholder for future integrations */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {[
+                                    { name: "Browser Extension", icon: Share2, desc: "Sync directly from your browser" },
+                                    { name: "Readwise", icon: Share2, desc: "Import your highlights and notes" },
+                                ].map((item) => (
+                                    <Card key={item.name} className="border-border/40 bg-card/20 opacity-60 grayscale cursor-not-allowed">
+                                        <CardContent className="p-4 flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                                                <item.icon className="h-5 w-5 text-muted-foreground" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-semibold">{item.name}</h4>
+                                                <p className="text-[11px] text-muted-foreground">Coming Soon</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "security" && (
+                        <div className="space-y-6">
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                            <Mail className="h-4 w-4 text-blue-500" />
+                                        </div>
+                                        <CardTitle className="text-lg">Email Address</CardTitle>
+                                    </div>
+                                    <CardDescription>Update the email associated with your account.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email">Email address</Label>
+                                        <div className="flex gap-3">
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                placeholder="you@example.com"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                className="bg-background/50 h-10"
+                                            />
+                                            <Button
+                                                onClick={handleSaveEmail}
+                                                disabled={savingEmail}
+                                                className="cursor-pointer px-6"
+                                            >
+                                                {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Separator className="bg-border/20" />
+
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                                            <Lock className="h-4 w-4 text-orange-500" />
+                                        </div>
+                                        <CardTitle className="text-lg">Change Password</CardTitle>
+                                    </div>
+                                    <CardDescription>Ensure your account is using a strong, unique password.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <form onSubmit={handlePasswordChange} className="space-y-5">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="current-password">Current Password</Label>
+                                            <Input
+                                                id="current-password"
+                                                type="password"
+                                                value={currentPassword}
+                                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                                required
+                                                className="bg-background/50"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="new-password">New Password</Label>
+                                            <Input
+                                                id="new-password"
+                                                type="password"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                required
+                                                className="bg-background/50"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="confirm-password">Confirm New Password</Label>
+                                            <Input
+                                                id="confirm-password"
+                                                type="password"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                                required
+                                                className="bg-background/50"
+                                            />
+                                        </div>
+                                        <Button type="submit" disabled={changingPassword} className="w-full sm:w-auto px-10 cursor-pointer">
+                                            {changingPassword ? (
+                                                <span className="flex items-center gap-2">
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    Updating…
+                                                </span>
+                                            ) : (
+                                                "Update Password"
+                                            )}
+                                        </Button>
+                                    </form>
+                                </CardContent>
+                            </Card>
+
+                            <Separator className="bg-border/20" />
+
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                                            <Key className="h-4 w-4 text-emerald-500" />
+                                        </div>
+                                        <CardTitle className="text-lg">API Tokens</CardTitle>
+                                    </div>
+                                    <CardDescription>Generate tokens for programmatic access to your bookmarks.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="space-y-3">
+                                        <Label htmlFor="token-name">New Token Name</Label>
+                                        <div className="flex gap-3">
+                                            <Input
+                                                id="token-name"
+                                                placeholder="e.g. Mobile App, GitHub Action"
+                                                value={newTokenName}
+                                                onChange={(e) => setNewTokenName(e.target.value)}
+                                                className="bg-background/50 h-10"
+                                            />
+                                            <Button
+                                                onClick={handleCreateToken}
+                                                disabled={isCreatingToken || !newTokenName}
+                                                className="cursor-pointer px-6"
+                                            >
+                                                {isCreatingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {newlyCreatedToken && (
+                                        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-3 animate-in zoom-in-95 duration-300">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Token Created</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 text-[10px] hover:bg-emerald-500/20"
+                                                    onClick={() => setNewlyCreatedToken(null)}
+                                                >
+                                                    Dismiss
+                                                </Button>
+                                            </div>
+                                            <p className="text-[11px] text-emerald-400/80">
+                                                Make sure to copy your personal access token now. You won't be able to see it again!
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    readOnly
+                                                    value={newlyCreatedToken}
+                                                    className="font-mono text-xs bg-black/20 border-emerald-500/30"
+                                                />
+                                                <Button
+                                                    size="icon"
+                                                    variant="outline"
+                                                    className="shrink-0 border-emerald-500/30 hover:bg-emerald-500/20"
+                                                    onClick={() => copyToClipboard(newlyCreatedToken)}
+                                                >
+                                                    {copiedToken === newlyCreatedToken ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                                                 </Button>
                                             </div>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
+                                    )}
 
-                        {activeTab === "tasks" && (
-                            <div className="space-y-6">
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                                        <div>
-                                            <CardTitle className="text-lg">Job Statistics</CardTitle>
-                                            <CardDescription>Overall progress of your background operations.</CardDescription>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleRetryFailed}
-                                                disabled={isRetrying || !taskStats?.failed}
-                                                className="h-8 text-[11px] gap-1.5 cursor-pointer"
-                                            >
-                                                <RefreshCw className={cn("h-3 w-3", isRetrying && "animate-spin")} />
-                                                Retry Failed
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleClearTasks('clear_completed')}
-                                                disabled={isClearing || !taskStats?.completed}
-                                                className="h-8 text-[11px] gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
-                                            >
-                                                <Trash2 className="h-3 w-3" />
-                                                Clear Done
-                                            </Button>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                            {[
-                                                { label: "Pending", value: taskStats?.pending || 0, color: "text-muted-foreground", bg: "bg-muted/10" },
-                                                { label: "Processing", value: taskStats?.processing || 0, color: "text-primary", bg: "bg-primary/10" },
-                                                { label: "Completed", value: taskStats?.completed || 0, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-                                                { label: "Failed", value: taskStats?.failed || 0, color: "text-destructive", bg: "bg-destructive/10" },
-                                            ].map((stat) => (
-                                                <div key={stat.label} className={cn("p-3 rounded-2xl border border-border/20", stat.bg)}>
-                                                    <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">{stat.label}</p>
-                                                    <p className={cn("text-2xl font-bold mt-0.5", stat.color)}>{stat.value}</p>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    <Separator className="bg-border/20" />
 
-                                        {taskStats?.processing + taskStats?.pending > 0 && (
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-medium">Active Tokens</h4>
+                                        {apiTokens.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border/40 rounded-xl">
+                                                No active tokens found.
+                                            </p>
+                                        ) : (
                                             <div className="space-y-2">
-                                                <div className="flex items-center justify-between text-xs mb-1">
-                                                    <span className="text-muted-foreground font-medium flex items-center gap-2">
-                                                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                                                        Currently Processing
-                                                    </span>
-                                                    <span className="text-muted-foreground font-mono">
-                                                        {Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100)}%
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-primary transition-all duration-700"
-                                                        style={{ width: `${(taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">Processing Queue</CardTitle>
-                                        <CardDescription>The last few active or pending jobs.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {taskStats?.activeJobs && taskStats.activeJobs.length > 0 ? (
-                                            <div className="space-y-2">
-                                                {taskStats.activeJobs.map((job: any) => (
-                                                    <div key={job.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-border/20">
-                                                        <div className="flex items-center gap-3 min-w-0">
-                                                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                                                                <RefreshCw className="h-4 w-4 text-primary animate-spin" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="text-sm font-medium truncate">
-                                                                    {job.title || job.url || "New Link"}
-                                                                </p>
-                                                                <p className="text-[10px] text-muted-foreground truncate">{job.url}</p>
+                                                {apiTokens.map((token) => (
+                                                    <div key={token.id} className="flex items-center justify-between p-3 rounded-xl bg-card/60 border border-border/30">
+                                                        <div className="space-y-1">
+                                                            <div className="text-sm font-medium">{token.name}</div>
+                                                            <div className="flex items-center gap-2">
+                                                                <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{token.masked_token || 'pf_****...****'}</code>
+                                                                <span className="text-[10px] text-muted-foreground">
+                                                                    Last used: {token.last_used_at ? new Date(token.last_used_at).toLocaleDateString() : 'Never'}
+                                                                </span>
                                                             </div>
                                                         </div>
-                                                        <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 capitalize">
-                                                            {job.type.replace('_', ' ')}
-                                                        </Badge>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDeleteToken(token.id)}
+                                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
                                                     </div>
                                                 ))}
                                             </div>
-                                        ) : (
-                                            <div className="py-8 text-center border border-dashed border-border/40 rounded-2xl bg-muted/5">
-                                                <Database className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                                                <p className="text-sm text-muted-foreground">No active jobs in the queue.</p>
-                                            </div>
                                         )}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
-                    </div>
-                </main>
-            </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
+                    {activeTab === "data" && (
+                        <div className="space-y-6">
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Portability</CardTitle>
+                                    <CardDescription>
+                                        Move your data in and out of PathFind using standard formats.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-3 p-4 rounded-2xl border border-border/30 bg-muted/30">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                                    <Upload className="h-4 w-4" />
+                                                </div>
+                                                <span className="font-semibold text-sm">Import</span>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Upload a Netscape HTML bookmark file (from Chrome, Safari, etc).
+                                            </p>
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept=".html,.htm"
+                                                    onChange={handleImport}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                                    id="import-file"
+                                                />
+                                                <Button variant="outline" asChild className="w-full gap-2 cursor-pointer bg-background/50">
+                                                    <label htmlFor="import-file">
+                                                        {importing ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Upload className="h-4 w-4" />
+                                                        )}
+                                                        Choose File
+                                                    </label>
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 p-4 rounded-2xl border border-border/30 bg-muted/30">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                                    <Download className="h-4 w-4" />
+                                                </div>
+                                                <span className="font-semibold text-sm">Export</span>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Download all your PathFind bookmarks as a standard HTML file.
+                                            </p>
+                                            <Button variant="outline" onClick={handleExport} className="w-full gap-2 cursor-pointer bg-background/50">
+                                                <Download className="h-4 w-4" />
+                                                Export All
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
+                    {activeTab === "tasks" && (
+                        <div className="space-y-6">
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                                    <div>
+                                        <CardTitle className="text-lg">Job Statistics</CardTitle>
+                                        <CardDescription>Overall progress of your background operations.</CardDescription>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRetryFailed}
+                                            disabled={isRetrying || !taskStats?.failed}
+                                            className="h-8 text-[11px] gap-1.5 cursor-pointer"
+                                        >
+                                            <RefreshCw className={cn("h-3 w-3", isRetrying && "animate-spin")} />
+                                            Retry Failed
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleClearTasks('clear_completed')}
+                                            disabled={isClearing || !taskStats?.completed}
+                                            className="h-8 text-[11px] gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                            Clear Done
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        {[
+                                            { label: "Pending", value: taskStats?.pending || 0, color: "text-muted-foreground", bg: "bg-muted/10" },
+                                            { label: "Processing", value: taskStats?.processing || 0, color: "text-primary", bg: "bg-primary/10" },
+                                            { label: "Completed", value: taskStats?.completed || 0, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                                            { label: "Failed", value: taskStats?.failed || 0, color: "text-destructive", bg: "bg-destructive/10" },
+                                        ].map((stat) => (
+                                            <div key={stat.label} className={cn("p-3 rounded-2xl border border-border/20", stat.bg)}>
+                                                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80">{stat.label}</p>
+                                                <p className={cn("text-2xl font-bold mt-0.5", stat.color)}>{stat.value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {taskStats?.processing + taskStats?.pending > 0 && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs mb-1">
+                                                <span className="text-muted-foreground font-medium flex items-center gap-2">
+                                                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                    Currently Processing
+                                                </span>
+                                                <span className="text-muted-foreground font-mono">
+                                                    {Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-primary transition-all duration-700"
+                                                    style={{ width: `${(taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Processing Queue</CardTitle>
+                                    <CardDescription>The last few active or pending jobs.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {taskStats?.activeJobs && taskStats.activeJobs.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {taskStats.activeJobs.map((job: any) => (
+                                                <div key={job.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-border/20">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                                            <RefreshCw className="h-4 w-4 text-primary animate-spin" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium truncate">
+                                                                {job.title || job.url || "New Link"}
+                                                            </p>
+                                                            <p className="text-[10px] text-muted-foreground truncate">{job.url}</p>
+                                                        </div>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 capitalize">
+                                                        {job.type.replace('_', ' ')}
+                                                    </Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="py-8 text-center border border-dashed border-border/40 rounded-2xl bg-muted/5">
+                                            <Database className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                                            <p className="text-sm text-muted-foreground">No active jobs in the queue.</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                </div>
+            </main>
         </AppLayout>
     );
 }

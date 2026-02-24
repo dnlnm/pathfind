@@ -198,6 +198,28 @@ export async function POST(request: NextRequest) {
         }
     }
 
+    // Reddit specific logic
+    const redditMatch = url.match(/reddit\.com\/r\/([a-zA-Z0-9_]+)/i);
+    if (redditMatch) {
+        const subreddit = `r/${redditMatch[1]}`.toLowerCase();
+
+        // Ensure "Reddit" collection
+        let redditCollectionId;
+        const existingCollection = db.prepare("SELECT id FROM collections WHERE name = ? COLLATE NOCASE AND user_id = ?").get("Reddit", userAuth.id) as { id: string } | undefined;
+        if (existingCollection) {
+            redditCollectionId = existingCollection.id;
+        } else {
+            redditCollectionId = generateId();
+            db.prepare("INSERT INTO collections (id, name, user_id) VALUES (?, ?, ?)").run(redditCollectionId, "Reddit", userAuth.id);
+        }
+        db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)").run(id, redditCollectionId);
+
+        // Ensure subreddit tag
+        db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)").run(generateId(), subreddit);
+        const subTagRow = db.prepare("SELECT id FROM tags WHERE name = ?").get(subreddit) as { id: string };
+        db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)").run(id, subTagRow.id);
+    }
+
     const created = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;
     return NextResponse.json({ ...toBookmarkWithTags(created), isUpdate }, { status: isUpdate ? 200 : 201 });
 }

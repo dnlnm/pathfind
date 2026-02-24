@@ -1,6 +1,6 @@
 "use client";
 
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 
 interface AppLayoutProps {
@@ -11,15 +11,15 @@ interface AppLayoutProps {
 
 export function AppLayout({
     children,
-    bookmarkCounts = { all: 0, readLater: 0, archived: 0 },
+    bookmarkCounts,
     refreshTrigger,
 }: AppLayoutProps) {
     return (
-        <SidebarProvider>
+        <>
             <AppSidebar bookmarkCounts={bookmarkCounts} refreshTrigger={refreshTrigger} />
             <SidebarInset>
                 {children}
             </SidebarInset>
-        </SidebarProvider>
+        </>
     );
 }

@@ -216,10 +216,24 @@ async function handleRedditRssSync(job: any, payload: any) {
 
     if (items.length === 0) return;
 
+    // Ensure "Reddit" collection
+    let redditCollectionId;
+    const existingCollection = db.prepare("SELECT id FROM collections WHERE name = ? COLLATE NOCASE AND user_id = ?").get("Reddit", userId) as { id: string } | undefined;
+    if (existingCollection) {
+        redditCollectionId = existingCollection.id;
+    } else {
+        redditCollectionId = generateId();
+        db.prepare("INSERT INTO collections (id, name, user_id) VALUES (?, ?, ?)").run(redditCollectionId, "Reddit", userId);
+    }
+    const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
+
     // Ensure "reddit" tag exists
     const redditTagId = generateId();
     db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)").run(redditTagId, "reddit");
     const tagRow = db.prepare("SELECT id FROM tags WHERE name = ?").get("reddit") as { id: string };
+
+    const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
+    const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
 
     const insertBookmark = db.prepare(`
         INSERT INTO bookmarks (id, url, title, description, user_id)
@@ -248,6 +262,15 @@ async function handleRedditRssSync(job: any, payload: any) {
             );
 
             linkTag.run(bmId, tagRow.id);
+            linkCollection.run(bmId, redditCollectionId);
+
+            const redditMatch = item.link.match(/reddit\.com\/r\/([a-zA-Z0-9_]+)/i);
+            if (redditMatch) {
+                const subreddit = `r/${redditMatch[1]}`.toLowerCase();
+                insertTag.run(generateId(), subreddit);
+                const subTagRow = getTag.get(subreddit) as { id: string };
+                linkTag.run(bmId, subTagRow.id);
+            }
 
             // Queue a metadata fetch job
             const metadataJobId = generateId();

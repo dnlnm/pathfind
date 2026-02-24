@@ -171,6 +171,7 @@ function BookmarkPageContent() {
 
   const handleRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
+    window.dispatchEvent(new CustomEvent("refresh-sidebar"));
   };
 
   const handleEdit = (bookmark: BookmarkWithTags) => {

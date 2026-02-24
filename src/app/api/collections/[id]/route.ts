@@ -42,6 +42,13 @@ export async function PATCH(
             return NextResponse.json({ error: "Collection not found" }, { status: 404 });
         }
 
+        if (name) {
+            const existing = db.prepare("SELECT id FROM collections WHERE name = ? COLLATE NOCASE AND user_id = ? AND id != ?").get(name, userAuth.id, id);
+            if (existing) {
+                return NextResponse.json({ error: "A collection with this name already exists" }, { status: 400 });
+            }
+        }
+
         db.prepare(`
             UPDATE collections 
             SET name = COALESCE(?, name), 

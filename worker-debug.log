@@ -85,3 +85,50 @@
 [2026-02-23T21:54:15.464Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-23T22:11:39.852Z] [Worker] Background worker started
 [2026-02-23T22:11:39.854Z] [Worker] Scheduler loop started
+[2026-02-23T22:46:15.227Z] [Worker] Background worker started
+[2026-02-23T22:46:15.229Z] [Worker] Scheduler loop started
+[2026-02-23T22:53:28.272Z] [Worker] Background worker started
+[2026-02-23T22:53:28.274Z] [Worker] Scheduler loop started
+[2026-02-23T22:58:28.282Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T22:58:29.144Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T22:58:29.944Z] [Worker] Reddit response status: 200
+[2026-02-23T22:58:29.945Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T22:58:30.176Z] [Worker] Body length: 200893
+[2026-02-23T22:58:30.177Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbj412"
+[2026-02-23T22:58:30.177Z] [Worker] Detected Reddit JSON format
+[2026-02-23T22:58:30.179Z] [Worker] Found 25 children in JSON
+[2026-02-23T22:58:30.180Z] [Worker] Total items extracted: 25
+[2026-02-23T22:58:30.180Z] [Worker] First item target link: https://www.reddit.com/r/truenas/comments/1rcq4s4/huntarr_get_this_uninstalled_if_you_are_running_it/
+[2026-02-23T22:58:30.182Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T23:37:25.051Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T23:37:26.428Z] [Worker] Reddit response status: 200
+[2026-02-23T23:37:26.429Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T23:37:26.439Z] [Worker] Body length: 201473
+[2026-02-23T23:37:26.439Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rb7syg"
+[2026-02-23T23:37:26.440Z] [Worker] Detected Reddit JSON format
+[2026-02-23T23:37:26.442Z] [Worker] Found 25 children in JSON
+[2026-02-23T23:37:26.443Z] [Worker] Total items extracted: 25
+[2026-02-23T23:37:26.444Z] [Worker] First item target link: https://www.reddit.com/r/MoviesThatFeelLike/comments/1rcw3wb/movies_that_feel_like_youve_never_felt_human/
+[2026-02-23T23:37:26.448Z] [Worker] Synced 2 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T23:55:02.960Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T23:55:04.094Z] [Worker] Reddit response status: 200
+[2026-02-23T23:55:04.096Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T23:55:04.111Z] [Worker] Body length: 201474
+[2026-02-23T23:55:04.114Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rb7syg"
+[2026-02-23T23:55:04.116Z] [Worker] Detected Reddit JSON format
+[2026-02-23T23:55:04.119Z] [Worker] Found 25 children in JSON
+[2026-02-23T23:55:04.120Z] [Worker] Total items extracted: 25
+[2026-02-23T23:55:04.121Z] [Worker] First item target link: https://www.reddit.com/r/MoviesThatFeelLike/comments/1rcw3wb/movies_that_feel_like_youve_never_felt_human/
+[2026-02-23T23:55:04.125Z] [Worker] Synced 25 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T23:56:34.702Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-23T23:56:35.871Z] [Worker] Reddit response status: 200
+[2026-02-23T23:56:35.872Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-23T23:56:35.880Z] [Worker] Body length: 201474
+[2026-02-23T23:56:35.881Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rb7syg"
+[2026-02-23T23:56:35.882Z] [Worker] Detected Reddit JSON format
+[2026-02-23T23:56:35.884Z] [Worker] Found 25 children in JSON
+[2026-02-23T23:56:35.884Z] [Worker] Total items extracted: 25
+[2026-02-23T23:56:35.885Z] [Worker] First item target link: https://www.reddit.com/r/MoviesThatFeelLike/comments/1rcw3wb/movies_that_feel_like_youve_never_felt_human/
+[2026-02-23T23:56:35.888Z] [Worker] Synced 25 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-23T23:58:46.664Z] [Worker] Background worker started
+[2026-02-23T23:58:46.666Z] [Worker] Scheduler loop started

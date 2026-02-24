@@ -6,6 +6,9 @@ export const metadata: Metadata = {
     description: "Your personal bookmark manager",
 };
 
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { Toaster } from "sonner";
+
 export default function RootLayout({
     children,
 }: {
@@ -14,7 +17,10 @@ export default function RootLayout({
     return (
         <html lang="en" className="dark" suppressHydrationWarning>
             <body>
-                {children}
+                <SidebarProvider>
+                    {children}
+                </SidebarProvider>
+                <Toaster richColors closeButton position="top-right" />
             </body>
         </html>
     );
