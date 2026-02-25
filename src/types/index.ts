@@ -64,7 +64,7 @@ export interface BookmarkWithTags {
     updatedAt: string;
     userId: string;
     tags: { id: string; name: string }[];
-    collections?: { id: string; name: string }[];
+    collections?: { id: string; name: string; color?: string | null }[];
 }
 
 export interface TagWithCount {

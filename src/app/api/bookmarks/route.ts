@@ -13,12 +13,12 @@ function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] 
   `).all(bookmarkId) as { id: string; name: string }[];
 }
 
-function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string }[] {
+function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string; color?: string | null }[] {
     return db.prepare(`
-    SELECT c.id, c.name FROM collections c
+    SELECT c.id, c.name, c.color FROM collections c
     JOIN bookmark_collections bc ON bc.collection_id = c.id
     WHERE bc.bookmark_id = ?
-  `).all(bookmarkId) as { id: string; name: string }[];
+  `).all(bookmarkId) as { id: string; name: string; color?: string | null }[];
 }
 
 function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {

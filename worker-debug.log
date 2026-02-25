@@ -284,3 +284,18 @@
 [2026-02-24T22:21:09.221Z] [Worker] Scheduler loop started
 [2026-02-24T22:21:40.699Z] [Worker] Background worker started
 [2026-02-24T22:21:40.701Z] [Worker] Scheduler loop started
+[2026-02-25T00:26:40.883Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-25T00:26:41.844Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-25T00:26:42.951Z] [Worker] Reddit response status: 200
+[2026-02-25T00:26:42.952Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-25T00:26:42.963Z] [Worker] Body length: 179149
+[2026-02-25T00:26:42.963Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rbppis"
+[2026-02-25T00:26:42.965Z] [Worker] Detected Reddit JSON format
+[2026-02-25T00:26:42.968Z] [Worker] Found 25 children in JSON
+[2026-02-25T00:26:42.969Z] [Worker] Total items extracted: 25
+[2026-02-25T00:26:42.969Z] [Worker] First item target link: https://www.reddit.com/r/jav/comments/1rdqxl4/2_of_my_best_mom_ntr_av/
+[2026-02-25T00:26:42.973Z] [Worker] Synced 2 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-25T00:28:07.922Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-25T00:28:08.796Z] [Worker] Synced 2 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-25T00:34:13.018Z] [Worker] Background worker started
+[2026-02-25T00:34:13.020Z] [Worker] Scheduler loop started

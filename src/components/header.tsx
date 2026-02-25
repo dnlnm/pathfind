@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -78,7 +79,7 @@ export function Header({ onAddBookmark }: HeaderProps) {
                     <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search bookmarks..."
+                            placeholder={searchParams.get("ai") === "true" ? "Semantic search..." : "Search bookmarks..."}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="pl-9 pr-9 bg-muted/40 border-border/40 focus:bg-background transition-colors"
@@ -93,28 +94,24 @@ export function Header({ onAddBookmark }: HeaderProps) {
                             </button>
                         )}
                     </div>
-                    <Button
-                        type="button"
-                        variant={searchParams.get("ai") === "true" ? "default" : "outline"}
-                        className={cn(
-                            "hidden sm:flex shrink-0 gap-2 cursor-pointer transition-all border shadow-sm",
-                            searchParams.get("ai") === "true"
-                                ? "bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white border-transparent"
-                                : "border-purple-500/30 text-purple-500 hover:bg-purple-500/10 hover:text-purple-600"
-                        )}
-                        onClick={() => {
+                    <Toggle
+                        pressed={searchParams.get("ai") === "true"}
+                        onPressedChange={(pressed) => {
                             const params = new URLSearchParams(searchParams.toString());
-                            if (params.get("ai") === "true") {
-                                params.delete("ai");
-                            } else {
+                            if (pressed) {
                                 params.set("ai", "true");
+                            } else {
+                                params.delete("ai");
                             }
                             router.push(`/?${params.toString()}`);
                         }}
+                        variant="outline"
+                        size="sm"
+                        className="flex shrink-0 gap-2 cursor-pointer transition-all shadow-sm px-3"
+                        aria-label="Toggle AI Search"
                     >
                         <Sparkles className="h-4 w-4" />
-                        AI Search
-                    </Button>
+                    </Toggle>
                 </form>
             </div>
 

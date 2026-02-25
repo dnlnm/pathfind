@@ -290,7 +290,15 @@ export function BookmarkCard({
                                 <Badge
                                     key={col.id}
                                     variant="outline"
-                                    className="text-xs px-2 py-0 h-6 cursor-pointer hover:bg-primary/20 transition-colors gap-1 border-primary/20"
+                                    className="text-xs px-2 py-0 h-6 cursor-pointer hover:opacity-80 transition-opacity gap-1"
+                                    style={col.color ? {
+                                        borderColor: `color-mix(in srgb, ${col.color} 30%, transparent)`,
+                                        backgroundColor: `color-mix(in srgb, ${col.color} 10%, transparent)`,
+                                        color: col.color
+                                    } : {
+                                        borderColor: 'hsl(var(--primary) / 0.2)',
+                                        color: 'hsl(var(--primary))'
+                                    }}
                                     onClick={(e) => {
                                         if (selectionMode) {
                                             e.preventDefault();
@@ -301,7 +309,7 @@ export function BookmarkCard({
                                         }
                                     }}
                                 >
-                                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: col.color || "hsl(var(--primary))" }} />
                                     {col.name}
                                 </Badge>
                             ))}
@@ -357,9 +365,10 @@ export function BookmarkCard({
                                     className="text-[10px] text-muted-foreground/50 whitespace-nowrap"
                                     suppressHydrationWarning
                                 >
-                                    {new Date(bookmark.createdAt).toLocaleDateString("en-US", {
+                                    {new Date(bookmark.createdAt.endsWith("Z") ? bookmark.createdAt : bookmark.createdAt + "Z").toLocaleDateString("en-US", {
                                         month: "short",
                                         day: "numeric",
+                                        timeZone: process.env.NEXT_PUBLIC_APP_TIMEZONE || undefined
                                     })}
                                 </span>
                             </div>

@@ -42,7 +42,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
     const [thumbnail, setThumbnail] = useState("");
     const [generating, setGenerating] = useState(false);
     const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
-    const [availableCollections, setAvailableCollections] = useState<{ id: string; name: string }[]>([]);
+    const [availableCollections, setAvailableCollections] = useState<{ id: string; name: string; color?: string | null }[]>([]);
     const [isDuplicate, setIsDuplicate] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -367,7 +367,12 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                                     <Badge
                                         key={collection.id}
                                         variant={selectedCollections.includes(collection.id) ? "default" : "outline"}
-                                        className="cursor-pointer"
+                                        className="cursor-pointer transition-opacity hover:opacity-80"
+                                        style={collection.color ? {
+                                            borderColor: selectedCollections.includes(collection.id) ? collection.color : `color-mix(in srgb, ${collection.color} 30%, transparent)`,
+                                            backgroundColor: selectedCollections.includes(collection.id) ? collection.color : `color-mix(in srgb, ${collection.color} 10%, transparent)`,
+                                            color: selectedCollections.includes(collection.id) ? '#fff' : collection.color
+                                        } : undefined}
                                         onClick={() => {
                                             setSelectedCollections(prev =>
                                                 prev.includes(collection.id)
