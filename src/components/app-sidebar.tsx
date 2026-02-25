@@ -18,17 +18,11 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronUp, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -380,44 +374,42 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                 )}
             </SidebarContent>
 
-            <SidebarFooter className="border-t border-border/50">
+            <SidebarFooter className="border-t border-border/50 p-2">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <SidebarMenuButton className="cursor-pointer">
-                                    <div
-                                        className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-xs font-bold text-primary"
-                                        suppressHydrationWarning
-                                    >
-                                        {(userName || "A")[0].toUpperCase()}
-                                    </div>
-                                    <span className="truncate" suppressHydrationWarning>{userName || "Admin"}</span>
-                                    <ChevronUp className="ml-auto h-4 w-4" />
-                                </SidebarMenuButton>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                                side="top"
-                                className="w-[--radix-popper-anchor-width]"
+                        <SidebarMenuButton
+                            onClick={() => {
+                                setOpenMobile(false);
+                                router.push("/settings");
+                            }}
+                            isActive={pathname === "/settings"}
+                            className="cursor-pointer"
+                        >
+                            <Settings2 className="h-4 w-4" />
+                            <span>Settings</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            onClick={() => signOut({ callbackUrl: "/login" })}
+                            className="cursor-pointer text-destructive hover:text-destructive focus:text-destructive hover:bg-destructive/10"
+                        >
+                            <LogOut className="h-4 w-4" />
+                            <span>Sign out</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem className="mt-2 pt-2 border-t border-border/50">
+                        <div className="flex items-center gap-2 px-2 py-1.5 grayscale opacity-70">
+                            <div
+                                className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0"
+                                suppressHydrationWarning
                             >
-                                <DropdownMenuItem
-                                    onClick={() => {
-                                        setOpenMobile(false);
-                                        router.push("/settings");
-                                    }}
-                                    className="cursor-pointer"
-                                >
-                                    Settings
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={() => signOut({ callbackUrl: "/login" })}
-                                    className="cursor-pointer text-destructive focus:text-destructive"
-                                >
-                                    <LogOut className="h-4 w-4 mr-2" />
-                                    Sign out
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                {(userName || "A")[0].toUpperCase()}
+                            </div>
+                            <span className="text-xs font-medium truncate" suppressHydrationWarning>
+                                {userName || "Admin"}
+                            </span>
+                        </div>
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarFooter>

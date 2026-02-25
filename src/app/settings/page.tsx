@@ -3,7 +3,7 @@
 import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,13 @@ function SettingsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabType>("general");
+    const { setOpenMobile } = useSidebar();
+
+    // Force close the mobile sidebar sheet on mount to prevent the
+    // Radix overlay from getting stuck and blocking all touch events.
+    useEffect(() => {
+        setOpenMobile(false);
+    }, [setOpenMobile]);
 
     useEffect(() => {
         const tab = searchParams.get("tab") as TabType;
@@ -530,7 +537,7 @@ function SettingsContent() {
             </header>
 
             {/* Settings Content Area */}
-            <main className="flex-1 overflow-y-auto p-4 md:p-10 h-[calc(100vh-57px)]">
+            <main className="flex-1 p-4 md:p-10">
                 <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-400">
 
                     {/* Page Header within Content */}
