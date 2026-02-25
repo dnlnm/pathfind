@@ -258,11 +258,6 @@ async function handleRedditRssSync(job: any, payload: any) {
     }
     const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
 
-    // Ensure "reddit" tag exists
-    const redditTagId = generateId();
-    db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)").run(redditTagId, "reddit");
-    const tagRow = db.prepare("SELECT id FROM tags WHERE name = ?").get("reddit") as { id: string };
-
     const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
     const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
 
@@ -292,7 +287,6 @@ async function handleRedditRssSync(job: any, payload: any) {
                 userId
             );
 
-            linkTag.run(bmId, tagRow.id);
             linkCollection.run(bmId, redditCollectionId);
 
             const redditMatch = item.link.match(/reddit\.com\/r\/([a-zA-Z0-9_]+)/i);

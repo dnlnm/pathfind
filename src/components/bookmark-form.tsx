@@ -390,9 +390,9 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
 
                     <div className="space-y-2">
                         <Label>Thumbnail (Optional)</Label>
-                        <div className="space-y-3">
+                        <div className="flex items-center gap-4">
                             {/* Thumbnail Preview - 16:9 Aspect Ratio */}
-                            <div className="relative w-full aspect-video rounded-lg border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
+                            <div className="relative w-1/2 shrink-0 aspect-video rounded-lg border border-border/40 bg-muted/20 overflow-hidden flex items-center justify-center">
                                 {thumbnail ? (
                                     <>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -423,7 +423,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                             </div>
 
                             {/* Options - Just the 3 buttons */}
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="flex flex-col gap-2 flex-1">
                                 <input
                                     type="file"
                                     ref={fileInputRef}

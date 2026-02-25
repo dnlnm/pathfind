@@ -19,24 +19,14 @@ export async function GET(request: NextRequest) {
         if (row) customColor = row.color;
     }
 
-    // Generate a simple, clean SVG
-    const colors = [
-        ["#6366f1", "#4f46e5"], // Indigo
-        ["#8b5cf6", "#7c3aed"], // Violet
-        ["#ec4899", "#db2777"], // Pink
-        ["#f97316", "#ea580c"], // Orange
-        ["#10b981", "#059669"], // Emerald
-        ["#3b82f6", "#2563eb"], // Blue
-    ];
-
     let gradientStart, gradientEnd;
 
     if (customColor) {
         gradientStart = customColor;
         gradientEnd = customColor;
     } else {
-        const colorIndex = title.length % colors.length;
-        [gradientStart, gradientEnd] = colors[colorIndex];
+        gradientStart = "#000000";
+        gradientEnd = "#000000";
     }
 
     // Text wrapping logic
