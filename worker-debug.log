@@ -857,3 +857,48 @@
 [2026-02-27T16:34:44.100Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-27T16:34:44.610Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-27T16:34:45.059Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T17:38:49.651Z] [Worker] Background worker started
+[2026-02-27T17:38:49.654Z] [Worker] Scheduler loop started
+[2026-02-27T17:38:49.657Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T17:38:49.659Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T17:38:52.664Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-27T17:38:53.940Z] [Worker] Reddit response status: 200
+[2026-02-27T17:38:53.944Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-27T17:38:53.965Z] [Worker] Body length: 195815
+[2026-02-27T17:38:53.969Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdjwlw"
+[2026-02-27T17:38:53.970Z] [Worker] Detected Reddit JSON format
+[2026-02-27T17:38:53.976Z] [Worker] Found 25 children in JSON
+[2026-02-27T17:38:53.981Z] [Worker] Total items extracted: 25
+[2026-02-27T17:38:53.983Z] [Worker] First item target link: https://www.reddit.com/r/javdreams/comments/1rfmdot/im_here_to_tell_you_sir_that_you_wife_is_going_to/
+[2026-02-27T17:38:53.991Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T17:38:54.506Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T17:38:54.969Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T18:43:49.759Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T18:43:49.761Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T18:43:51.765Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-27T18:43:53.017Z] [Worker] Reddit response status: 200
+[2026-02-27T18:43:53.018Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-27T18:43:53.029Z] [Worker] Body length: 205244
+[2026-02-27T18:43:53.030Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdm3a2"
+[2026-02-27T18:43:53.031Z] [Worker] Detected Reddit JSON format
+[2026-02-27T18:43:53.033Z] [Worker] Found 25 children in JSON
+[2026-02-27T18:43:53.034Z] [Worker] Total items extracted: 25
+[2026-02-27T18:43:53.035Z] [Worker] First item target link: https://www.reddit.com/r/jav/comments/1rganje/code/
+[2026-02-27T18:43:53.039Z] [Worker] Synced 1 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T18:43:53.545Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T18:43:54.328Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T18:43:55.911Z] [Worker] Generated embedding for bookmark f31fc44a-d425-4feb-b83d-89a12f8f59cb
+[2026-02-27T19:48:49.889Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T19:48:49.908Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T19:48:52.008Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-27T19:48:53.079Z] [Worker] Reddit response status: 200
+[2026-02-27T19:48:53.080Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-27T19:48:53.094Z] [Worker] Body length: 205244
+[2026-02-27T19:48:53.096Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdm3a2"
+[2026-02-27T19:48:53.097Z] [Worker] Detected Reddit JSON format
+[2026-02-27T19:48:53.101Z] [Worker] Found 25 children in JSON
+[2026-02-27T19:48:53.102Z] [Worker] Total items extracted: 25
+[2026-02-27T19:48:53.103Z] [Worker] First item target link: https://www.reddit.com/r/jav/comments/1rganje/code/
+[2026-02-27T19:48:53.110Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T19:48:53.621Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T19:48:54.873Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86

@@ -68,6 +68,12 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS favicon_colors (
+    domain TEXT PRIMARY KEY,
+    color TEXT NOT NULL,
+    fetched_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS collections (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -231,6 +237,19 @@ try {
   db.exec("ALTER TABLE users ADD COLUMN last_github_sync_at DATETIME");
 } catch (e) {
   // Column already exists
+}
+
+// Migration: add favicon_colors cache table if missing
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS favicon_colors (
+      domain TEXT PRIMARY KEY,
+      color TEXT NOT NULL,
+      fetched_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+} catch (e) {
+  // Table already exists
 }
 
 export default db;
