@@ -1,6 +1,6 @@
-# Pathfind
+# PathFind
 
-Pathfind is a powerful, self-hosted, AI-assisted personal bookmark and collection manager. Built with Next.js 15, it provides a centralized place to collect, organize, and quickly retrieve links, articles, repositories, and media across the web.
+PathFind is a powerful, self-hosted, AI-assisted personal bookmark and collection manager. Built with Next.js 15, it provides a centralized place to collect, organize, and quickly retrieve links, articles, repositories, and media across the web.
 
 ## ✨ Features
 
@@ -9,8 +9,8 @@ Pathfind is a powerful, self-hosted, AI-assisted personal bookmark and collectio
 - **Lightning Fast Search**: Powered by SQLite FTS5 for instant Full-Text Search across titles, descriptions, URLs, and notes.
 - **AI-Powered**: Integrates Google Generative AI (Gemini) to help summarize and optionally organize your curated content.
 - **Companion Apps & Integrations**:
-  - **Chrome Extension**: Quickly save the page you're viewing directly into Pathfind.
-  - **PWA Share Sheet integration**: Send links to Pathfind straight from your mobile OS's native share menu.
+  - **Chrome Extension**: Quickly save the page you're viewing directly into PathFind.
+  - **PWA Share Sheet integration**: Send links to PathFind straight from your mobile OS's native share menu.
   - **Telegram Bot**: Message a dedicated bot to instantly save links while on the go.
   - **GitHub Sync**: Automatically sync your GitHub starred repositories.
   - **Reddit Sync**: Automatically import your saved Reddit posts via RSS.
@@ -19,7 +19,7 @@ Pathfind is a powerful, self-hosted, AI-assisted personal bookmark and collectio
 
 ## 🚀 Getting Started
 
-You can run Pathfind either through Docker (recommended for production) or locally using Node.js.
+You can run PathFind either through Docker (recommended for production) or locally using Node.js.
 
 ### Option 1: Docker (Recommended)
 
@@ -65,7 +65,7 @@ You can run Pathfind either through Docker (recommended for production) or local
 
 ## 🧩 Browser Extension
 
-Pathfind comes with a companion Chrome extension that makes clipping web pages frictionless. Located inside the `chrome-extension` directory, it connects securely to your personal instance using API Tokens (you can generate API keys directly from your Settings page).
+PathFind comes with a companion Chrome extension that makes clipping web pages frictionless. Located inside the `chrome-extension` directory, it connects securely to your personal instance using API Tokens (you can generate API keys directly from your Settings page).
 
 1. Navigate to the `chrome-extension/` folder.
 2. Follow its setup instructions to build and load the unpacked extension in Chrome/Edge/Brave.

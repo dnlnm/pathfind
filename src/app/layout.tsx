@@ -13,13 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Pathfind",
+    title: "PathFind",
     description: "Your personal bookmark manager",
     manifest: "/manifest.webmanifest",
     appleWebApp: {
         capable: true,
         statusBarStyle: "default",
-        title: "Pathfind",
+        title: "PathFind",
     },
     formatDetection: {
         telephone: false,

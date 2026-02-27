@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: 'Pathfind',
-        short_name: 'Pathfind',
+        name: 'PathFind',
+        short_name: 'PathFind',
         description: 'Your personal bookmark manager',
         start_url: '/',
         display: 'standalone',

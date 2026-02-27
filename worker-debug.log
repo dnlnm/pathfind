@@ -944,3 +944,5 @@
 [2026-02-27T23:03:53.142Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-27T23:03:53.651Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-27T23:03:54.466Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T23:16:58.722Z] [Worker] Background worker started
+[2026-02-27T23:16:58.724Z] [Worker] Scheduler loop started
