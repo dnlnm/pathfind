@@ -57,3 +57,11 @@ public/fallback-*.js.map
 
 # skilss
 /.agents
+
+#logs
+worker-debug.log
+
+#sqlite database
+data/pathfind.db
+data/pathfind.db-shm
+data/pathfind.db-wal
