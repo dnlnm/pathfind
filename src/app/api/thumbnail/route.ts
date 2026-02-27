@@ -107,6 +107,14 @@ export async function GET(request: NextRequest) {
 
     const svg = `
     <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap');
+            .title-text {
+                font-family: 'Geist', system-ui, -apple-system, sans-serif;
+                font-weight: 900;
+                letter-spacing: -0.04em;
+            }
+        </style>
         <defs>
             <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur in="SourceAlpha" stdDeviation="10"/>
@@ -131,13 +139,11 @@ export async function GET(request: NextRequest) {
             <text 
                 x="600" 
                 y="${startY}" 
-                font-family="system-ui, -apple-system, sans-serif" 
+                class="title-text"
                 font-size="${fontSize}" 
-                font-weight="900" 
                 fill="${textColor}" 
                 text-anchor="middle"
                 dominant-baseline="middle"
-                letter-spacing="-0.02em"
             >
                 ${displayLines.map((line, i) => `
                 <tspan x="600" dy="${i === 0 ? 0 : lineSpacing}">${escapeSvg(line)}</tspan>

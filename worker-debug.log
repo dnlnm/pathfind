@@ -902,3 +902,45 @@
 [2026-02-27T19:48:53.110Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-27T19:48:53.621Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-27T19:48:54.873Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T20:53:50.014Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T20:53:50.019Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T20:53:52.816Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-27T20:53:54.252Z] [Worker] Reddit response status: 200
+[2026-02-27T20:53:54.256Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-27T20:53:54.275Z] [Worker] Body length: 205244
+[2026-02-27T20:53:54.277Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdm3a2"
+[2026-02-27T20:53:54.278Z] [Worker] Detected Reddit JSON format
+[2026-02-27T20:53:54.283Z] [Worker] Found 25 children in JSON
+[2026-02-27T20:53:54.287Z] [Worker] Total items extracted: 25
+[2026-02-27T20:53:54.291Z] [Worker] First item target link: https://www.reddit.com/r/jav/comments/1rganje/code/
+[2026-02-27T20:53:54.296Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T20:53:54.801Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T20:53:55.527Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T21:58:50.221Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T21:58:50.276Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T21:58:50.804Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-27T21:58:52.011Z] [Worker] Reddit response status: 200
+[2026-02-27T21:58:52.012Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-27T21:58:52.114Z] [Worker] Body length: 205244
+[2026-02-27T21:58:52.115Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdm3a2"
+[2026-02-27T21:58:52.115Z] [Worker] Detected Reddit JSON format
+[2026-02-27T21:58:52.234Z] [Worker] Found 25 children in JSON
+[2026-02-27T21:58:52.235Z] [Worker] Total items extracted: 25
+[2026-02-27T21:58:52.236Z] [Worker] First item target link: https://www.reddit.com/r/jav/comments/1rganje/code/
+[2026-02-27T21:58:52.255Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T21:58:52.767Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T21:58:53.282Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T23:03:50.416Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T23:03:50.418Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T23:03:52.060Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-27T23:03:53.122Z] [Worker] Reddit response status: 200
+[2026-02-27T23:03:53.123Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-27T23:03:53.135Z] [Worker] Body length: 205244
+[2026-02-27T23:03:53.136Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdm3a2"
+[2026-02-27T23:03:53.137Z] [Worker] Detected Reddit JSON format
+[2026-02-27T23:03:53.139Z] [Worker] Found 25 children in JSON
+[2026-02-27T23:03:53.140Z] [Worker] Total items extracted: 25
+[2026-02-27T23:03:53.140Z] [Worker] First item target link: https://www.reddit.com/r/jav/comments/1rganje/code/
+[2026-02-27T23:03:53.142Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T23:03:53.651Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-27T23:03:54.466Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
