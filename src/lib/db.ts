@@ -308,6 +308,36 @@ try {
   // Column already exists
 }
 
+// Migration: broken link checker columns on bookmarks
+try {
+  db.exec("ALTER TABLE bookmarks ADD COLUMN link_status TEXT");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE bookmarks ADD COLUMN link_status_code INTEGER");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE bookmarks ADD COLUMN link_checked_at TEXT");
+} catch (e) { /* Column already exists */ }
+
+// Migration: link-check schedule columns on users
+try {
+  db.exec("ALTER TABLE users ADD COLUMN link_check_enabled INTEGER DEFAULT 0");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN link_check_interval TEXT DEFAULT 'weekly'");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN link_check_interval_days INTEGER DEFAULT 7");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN last_link_check_at TEXT");
+} catch (e) { /* Column already exists */ }
+
 export default db;
 
 // Helper to generate IDs

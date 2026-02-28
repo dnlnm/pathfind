@@ -27,7 +27,7 @@ export async function startWorker() {
     // Parallel lanes — each one processes its own job types independently
     runWorkerLane("fast", ["metadata_fetch"]);
     runWorkerLane("sync", ["reddit_rss_sync", "github_starred_sync"]);
-    runWorkerLane("bulk", ["backfill_thumbnails", "backfill_embeddings"]);
+    runWorkerLane("bulk", ["backfill_thumbnails", "backfill_embeddings", "check_broken_links"]);
     runSchedulerLoop();
 }
 
@@ -86,6 +86,9 @@ async function processNextJobForLane(laneName: string, types: string[], placehol
                 break;
             case 'backfill_embeddings':
                 await handleBackfillEmbeddings(job, payload);
+                break;
+            case 'check_broken_links':
+                await handleCheckBrokenLinks(job, payload);
                 break;
             default:
                 logDebug(`[Worker] Unknown job type: ${job.type}`);
@@ -185,6 +188,47 @@ async function runSchedulerLoop() {
                         INSERT INTO jobs (id, type, payload, status, user_id)
                         VALUES (?, 'github_starred_sync', ?, 'pending', ?)
                     `).run(id, JSON.stringify({ userId }), userId);
+                }
+            }
+
+            // Find users due for a link health check
+            const linkCheckUsers = db.prepare(`
+                SELECT id, link_check_interval, link_check_interval_days
+                FROM users
+                WHERE link_check_enabled = 1
+                AND (
+                    last_link_check_at IS NULL
+                    OR (
+                        link_check_interval = 'weekly'
+                        AND last_link_check_at < datetime('now', '-7 days')
+                    )
+                    OR (
+                        link_check_interval = 'monthly'
+                        AND last_link_check_at < datetime('now', '-30 days')
+                    )
+                    OR (
+                        link_check_interval = 'custom'
+                        AND last_link_check_at < datetime('now', '-' || link_check_interval_days || ' days')
+                    )
+                )
+            `).all() as { id: string; link_check_interval: string; link_check_interval_days: number }[];
+
+            for (const user of linkCheckUsers) {
+                const userId = user.id;
+                const existingJob = db.prepare(`
+                    SELECT id FROM jobs
+                    WHERE user_id = ?
+                    AND type = 'check_broken_links'
+                    AND status IN ('pending', 'processing')
+                `).get(userId);
+
+                if (!existingJob) {
+                    logDebug(`[Worker] Scheduling automatic link health check for user ${userId}`);
+                    const id = generateId();
+                    db.prepare(`
+                        INSERT INTO jobs (id, type, payload, status, user_id)
+                        VALUES (?, 'check_broken_links', ?, 'pending', ?)
+                    `).run(id, JSON.stringify({}), userId);
                 }
             }
         } catch (e) {
@@ -531,6 +575,98 @@ async function handleRedditRssSync(job: any, payload: any) {
     db.prepare("UPDATE users SET last_reddit_sync_at = datetime('now') WHERE id = ?").run(userId);
 
     logDebug(`[Worker] Synced ${syncedCount} new items from Reddit for user ${userId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Check Broken Links — HEAD-first, GET fallback, classify ok/redirected/broken
+// ---------------------------------------------------------------------------
+
+async function checkUrl(url: string): Promise<{ status: 'ok' | 'broken' | 'redirected'; code: number | null }> {
+    const USER_AGENT = "Mozilla/5.0 (compatible; PathFind-LinkChecker/1.0)";
+    const TIMEOUT_MS = 10_000;
+
+    const tryFetch = async (method: string): Promise<Response> => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+        try {
+            return await fetch(url, {
+                method,
+                signal: controller.signal,
+                redirect: "manual",
+                headers: { "User-Agent": USER_AGENT },
+            });
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+
+    try {
+        let res = await tryFetch("HEAD");
+        // Some servers reject HEAD — retry with GET
+        if (res.status === 405) {
+            res = await tryFetch("GET");
+        }
+        const code = res.status;
+        if (code >= 200 && code < 300) return { status: 'ok', code };
+        if (code >= 300 && code < 400) return { status: 'redirected', code };
+        return { status: 'broken', code };
+    } catch {
+        // Network error, DNS failure, timeout, TLS error, etc.
+        return { status: 'broken', code: null };
+    }
+}
+
+async function handleCheckBrokenLinks(job: any, _payload: any) {
+    const userId = job.user_id;
+
+    const bookmarks = db.prepare(`
+        SELECT id, url FROM bookmarks
+        WHERE user_id = ?
+        ORDER BY created_at ASC
+    `).all(userId) as { id: string; url: string }[];
+
+    const total = bookmarks.length;
+    logDebug(`[Worker] Link check: ${total} bookmarks for user ${userId}`);
+
+    if (total === 0) {
+        db.prepare("UPDATE users SET last_link_check_at = datetime('now') WHERE id = ?").run(userId);
+        return;
+    }
+
+    db.prepare("UPDATE jobs SET payload = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(JSON.stringify({ total, processed: 0 }), job.id);
+
+    const updateBookmark = db.prepare(`
+        UPDATE bookmarks
+        SET link_status = ?, link_status_code = ?, link_checked_at = datetime('now')
+        WHERE id = ?
+    `);
+
+    for (let i = 0; i < bookmarks.length; i++) {
+        if (isJobCancelled(job.id)) {
+            logDebug(`[Worker] Link check job ${job.id} cancelled at ${i}/${total}`);
+            return;
+        }
+
+        const bm = bookmarks[i];
+        try {
+            const result = await checkUrl(bm.url);
+            updateBookmark.run(result.status, result.code, bm.id);
+            logDebug(`[Worker] ${bm.url} → ${result.status} (${result.code ?? 'err'})`);
+        } catch (e) {
+            logDebug(`[Worker] Link check failed for ${bm.id}: ` + e);
+            updateBookmark.run('broken', null, bm.id);
+        }
+
+        const progress = Math.round(((i + 1) / total) * 100);
+        db.prepare("UPDATE jobs SET progress = ?, payload = ?, updated_at = datetime('now') WHERE id = ?")
+            .run(progress, JSON.stringify({ total, processed: i + 1 }), job.id);
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    db.prepare("UPDATE users SET last_link_check_at = datetime('now') WHERE id = ?").run(userId);
+    logDebug(`[Worker] Link check complete: ${total} URLs checked for user ${userId}`);
 }
 
 // ---------------------------------------------------------------------------

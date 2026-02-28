@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         SELECT id, type, status, progress, payload, error, created_at, updated_at
         FROM jobs 
         WHERE user_id = ? 
-        AND type IN ('backfill_thumbnails', 'backfill_embeddings')
+        AND type IN ('backfill_thumbnails', 'backfill_embeddings', 'check_broken_links')
         AND status IN ('pending', 'processing')
         ORDER BY created_at DESC
     `).all(userId);
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         db.prepare("DELETE FROM jobs WHERE user_id = ? AND status = 'completed'").run(userId);
     } else if (action === 'clear_all') {
         db.prepare("DELETE FROM jobs WHERE user_id = ?").run(userId);
-    } else if (action === 'backfill_thumbnails' || action === 'backfill_embeddings') {
+    } else if (action === 'backfill_thumbnails' || action === 'backfill_embeddings' || action === 'check_broken_links') {
         // Prevent duplicate bulk jobs
         const existing = db.prepare(`
             SELECT id FROM jobs 
@@ -95,11 +95,11 @@ export async function POST(request: NextRequest) {
 
         const id = generateId();
         const overwrite = action === 'backfill_thumbnails' ? (body.overwrite === true) : false;
+        const jobPayload = action === 'check_broken_links' ? JSON.stringify({}) : JSON.stringify({ overwrite });
         db.prepare(`
             INSERT INTO jobs (id, type, payload, status, user_id)
             VALUES (?, ?, ?, 'pending', ?)
-        `).run(id, action, JSON.stringify({ overwrite }), userId);
-
+        `).run(id, action, jobPayload, userId);
 
         return NextResponse.json({ success: true, jobId: id });
     } else if (action === 'cancel_job' && jobId) {

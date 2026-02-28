@@ -1090,3 +1090,102 @@
 [2026-02-28T19:59:22.514Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-28T19:59:25.333Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
 [2026-02-28T19:59:26.033Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T20:38:57.314Z] [Worker] Background worker started
+[2026-02-28T20:38:57.316Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-02-28T20:38:57.317Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-02-28T20:38:57.318Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings
+[2026-02-28T20:38:57.318Z] [Worker] Scheduler loop started
+[2026-02-28T20:58:57.343Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T20:58:57.750Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-28T20:58:57.759Z] [Worker] Backfill embeddings: 1 bookmarks to process for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T20:58:58.670Z] [Worker] Backfill embeddings complete: 1 bookmarks processed
+[2026-02-28T20:58:59.133Z] [Worker] Reddit response status: 200
+[2026-02-28T20:58:59.134Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-28T20:58:59.144Z] [Worker] Body length: 211525
+[2026-02-28T20:58:59.145Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdn4rn"
+[2026-02-28T20:58:59.146Z] [Worker] Detected Reddit JSON format
+[2026-02-28T20:58:59.148Z] [Worker] Found 25 children in JSON
+[2026-02-28T20:58:59.148Z] [Worker] Total items extracted: 25
+[2026-02-28T20:58:59.149Z] [Worker] First item target link: https://www.reddit.com/r/webscraping/comments/1rc9992/built_a_stealth_chromium_what_site_should_i_try/
+[2026-02-28T20:58:59.152Z] [Worker] Synced 2 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T20:59:03.142Z] [Worker] Generated embedding for bookmark 0a35bba2-aeb9-49e9-b1a9-b70e9344f671
+[2026-02-28T20:59:04.638Z] [Worker] Generated embedding for bookmark 5bb57d4d-f80b-4363-aeea-48943ef4cc27
+[2026-02-28T21:03:57.359Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T21:03:57.468Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T21:03:58.150Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T21:39:31.056Z] [Worker] Background worker started
+[2026-02-28T21:39:31.057Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-02-28T21:39:31.058Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-02-28T21:39:31.059Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-02-28T21:39:31.060Z] [Worker] Scheduler loop started
+[2026-02-28T21:39:55.156Z] [Worker] Link check: 69 bookmarks for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T21:39:55.831Z] [Worker] https://www.reddit.com/r/iphone/comments/1rdn4rn/whats_one_underrated_shortcut_automation_you_use/ → ok (200)
+[2026-02-28T21:39:56.648Z] [Worker] https://www.reddit.com/r/kpopfap/comments/1rdhsya/twice_sana/ → ok (200)
+[2026-02-28T21:39:57.804Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rdm3a2/alice_otsu_has_sex_with_a_couple_mkmp705/ → ok (200)
+[2026-02-28T21:39:58.650Z] [Worker] https://www.reddit.com/r/jav/comments/1rdjwlw/where_to_find_this_video_of_airi_yano/ → ok (200)
+[2026-02-28T21:39:59.473Z] [Worker] https://www.reddit.com/r/jav/comments/1rdg2ua/a_throw_back_to_yamate_rias_av_debut/ → ok (200)
+[2026-02-28T21:40:00.455Z] [Worker] https://www.reddit.com/r/kpopfap/comments/1rdbzt7/twice_jeongyeon/ → ok (200)
+[2026-02-28T21:40:01.311Z] [Worker] https://www.reddit.com/r/webdev/comments/1rceli3/what_is_a_hidden_gem_website_for_development_that/ → ok (200)
+[2026-02-28T21:40:02.507Z] [Worker] https://www.reddit.com/r/jav/comments/1rd29m5/name/ → ok (200)
+[2026-02-28T21:40:03.332Z] [Worker] https://www.reddit.com/r/MoviesThatFeelLike/comments/1rcw3wb/movies_that_feel_like_youve_never_felt_human/ → ok (200)
+[2026-02-28T21:40:04.169Z] [Worker] https://www.reddit.com/r/macro_pads/comments/1rcv6gw/dual_ek_21_macropads/ → ok (200)
+[2026-02-28T21:40:05.194Z] [Worker] https://www.reddit.com/r/truenas/comments/1rcq4s4/huntarr_get_this_uninstalled_if_you_are_running_it/ → ok (200)
+[2026-02-28T21:40:06.023Z] [Worker] https://www.reddit.com/r/pcmasterrace/comments/1rcof3s/i_am_making_a_coop_where_one_player_drives_blind/ → ok (200)
+[2026-02-28T21:40:07.197Z] [Worker] https://www.reddit.com/r/programming/comments/1rcj41t/code_isnt_whats_slowing_projects_down/ → ok (200)
+[2026-02-28T21:40:08.020Z] [Worker] https://www.reddit.com/r/FuckingLikeCrazy/comments/1rc2l0q/girls_like_these_are_the_reason_one_gets_addicted/ → ok (200)
+[2026-02-28T21:40:08.858Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rbwr0y/nao_satsuki/ → ok (200)
+[2026-02-28T21:40:09.880Z] [Worker] https://www.reddit.com/r/BimboCumsluts/comments/1rc4sui/perfect_bimbo_sluts/ → ok (200)
+[2026-02-28T21:40:10.715Z] [Worker] https://www.reddit.com/r/MoviesThatFeelLike/comments/1rck3ni/moviesshows_that_feel_like_this/ → ok (200)
+[2026-02-28T21:40:11.886Z] [Worker] https://www.reddit.com/r/bimbo/comments/1rce714/strawberryflavored_bimbo/ → ok (200)
+[2026-02-28T21:40:12.713Z] [Worker] https://www.reddit.com/r/BimboCumsluts/comments/1rc53m1/nutting_on_trailer_trash_royalty/ → ok (200)
+[2026-02-28T21:40:13.554Z] [Worker] https://www.reddit.com/r/cats/comments/1rc3lku/i_promise_there_is_sound_its_just_very_very/ → ok (200)
+[2026-02-28T21:40:14.518Z] [Worker] https://www.reddit.com/r/movies/comments/1rc2258/war_of_the_worlds_2005_dir_steven_spielberg_the/ → ok (200)
+[2026-02-28T21:40:15.359Z] [Worker] https://www.reddit.com/r/horror/comments/1rbtcvc/whats_the_scariest_story_told_by_a_character_in_a/ → ok (200)
+[2026-02-28T21:40:16.573Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rbppis/mrs_mino_working_late_again_dldss052/ → ok (200)
+[2026-02-28T21:40:17.419Z] [Worker] https://www.reddit.com/r/interesting/comments/1rbjeop/ik_its_nothing_interesting_but_isnt_is_awesome/ → ok (200)
+[2026-02-28T21:40:18.250Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rbqdy2/maybe_i_shouldnt_have_let_him_kiss_me_rei_kimura/ → ok (200)
+[2026-02-28T21:40:19.445Z] [Worker] https://lmstudio.ai → ok (200)
+[2026-02-28T21:40:20.287Z] [Worker] https://www.reddit.com/r/jav/comments/1rdqxl4/2_of_my_best_mom_ntr_av/ → ok (200)
+[2026-02-28T21:40:21.260Z] [Worker] https://www.reddit.com/r/kpop_uncensored/comments/1rdp71u/any_creepy_or_haunted_kpop_storiestheories_youve/ → ok (200)
+[2026-02-28T21:40:22.412Z] [Worker] https://github.com/qmk/qmk_firmware → ok (200)
+[2026-02-28T21:40:23.602Z] [Worker] https://github.com/Tanq16/local-content-share → ok (200)
+[2026-02-28T21:40:24.426Z] [Worker] https://www.reddit.com/r/Letterboxd/comments/1rdw970/all_of_letterboxd_top_500_are_now_on_the/ → ok (200)
+[2026-02-28T21:40:25.036Z] [Worker] https://youtu.be/00C1BiobUYk?si=dxpcl-ydx25uhx0C → redirected (303)
+[2026-02-28T21:40:26.240Z] [Worker] https://www.reddit.com/r/jav/comments/1re848o/her_name_and_code_plz/ → ok (200)
+[2026-02-28T21:40:27.075Z] [Worker] https://www.reddit.com/r/jav/comments/1rehxju/need_this_video/ → ok (200)
+[2026-02-28T21:40:27.945Z] [Worker] https://www.reddit.com/r/MechanicalKeyboards/comments/1ref693/gb_npr_numpad_retro_march_5th_april_1st/ → ok (200)
+[2026-02-28T21:40:29.524Z] [Worker] https://www.reddit.com/r/ClaudeAI/s/Sh4ePbO37U → redirected (301)
+[2026-02-28T21:40:30.654Z] [Worker] https://www.youtube.com/watch?v=aoag03mSuXQ → ok (200)
+[2026-02-28T21:40:31.481Z] [Worker] https://www.reddit.com/r/jav/comments/1resbdr/karen_kaede_fucked_hard_in_reverse_cowgirl_until/ → ok (200)
+[2026-02-28T21:40:32.313Z] [Worker] https://www.reddit.com/r/Fastcummers/comments/1rd1zpx/blowjob_race_blue_team_1/ → ok (200)
+[2026-02-28T21:40:33.320Z] [Worker] https://www.reddit.com/r/MovieSuggestions/comments/1r6xxof/movies_that_take_place_over_a_single_day/ → ok (200)
+[2026-02-28T21:40:34.151Z] [Worker] https://www.reddit.com/r/google_antigravity/comments/1rfglcf/antigravity_pulse_now_we_can_see_our_quota_reset/ → ok (200)
+[2026-02-28T21:40:35.320Z] [Worker] https://www.reddit.com/r/cumsluts/comments/1jovr3h/mommy_made_him_premature/ → ok (200)
+[2026-02-28T21:40:36.162Z] [Worker] https://www.reddit.com/r/javdreams/comments/1res7us/ipx466_karen_kaede_fucked_in_doggystyle/ → ok (200)
+[2026-02-28T21:40:37.680Z] [Worker] https://www.reddit.com/r/Anthropic/s/QH1INejtcI → redirected (301)
+[2026-02-28T21:40:39.240Z] [Worker] https://www.reddit.com/r/pcmasterrace/s/wqy2I5yorI → redirected (301)
+[2026-02-28T21:40:40.100Z] [Worker] https://videocardz.com/newz/amd-fsr-4-1-dll-reportedly-leaks-and-rdna-3-users-are-already-testing-it → broken (403)
+[2026-02-28T21:40:41.688Z] [Worker] https://www.reddit.com/r/pics/s/E2vnRipWXb → redirected (301)
+[2026-02-28T21:40:42.735Z] [Worker] https://gemini.google/subscriptions/ → ok (200)
+[2026-02-28T21:40:43.605Z] [Worker] https://www.reddit.com/r/jav/comments/1rfveh0/code/ → ok (200)
+[2026-02-28T21:40:44.704Z] [Worker] https://www.reddit.com/r/jav/comments/1rfqpkb/some_rare_white_male_jav_white_men_can_pump_go03/ → ok (200)
+[2026-02-28T21:40:45.533Z] [Worker] https://www.reddit.com/r/horror/comments/wrmu6l/besides_the_vvitch_are_there_any_period_pieces/ → ok (200)
+[2026-02-28T21:40:46.364Z] [Worker] https://www.reddit.com/r/PeriodDramas/comments/1g6v1lf/period_horror/ → ok (200)
+[2026-02-28T21:40:47.374Z] [Worker] https://www.reddit.com/r/kpopfap/comments/1rg398j/kiss_of_life_natty_julie/ → ok (200)
+[2026-02-28T21:40:48.206Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rfsgh4/reona_kirishima_toyed_by_her_filthy_old_neighbour/ → ok (200)
+[2026-02-28T21:40:49.400Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rfmdot/im_here_to_tell_you_sir_that_you_wife_is_going_to/ → ok (200)
+[2026-02-28T21:40:50.230Z] [Worker] https://www.reddit.com/r/jav/comments/1rfzeja/name_or_code_please/ → ok (200)
+[2026-02-28T21:40:51.046Z] [Worker] https://www.reddit.com/r/javdreams/comments/1rfwpjq/marie_valentine_sexy_body_in_debut/ → ok (200)
+[2026-02-28T21:40:52.085Z] [Worker] https://www.reddit.com/r/jav/comments/1rganje/code/ → ok (200)
+[2026-02-28T21:40:53.173Z] [Worker] https://www.photopea.com/ → ok (200)
+[2026-02-28T21:40:54.684Z] [Worker] https://www.youtube.com/watch?v=2GJfWMYCWY0 → ok (200)
+[2026-02-28T21:40:55.508Z] [Worker] https://huggingface.co/spaces/mteb/leaderboard → ok (200)
+[2026-02-28T21:40:56.707Z] [Worker] https://tvroom12.org/ → ok (200)
+[2026-02-28T21:40:57.620Z] [Worker] https://colorwind.dev/ → ok (200)
+[2026-02-28T21:40:58.190Z] [Worker] https://www.createwithswift.com/safely-renaming-your-xcode-project/ → ok (200)
+[2026-02-28T21:40:59.088Z] [Worker] https://theos.dev/ → ok (200)
+[2026-02-28T21:40:59.779Z] [Worker] https://hiphopdx.com/news/kanye-west-wife-porn-star-christmas/ → ok (200)
+[2026-02-28T21:41:00.630Z] [Worker] https://www.reddit.com/r/webscraping/comments/1rc9992/built_a_stealth_chromium_what_site_should_i_try/ → ok (200)
+[2026-02-28T21:41:01.484Z] [Worker] https://www.reddit.com/r/NSFW_China/comments/1rh26px/join_my_gang/ → ok (200)
+[2026-02-28T21:41:02.293Z] [Worker] https://pypi.org/project/cloakbffrowser/ → ok (200)
+[2026-02-28T21:41:02.801Z] [Worker] Link check complete: 69 URLs checked for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86

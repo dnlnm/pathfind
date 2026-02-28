@@ -64,7 +64,7 @@ export function BookmarkCard({
 
     const handleToggle = async (field: "isReadLater" | "isArchived") => {
         try {
-            const res = await fetch(`/ api / bookmarks / ${bookmark.id} `, {
+            const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -92,7 +92,7 @@ export function BookmarkCard({
 
     const handleDelete = async () => {
         try {
-            const res = await fetch(`/ api / bookmarks / ${bookmark.id} `, {
+            const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
                 method: "DELETE",
             });
             if (res.ok) {

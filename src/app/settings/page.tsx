@@ -69,12 +69,17 @@ import {
     Pencil,
     Image,
     Brain,
-    Square
+    Square,
+    Link as LinkIcon,
+    AlertTriangle,
+    ShieldX,
+    Play,
+    CheckSquare,
 } from "lucide-react";
 import { Rule, RuleCondition, RuleAction, RuleEvent } from "@/types";
 import { cn } from "@/lib/utils";
 
-type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules";
+type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules" | "link-health";
 
 function SettingsContent() {
     const router = useRouter();
@@ -90,7 +95,7 @@ function SettingsContent() {
 
     useEffect(() => {
         const tab = searchParams.get("tab") as TabType;
-        if (tab && ["general", "integrations", "security", "data", "tasks", "rules"].includes(tab)) {
+        if (tab && ["general", "integrations", "security", "data", "tasks", "rules", "link-health"].includes(tab)) {
             setActiveTab(tab);
         }
     }, [searchParams]);
@@ -129,6 +134,17 @@ function SettingsContent() {
     const [taskStats, setTaskStats] = useState<any>(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
+
+    // Link Health state
+    const [linkCheckEnabled, setLinkCheckEnabled] = useState(false);
+    const [linkCheckInterval, setLinkCheckInterval] = useState<'weekly' | 'monthly' | 'custom'>('weekly');
+    const [linkCheckIntervalDays, setLinkCheckIntervalDays] = useState(7);
+    const [lastLinkCheckAt, setLastLinkCheckAt] = useState<string | null>(null);
+    const [savingLinkSchedule, setSavingLinkSchedule] = useState(false);
+    const [isRunningLinkCheck, setIsRunningLinkCheck] = useState(false);
+    const [brokenBookmarks, setBrokenBookmarks] = useState<{ id: string; url: string; title: string | null; favicon: string | null; link_status: string; link_status_code: number | null; link_checked_at: string | null }[]>([]);
+    const [selectedBrokenIds, setSelectedBrokenIds] = useState<Set<string>>(new Set());
+    const [isDeletingBroken, setIsDeletingBroken] = useState(false);
 
     // Rules state
     const [rules, setRules] = useState<Rule[]>([]);
@@ -227,7 +243,31 @@ function SettingsContent() {
             .then(data => setExistingTags(Array.isArray(data) ? data : []));
 
         const interval = setInterval(fetchTasks, 3000);
-        return () => clearInterval(interval);
+
+        // Fetch link health settings + broken bookmarks
+        const fetchLinkHealth = () => {
+            fetch("/api/settings/link-check")
+                .then(res => res.json())
+                .then(data => {
+                    setLinkCheckEnabled(data.enabled ?? false);
+                    setLinkCheckInterval(data.interval ?? 'weekly');
+                    setLinkCheckIntervalDays(data.intervalDays ?? 7);
+                    setLastLinkCheckAt(data.lastCheckedAt ?? null);
+                })
+                .catch(() => { });
+
+            fetch("/api/bookmarks/broken")
+                .then(res => res.json())
+                .then(data => setBrokenBookmarks(Array.isArray(data) ? data : []))
+                .catch(() => { });
+        };
+        fetchLinkHealth();
+        const linkHealthInterval = setInterval(fetchLinkHealth, 10000);
+
+        return () => {
+            clearInterval(interval);
+            clearInterval(linkHealthInterval);
+        };
     }, []);
 
     const handlePasswordChange = async (e: React.FormEvent) => {
@@ -723,6 +763,7 @@ function SettingsContent() {
         { id: "security" as TabType, label: "Security", icon: ShieldCheck, description: "Manage your credentials" },
         { id: "data" as TabType, label: "Data Management", icon: Database, description: "Import and export your data" },
         { id: "tasks" as TabType, label: "Background Tasks", icon: RefreshCw, description: "Monitor active and pending jobs" },
+        { id: "link-health" as TabType, label: "Link Health", icon: LinkIcon, description: "Find and clean up broken bookmarks" },
     ];
 
     return (
@@ -2060,6 +2101,328 @@ function SettingsContent() {
                                     <option key={name} value={name} />
                                 ))}
                             </datalist>
+                        </div>
+                    )}
+
+                    {activeTab === "link-health" && (
+                        <div className="space-y-6">
+                            {/* Schedule Card */}
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <LinkIcon className="h-5 w-5 text-primary" />
+                                        Check Schedule
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Configure when PathFind automatically checks all your bookmarks for broken links.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-5">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label className="text-sm font-medium">Enable automatic checks</Label>
+                                            <p className="text-xs text-muted-foreground mt-0.5">Run link health checks on a schedule</p>
+                                        </div>
+                                        <Switch
+                                            checked={linkCheckEnabled}
+                                            onCheckedChange={setLinkCheckEnabled}
+                                        />
+                                    </div>
+
+                                    {linkCheckEnabled && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <div className="space-y-1.5">
+                                                <Label>Frequency</Label>
+                                                <Select
+                                                    value={linkCheckInterval}
+                                                    onValueChange={(v) => setLinkCheckInterval(v as 'weekly' | 'monthly' | 'custom')}
+                                                >
+                                                    <SelectTrigger className="bg-background/50">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="weekly">Every week</SelectItem>
+                                                        <SelectItem value="monthly">Every month</SelectItem>
+                                                        <SelectItem value="custom">Custom interval</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            {linkCheckInterval === 'custom' && (
+                                                <div className="space-y-1.5 animate-in fade-in duration-150">
+                                                    <Label>Every how many days?</Label>
+                                                    <div className="flex items-center gap-2">
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={365}
+                                                            value={linkCheckIntervalDays}
+                                                            onChange={e => setLinkCheckIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
+                                                            className="w-28 bg-background/50"
+                                                        />
+                                                        <span className="text-sm text-muted-foreground">days</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {lastLinkCheckAt && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Last checked: {new Date(lastLinkCheckAt).toLocaleString()}
+                                        </p>
+                                    )}
+
+                                    <Button
+                                        onClick={async () => {
+                                            setSavingLinkSchedule(true);
+                                            try {
+                                                const res = await fetch("/api/settings/link-check", {
+                                                    method: "PUT",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({
+                                                        enabled: linkCheckEnabled,
+                                                        interval: linkCheckInterval,
+                                                        intervalDays: linkCheckIntervalDays,
+                                                    }),
+                                                });
+                                                if (res.ok) toast.success("Schedule saved");
+                                                else toast.error("Failed to save schedule");
+                                            } catch {
+                                                toast.error("Something went wrong");
+                                            }
+                                            setSavingLinkSchedule(false);
+                                        }}
+                                        disabled={savingLinkSchedule}
+                                        className="cursor-pointer"
+                                    >
+                                        {savingLinkSchedule ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                        Save Schedule
+                                    </Button>
+                                </CardContent>
+                            </Card>
+
+                            {/* Manual Run Card */}
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <Play className="h-5 w-5 text-primary" />
+                                        Manual Check
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Run a link health check right now across all your bookmarks.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {(() => {
+                                        const activeJob = taskStats?.bulkJobs?.find((j: any) => j.type === 'check_broken_links');
+                                        if (activeJob) {
+                                            const payload = (() => { try { return JSON.parse(activeJob.payload); } catch { return {}; } })();
+                                            return (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <span className="text-muted-foreground">
+                                                            {activeJob.status === 'pending' ? 'Waiting to start…' : `Checking links… ${payload.processed ?? 0} / ${payload.total ?? '?'}`}
+                                                        </span>
+                                                        <span className="font-medium">{activeJob.progress ?? 0}%</span>
+                                                    </div>
+                                                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-primary transition-all duration-500 rounded-full"
+                                                            style={{ width: `${activeJob.progress ?? 0}%` }}
+                                                        />
+                                                    </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="cursor-pointer text-destructive border-destructive/40 hover:bg-destructive/5"
+                                                        onClick={() => handleCancelJob(activeJob.id)}
+                                                    >
+                                                        <X className="h-3.5 w-3.5 mr-1.5" />
+                                                        Cancel
+                                                    </Button>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <Button
+                                                onClick={async () => {
+                                                    setIsRunningLinkCheck(true);
+                                                    try {
+                                                        const res = await fetch("/api/tasks", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ action: 'check_broken_links' }),
+                                                        });
+                                                        if (res.ok) toast.success("Link check started");
+                                                        else {
+                                                            const d = await res.json();
+                                                            toast.error(d.error || "Failed to start job");
+                                                        }
+                                                    } catch {
+                                                        toast.error("Failed to start job");
+                                                    }
+                                                    setIsRunningLinkCheck(false);
+                                                }}
+                                                disabled={isRunningLinkCheck}
+                                                className="cursor-pointer"
+                                            >
+                                                {isRunningLinkCheck
+                                                    ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                    : <Play className="h-4 w-4 mr-2" />}
+                                                Run Check Now
+                                            </Button>
+                                        );
+                                    })()}
+                                </CardContent>
+                            </Card>
+
+                            {/* Broken Links Results Card */}
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader>
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <CardTitle className="text-lg flex items-center gap-2">
+                                                <ShieldX className="h-5 w-5 text-destructive" />
+                                                Broken Links
+                                                {brokenBookmarks.length > 0 && (
+                                                    <Badge variant="destructive" className="ml-1 text-xs">
+                                                        {brokenBookmarks.length}
+                                                    </Badge>
+                                                )}
+                                            </CardTitle>
+                                            <CardDescription className="mt-1">
+                                                Bookmarks that returned an error or are unreachable. Select any to delete them.
+                                            </CardDescription>
+                                        </div>
+                                        {selectedBrokenIds.size > 0 && (
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                disabled={isDeletingBroken}
+                                                className="cursor-pointer shrink-0"
+                                                onClick={async () => {
+                                                    setIsDeletingBroken(true);
+                                                    try {
+                                                        const res = await fetch("/api/bookmarks/broken", {
+                                                            method: "DELETE",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ ids: [...selectedBrokenIds] }),
+                                                        });
+                                                        if (res.ok) {
+                                                            const data = await res.json();
+                                                            toast.success(`Deleted ${data.deleted} bookmark${data.deleted !== 1 ? 's' : ''}`);
+                                                            setBrokenBookmarks(prev => prev.filter(b => !selectedBrokenIds.has(b.id)));
+                                                            setSelectedBrokenIds(new Set());
+                                                        } else {
+                                                            toast.error("Failed to delete bookmarks");
+                                                        }
+                                                    } catch {
+                                                        toast.error("Something went wrong");
+                                                    }
+                                                    setIsDeletingBroken(false);
+                                                }}
+                                            >
+                                                {isDeletingBroken
+                                                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                                                    : <Trash2 className="h-3.5 w-3.5 mr-1.5" />}
+                                                Delete {selectedBrokenIds.size} selected
+                                            </Button>
+                                        )}
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    {brokenBookmarks.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                                            <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
+                                                <Check className="h-6 w-6 text-green-500" />
+                                            </div>
+                                            <p className="text-sm font-medium">No broken links found</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {lastLinkCheckAt ? 'All your bookmarks are reachable.' : 'Run a check to find broken links.'}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-lg border border-border/40 overflow-hidden">
+                                            {/* Table header */}
+                                            <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/30 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                                <input
+                                                    type="checkbox"
+                                                    className="h-4 w-4 rounded cursor-pointer accent-primary"
+                                                    checked={selectedBrokenIds.size === brokenBookmarks.length && brokenBookmarks.length > 0}
+                                                    onChange={e => {
+                                                        if (e.target.checked) {
+                                                            setSelectedBrokenIds(new Set(brokenBookmarks.map(b => b.id)));
+                                                        } else {
+                                                            setSelectedBrokenIds(new Set());
+                                                        }
+                                                    }}
+                                                />
+                                                <span>Bookmark</span>
+                                                <span className="text-right">Status</span>
+                                                <span className="text-right">Checked</span>
+                                            </div>
+
+                                            {/* Table rows */}
+                                            <div className="divide-y divide-border/20">
+                                                {brokenBookmarks.map(bm => (
+                                                    <div
+                                                        key={bm.id}
+                                                        className={cn(
+                                                            "grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center px-4 py-3 transition-colors",
+                                                            selectedBrokenIds.has(bm.id)
+                                                                ? "bg-destructive/5"
+                                                                : "hover:bg-muted/20"
+                                                        )}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            className="h-4 w-4 rounded cursor-pointer accent-primary"
+                                                            checked={selectedBrokenIds.has(bm.id)}
+                                                            onChange={e => {
+                                                                setSelectedBrokenIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (e.target.checked) next.add(bm.id);
+                                                                    else next.delete(bm.id);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        />
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium truncate">
+                                                                {bm.title || '(No title)'}
+                                                            </p>
+                                                            <a
+                                                                href={bm.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-xs text-muted-foreground hover:text-primary truncate block transition-colors"
+                                                            >
+                                                                {bm.url}
+                                                            </a>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <Badge
+                                                                variant={bm.link_status === 'broken' ? 'destructive' : 'secondary'}
+                                                                className="text-xs font-mono"
+                                                            >
+                                                                {bm.link_status_code ?? bm.link_status}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {bm.link_checked_at
+                                                                    ? new Date(bm.link_checked_at).toLocaleDateString()
+                                                                    : '—'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
                     )}
                 </div>

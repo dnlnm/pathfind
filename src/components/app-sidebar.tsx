@@ -22,7 +22,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +72,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         { id: "security", label: "Security", icon: ShieldCheck },
         { id: "data", label: "Data Management", icon: Database },
         { id: "tasks", label: "Background Tasks", icon: RefreshCw },
+        { id: "link-health", label: "Link Health", icon: LinkIcon },
     ];
 
     const fetchTags = useCallback(async () => {
