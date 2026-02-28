@@ -66,7 +66,10 @@ import {
     X,
     ChevronDown,
     ChevronUp,
-    Pencil
+    Pencil,
+    Image,
+    Brain,
+    Square
 } from "lucide-react";
 import { Rule, RuleCondition, RuleAction, RuleEvent } from "@/types";
 import { cn } from "@/lib/utils";
@@ -578,6 +581,39 @@ function SettingsContent() {
             toast.error("Failed to clear tasks");
         }
         setIsClearing(false);
+    };
+
+    const handleStartBulkJob = async (jobType: 'backfill_thumbnails' | 'backfill_embeddings', overwrite?: boolean) => {
+        try {
+            const res = await fetch("/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: jobType, overwrite: overwrite ?? false }),
+            });
+            if (res.ok) {
+                toast.success("Job started");
+            } else {
+                const data = await res.json();
+                toast.error(data.error || "Failed to start job");
+            }
+        } catch {
+            toast.error("Failed to start job");
+        }
+    };
+
+    const handleCancelJob = async (jobId: string) => {
+        try {
+            const res = await fetch("/api/tasks", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "cancel_job", jobId }),
+            });
+            if (res.ok) {
+                toast.success("Job cancelled");
+            }
+        } catch {
+            toast.error("Failed to cancel job");
+        }
     };
 
     // --- Rule Engine handlers ---
@@ -1312,6 +1348,222 @@ function SettingsContent() {
 
                     {activeTab === "tasks" && (
                         <div className="space-y-6">
+                            {/* Thumbnail Card — separate because it has two action buttons */}
+                            {(() => {
+                                const thumbJob = (taskStats?.bulkJobs || []).find((j: any) => j.type === 'backfill_thumbnails');
+                                const isRunning = thumbJob?.status === 'processing';
+                                const isPending = thumbJob?.status === 'pending';
+                                const progress = thumbJob?.progress || 0;
+                                let parsedPayload: any = {};
+                                try { parsedPayload = thumbJob?.payload ? JSON.parse(thumbJob.payload) : {}; } catch { }
+                                const processed = parsedPayload.processed || 0;
+                                const total = parsedPayload.total || 0;
+                                const missingCount = taskStats?.maintenance?.missingThumbnails || 0;
+
+                                return (
+                                    <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                                    isRunning ? "bg-primary/10" : "bg-muted/40"
+                                                )}>
+                                                    <Image className={cn("h-5 w-5", isRunning ? "text-primary" : "text-muted-foreground")} />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-base">Fetch Thumbnails</CardTitle>
+                                                    <CardDescription className="text-xs mt-0.5">
+                                                        Fetch thumbnails for your bookmarks. Fetch only missing ones, or re-fetch all.
+                                                    </CardDescription>
+                                                </div>
+                                            </div>
+                                            {isRunning && (
+                                                <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 animate-pulse">
+                                                    {parsedPayload.overwrite ? "Refetching All" : "Fetching Missing"}
+                                                </Badge>
+                                            )}
+                                            {isPending && (
+                                                <Badge variant="outline" className="text-[10px] bg-amber-500/5 text-amber-500 border-amber-500/20 shrink-0">
+                                                    Queued
+                                                </Badge>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {(isRunning || isPending) ? (
+                                                <>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-muted-foreground font-medium flex items-center gap-2">
+                                                                {isRunning && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                                                                {isRunning
+                                                                    ? (total > 0 ? `${processed} / ${total} processed` : "Starting...")
+                                                                    : "Waiting to start..."}
+                                                            </span>
+                                                            {isRunning && (
+                                                                <span className="text-muted-foreground font-mono text-[11px]">{progress}%</span>
+                                                            )}
+                                                        </div>
+                                                        {isRunning && (
+                                                            <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-primary transition-all duration-700 rounded-full"
+                                                                    style={{ width: `${progress}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleCancelJob(thumbJob.id)}
+                                                        className="h-8 text-[11px] gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive hover:border-destructive/30"
+                                                    >
+                                                        <Square className="h-3 w-3" />
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {missingCount > 0 ? (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            <span className="font-semibold text-foreground">{missingCount}</span> bookmarks missing thumbnails
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-xs text-emerald-500 flex items-center gap-1.5">
+                                                            <Check className="h-3.5 w-3.5" />
+                                                            All bookmarks have thumbnails
+                                                        </p>
+                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleStartBulkJob('backfill_thumbnails', false)}
+                                                            disabled={missingCount === 0}
+                                                            className="h-9 text-xs gap-2 cursor-pointer"
+                                                        >
+                                                            <RefreshCw className="h-3.5 w-3.5" />
+                                                            Fetch Missing
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleStartBulkJob('backfill_thumbnails', true)}
+                                                            className="h-9 text-xs gap-2 cursor-pointer"
+                                                        >
+                                                            <RefreshCw className="h-3.5 w-3.5" />
+                                                            Refetch All
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* Embeddings Card */}
+                            {(() => {
+                                const embedJob = (taskStats?.bulkJobs || []).find((j: any) => j.type === 'backfill_embeddings');
+                                const isRunning = embedJob?.status === 'processing';
+                                const isPending = embedJob?.status === 'pending';
+                                const progress = embedJob?.progress || 0;
+                                let parsedPayload: any = {};
+                                try { parsedPayload = embedJob?.payload ? JSON.parse(embedJob.payload) : {}; } catch { }
+                                const processed = parsedPayload.processed || 0;
+                                const total = parsedPayload.total || 0;
+                                const missingCount = taskStats?.maintenance?.missingEmbeddings || 0;
+
+                                return (
+                                    <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                                    isRunning ? "bg-primary/10" : "bg-muted/40"
+                                                )}>
+                                                    <Brain className={cn("h-5 w-5", isRunning ? "text-primary" : "text-muted-foreground")} />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-base">Generate Embeddings</CardTitle>
+                                                    <CardDescription className="text-xs mt-0.5">
+                                                        Generate vector embeddings for semantic search on bookmarks that are missing them.
+                                                    </CardDescription>
+                                                </div>
+                                            </div>
+                                            {isRunning && (
+                                                <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 animate-pulse">
+                                                    Running
+                                                </Badge>
+                                            )}
+                                            {isPending && (
+                                                <Badge variant="outline" className="text-[10px] bg-amber-500/5 text-amber-500 border-amber-500/20 shrink-0">
+                                                    Queued
+                                                </Badge>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {(isRunning || isPending) ? (
+                                                <>
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-muted-foreground font-medium flex items-center gap-2">
+                                                                {isRunning && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                                                                {isRunning
+                                                                    ? (total > 0 ? `${processed} / ${total} processed` : "Starting...")
+                                                                    : "Waiting to start..."}
+                                                            </span>
+                                                            {isRunning && (
+                                                                <span className="text-muted-foreground font-mono text-[11px]">{progress}%</span>
+                                                            )}
+                                                        </div>
+                                                        {isRunning && (
+                                                            <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-primary transition-all duration-700 rounded-full"
+                                                                    style={{ width: `${progress}%` }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleCancelJob(embedJob.id)}
+                                                        className="h-8 text-[11px] gap-1.5 cursor-pointer text-muted-foreground hover:text-destructive hover:border-destructive/30"
+                                                    >
+                                                        <Square className="h-3 w-3" />
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {missingCount > 0 ? (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            <span className="font-semibold text-foreground">{missingCount}</span> bookmarks missing embeddings
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-xs text-emerald-500 flex items-center gap-1.5">
+                                                            <Check className="h-3.5 w-3.5" />
+                                                            All bookmarks have embeddings
+                                                        </p>
+                                                    )}
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleStartBulkJob('backfill_embeddings')}
+                                                        disabled={missingCount === 0}
+                                                        className="h-9 text-xs gap-2 cursor-pointer"
+                                                    >
+                                                        <RefreshCw className="h-3.5 w-3.5" />
+                                                        Start
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* Job Statistics */}
                             <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
                                     <div>
@@ -1378,6 +1630,7 @@ function SettingsContent() {
                                 </CardContent>
                             </Card>
 
+                            {/* Processing Queue */}
                             <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
                                 <CardHeader>
                                     <CardTitle className="text-lg">Processing Queue</CardTitle>

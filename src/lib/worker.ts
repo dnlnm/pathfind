@@ -14,15 +14,115 @@ function logDebug(msg: string) {
     fs.appendFileSync("worker-debug.log", formatted);
 }
 
+// ---------------------------------------------------------------------------
+// Worker entrypoint — launches parallel "lanes" so different job types
+// can run simultaneously without blocking each other.
+// ---------------------------------------------------------------------------
+
 export async function startWorker() {
     if (isWorkerRunning) return;
     isWorkerRunning = true;
     logDebug("[Worker] Background worker started");
 
-    // Continuous loops
-    runWorkerLoop();
+    // Parallel lanes — each one processes its own job types independently
+    runWorkerLane("fast", ["metadata_fetch"]);
+    runWorkerLane("sync", ["reddit_rss_sync", "github_starred_sync"]);
+    runWorkerLane("bulk", ["backfill_thumbnails", "backfill_embeddings"]);
     runSchedulerLoop();
 }
+
+// ---------------------------------------------------------------------------
+// Lane runner — polls for jobs of the given types
+// ---------------------------------------------------------------------------
+
+async function runWorkerLane(laneName: string, types: string[]) {
+    logDebug(`[Worker] Lane "${laneName}" started for types: ${types.join(", ")}`);
+    const placeholders = types.map(() => "?").join(", ");
+
+    while (true) {
+        try {
+            const processed = await processNextJobForLane(laneName, types, placeholders);
+            if (!processed) {
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        } catch (e) {
+            logDebug(`[Worker] Lane "${laneName}" error: ` + e);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
+}
+
+async function processNextJobForLane(laneName: string, types: string[], placeholders: string): Promise<boolean> {
+    const job = db.prepare(`
+        SELECT * FROM jobs 
+        WHERE type IN (${placeholders})
+        AND (status = 'pending' OR (status = 'failed' AND attempts < 3))
+        AND (available_at IS NULL OR available_at <= datetime('now'))
+        ORDER BY created_at ASC 
+        LIMIT 1
+    `).get(...types) as any;
+
+    if (!job) return false;
+
+    db.prepare("UPDATE jobs SET status = 'processing', updated_at = datetime('now') WHERE id = ?").run(job.id);
+
+    try {
+        const payload = JSON.parse(job.payload);
+
+        switch (job.type) {
+            case 'metadata_fetch':
+                await handleMetadataFetch(job, payload);
+                break;
+            case 'reddit_rss_sync':
+                await handleRedditRssSync(job, payload);
+                break;
+            case 'github_starred_sync':
+                await handleGithubStarredSync(job, payload);
+                break;
+            case 'backfill_thumbnails':
+                await handleBackfillThumbnails(job, payload);
+                break;
+            case 'backfill_embeddings':
+                await handleBackfillEmbeddings(job, payload);
+                break;
+            default:
+                logDebug(`[Worker] Unknown job type: ${job.type}`);
+        }
+
+        db.prepare("UPDATE jobs SET status = 'completed', progress = 100, updated_at = datetime('now') WHERE id = ?").run(job.id);
+        return true;
+    } catch (e: any) {
+        logDebug(`[Worker] Job ${job.id} failed: ` + e);
+        const attempt = (job.attempts || 0) + 1;
+        // Exponential backoff: attempt^2 * 5 minutes
+        const backoffMinutes = attempt * attempt * 5;
+        db.prepare(`
+            UPDATE jobs 
+            SET status = 'failed', 
+                attempts = ?, 
+                error = ?, 
+                available_at = datetime('now', '+${backoffMinutes} minutes'),
+                updated_at = datetime('now') 
+            WHERE id = ?
+        `).run(attempt, e.message || String(e), job.id);
+        return true;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: check if a bulk job has been cancelled between iterations
+// ---------------------------------------------------------------------------
+
+function isJobCancelled(jobId: string): boolean {
+    const row = db.prepare("SELECT status FROM jobs WHERE id = ?").get(jobId) as { status: string } | undefined;
+    return !row || row.status === 'cancelled';
+}
+
+// ---------------------------------------------------------------------------
+// Scheduler loop — creates periodic sync jobs
+// ---------------------------------------------------------------------------
 
 async function runSchedulerLoop() {
     logDebug("[Worker] Scheduler loop started");
@@ -96,68 +196,190 @@ async function runSchedulerLoop() {
     }
 }
 
-async function runWorkerLoop() {
-    while (true) {
+// ---------------------------------------------------------------------------
+// Job Handlers
+// ---------------------------------------------------------------------------
+
+async function handleMetadataFetch(job: any, payload: any) {
+    const { bookmarkId } = payload;
+    const bookmark = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(bookmarkId) as any;
+
+    if (!bookmark) {
+        console.warn(`[Worker] Bookmark ${bookmarkId} not found, skipping job.`);
+        return;
+    }
+
+    console.log(`[Worker] Fetching metadata for: ${bookmark.url}`);
+    const metadata = await fetchUrlMetadata(bookmark.url);
+
+    db.prepare(`
+        UPDATE bookmarks 
+        SET 
+            title = CASE WHEN title IS NULL OR title = '' THEN ? ELSE title END,
+            description = CASE WHEN description IS NULL OR description = '' THEN ? ELSE description END,
+            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
+            thumbnail = CASE WHEN thumbnail IS NULL OR thumbnail = '' THEN ? ELSE thumbnail END,
+            updated_at = datetime('now')
+        WHERE id = ?
+    `).run(
+        metadata.title || '',
+        metadata.description || '',
+        metadata.favicon || '',
+        metadata.thumbnail || '',
+        bookmarkId
+    );
+
+    // After updating metadata, generate vector embedding for semantic search
+    try {
+        const updatedRow = db.prepare("SELECT rowid, title, description, notes FROM bookmarks WHERE id = ?").get(bookmarkId) as { rowid: number, title: string | null, description: string | null, notes: string | null };
+        if (updatedRow) {
+            const textToEmbed = `${updatedRow.title || ''} ${updatedRow.description || ''} ${updatedRow.notes || ''}`.trim();
+            if (textToEmbed) {
+                const embedding = await generateEmbedding(textToEmbed);
+                if (embedding) {
+                    const f32arr = new Float32Array(embedding);
+                    db.prepare("INSERT OR REPLACE INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(updatedRow.rowid), f32arr);
+                    logDebug(`[Worker] Generated embedding for bookmark ${bookmarkId}`);
+                }
+            }
+        }
+    } catch (e) {
+        logDebug(`[Worker] Background embedding failed for ${bookmarkId}: ` + e);
+        console.error("Background embedding failed:", e);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch Thumbnails — fetches thumbnails for bookmarks
+// payload.overwrite = true  → re-fetch for ALL bookmarks
+// payload.overwrite = false → only bookmarks missing a thumbnail (default)
+// ---------------------------------------------------------------------------
+
+async function handleBackfillThumbnails(job: any, payload: any) {
+    const userId = job.user_id;
+    const overwrite = payload.overwrite === true;
+
+    const bookmarks = overwrite
+        ? (db.prepare(`
+            SELECT id, url, title FROM bookmarks
+            WHERE user_id = ?
+            ORDER BY created_at ASC
+          `).all(userId) as { id: string; url: string; title: string | null }[])
+        : (db.prepare(`
+            SELECT id, url, title FROM bookmarks
+            WHERE user_id = ?
+            AND (thumbnail IS NULL OR thumbnail = '')
+            ORDER BY created_at ASC
+          `).all(userId) as { id: string; url: string; title: string | null }[]);
+
+    const total = bookmarks.length;
+    logDebug(`[Worker] Fetch thumbnails (overwrite=${overwrite}): ${total} bookmarks for user ${userId}`);
+
+    if (total === 0) return;
+
+    db.prepare("UPDATE jobs SET payload = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(JSON.stringify({ ...payload, total, processed: 0 }), job.id);
+
+    for (let i = 0; i < bookmarks.length; i++) {
+        if (isJobCancelled(job.id)) {
+            logDebug(`[Worker] Fetch thumbnails job ${job.id} cancelled at ${i}/${total}`);
+            return;
+        }
+
+        const bm = bookmarks[i];
         try {
-            const processed = await processNextJob();
-            // If we processed something, keep going immediately.
-            // If not, wait a bit longer.
-            if (!processed) {
-                await new Promise(resolve => setTimeout(resolve, 3000));
-            } else {
-                await new Promise(resolve => setTimeout(resolve, 500));
+            const metadata = await fetchUrlMetadata(bm.url);
+            if (metadata.thumbnail) {
+                if (overwrite) {
+                    db.prepare(`
+                        UPDATE bookmarks SET
+                            thumbnail = ?,
+                            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    `).run(metadata.thumbnail, metadata.favicon || '', bm.id);
+                } else {
+                    db.prepare(`
+                        UPDATE bookmarks SET
+                            thumbnail = ?,
+                            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
+                            updated_at = datetime('now')
+                        WHERE id = ? AND (thumbnail IS NULL OR thumbnail = '')
+                    `).run(metadata.thumbnail, metadata.favicon || '', bm.id);
+                }
             }
         } catch (e) {
-            logDebug("[Worker] Error in loop: " + e);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-    }
-}
-
-async function processNextJob(): Promise<boolean> {
-    // Find next pending job or failed job that hasn't reached max attempts
-    const job = db.prepare(`
-        SELECT * FROM jobs 
-        WHERE status = 'pending' 
-        OR (status = 'failed' AND attempts < 3)
-        ORDER BY created_at ASC 
-        LIMIT 1
-    `).get() as any;
-
-    if (!job) return false;
-
-    // Mark as processing immediately to avoid multiple workers picking it up
-    db.prepare("UPDATE jobs SET status = 'processing', updated_at = datetime('now') WHERE id = ?").run(job.id);
-
-    try {
-        const payload = JSON.parse(job.payload);
-
-        if (job.type === 'metadata_fetch') {
-            await handleMetadataFetch(job, payload);
-        } else if (job.type === 'reddit_rss_sync') {
-            await handleRedditRssSync(job, payload);
-        } else if (job.type === 'github_starred_sync') {
-            await handleGithubStarredSync(job, payload);
-        } else if (job.type === 'ai_tagging') {
-            // AI tagging logic would go here later
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            logDebug(`[Worker] Fetch thumbnail failed for ${bm.id}: ` + e);
         }
 
-        db.prepare("UPDATE jobs SET status = 'completed', progress = 100, updated_at = datetime('now') WHERE id = ?").run(job.id);
-        return true;
-    } catch (e: any) {
-        logDebug(`[Worker] Job ${job.id} failed: ` + e);
-        db.prepare(`
-            UPDATE jobs 
-            SET status = 'failed', 
-                attempts = attempts + 1, 
-                error = ?, 
-                updated_at = datetime('now') 
-            WHERE id = ?
-        `).run(e.message || String(e), job.id);
-        return true;
+        const progress = Math.round(((i + 1) / total) * 100);
+        db.prepare("UPDATE jobs SET progress = ?, payload = ?, updated_at = datetime('now') WHERE id = ?")
+            .run(progress, JSON.stringify({ ...payload, total, processed: i + 1 }), job.id);
+
+        await new Promise(resolve => setTimeout(resolve, 300));
     }
+
+    logDebug(`[Worker] Fetch thumbnails complete: ${total} processed`);
 }
+
+
+
+// ---------------------------------------------------------------------------
+// Backfill Embeddings — generates embeddings for bookmarks missing them
+// ---------------------------------------------------------------------------
+
+async function handleBackfillEmbeddings(job: any, payload: any) {
+    const userId = job.user_id;
+
+    const bookmarks = db.prepare(`
+        SELECT b.rowid, b.id, b.title, b.description, b.notes
+        FROM bookmarks b
+        LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
+        WHERE b.user_id = ? AND v.rowid IS NULL
+    `).all(userId) as { rowid: number; id: string; title: string | null; description: string | null; notes: string | null }[];
+
+    const total = bookmarks.length;
+    logDebug(`[Worker] Backfill embeddings: ${total} bookmarks to process for user ${userId}`);
+
+    if (total === 0) return;
+
+    db.prepare("UPDATE jobs SET payload = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(JSON.stringify({ ...payload, total, processed: 0 }), job.id);
+
+    for (let i = 0; i < bookmarks.length; i++) {
+        if (isJobCancelled(job.id)) {
+            logDebug(`[Worker] Backfill embeddings job ${job.id} was cancelled at ${i}/${total}`);
+            return;
+        }
+
+        const item = bookmarks[i];
+        try {
+            const textToEmbed = `${item.title || ''} ${item.description || ''} ${item.notes || ''}`.trim();
+            if (textToEmbed) {
+                const embedding = await generateEmbedding(textToEmbed);
+                if (embedding) {
+                    const f32arr = new Float32Array(embedding);
+                    db.prepare("INSERT OR REPLACE INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(item.rowid), f32arr);
+                }
+            }
+        } catch (e) {
+            logDebug(`[Worker] Backfill embedding failed for ${item.id}: ` + e);
+        }
+
+        const progress = Math.round(((i + 1) / total) * 100);
+        db.prepare("UPDATE jobs SET progress = ?, payload = ?, updated_at = datetime('now') WHERE id = ?")
+            .run(progress, JSON.stringify({ ...payload, total, processed: i + 1 }), job.id);
+
+        // Rate limit to avoid Gemini API throttling
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    logDebug(`[Worker] Backfill embeddings complete: ${total} bookmarks processed`);
+}
+
+// ---------------------------------------------------------------------------
+// Reddit RSS Sync
+// ---------------------------------------------------------------------------
 
 async function handleRedditRssSync(job: any, payload: any) {
     const { userId } = payload;
@@ -199,14 +421,11 @@ async function handleRedditRssSync(job: any, payload: any) {
                 items = data.data.children.map((child: any) => {
                     const post = child.data;
 
-                    // The user wants to ALWAYS use the permalink (link to reddit thread)
-                    // even if it links to an external site.
                     let link = post.url;
                     if (post.permalink) {
                         link = `https://www.reddit.com${post.permalink}`;
                     }
 
-                    // Final cleanup: ensure it's absolute
                     if (link && link.startsWith("/")) {
                         link = `https://www.reddit.com${link}`;
                     }
@@ -270,7 +489,6 @@ async function handleRedditRssSync(job: any, payload: any) {
 
     let syncedCount = 0;
 
-    // Use a transaction for bulk insert
     const syncTransaction = db.transaction(() => {
         for (const item of items) {
             if (!item.link) continue;
@@ -310,62 +528,14 @@ async function handleRedditRssSync(job: any, payload: any) {
 
     syncTransaction();
 
-    // Update the last sync time for the user
     db.prepare("UPDATE users SET last_reddit_sync_at = datetime('now') WHERE id = ?").run(userId);
 
     logDebug(`[Worker] Synced ${syncedCount} new items from Reddit for user ${userId}`);
 }
 
-async function handleMetadataFetch(job: any, payload: any) {
-    const { bookmarkId } = payload;
-    const bookmark = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(bookmarkId) as any;
-
-    if (!bookmark) {
-        console.warn(`[Worker] Bookmark ${bookmarkId} not found, skipping job.`);
-        return;
-    }
-
-    console.log(`[Worker] Fetching metadata for: ${bookmark.url}`);
-    const metadata = await fetchUrlMetadata(bookmark.url);
-
-    // Update bookmark with fetched metadata, but only for fields that are currently null/empty
-    // We use COALESCE and check for empty strings
-    db.prepare(`
-        UPDATE bookmarks 
-        SET 
-            title = CASE WHEN title IS NULL OR title = '' THEN ? ELSE title END,
-            description = CASE WHEN description IS NULL OR description = '' THEN ? ELSE description END,
-            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
-            thumbnail = CASE WHEN thumbnail IS NULL OR thumbnail = '' THEN ? ELSE thumbnail END,
-            updated_at = datetime('now')
-        WHERE id = ?
-    `).run(
-        metadata.title || '',
-        metadata.description || '',
-        metadata.favicon || '',
-        metadata.thumbnail || '',
-        bookmarkId
-    );
-
-    // After updating metadata, generate vector embedding for semantic search
-    try {
-        const updatedRow = db.prepare("SELECT rowid, title, description, notes FROM bookmarks WHERE id = ?").get(bookmarkId) as { rowid: number, title: string | null, description: string | null, notes: string | null };
-        if (updatedRow) {
-            const textToEmbed = `${updatedRow.title || ''} ${updatedRow.description || ''} ${updatedRow.notes || ''}`.trim();
-            if (textToEmbed) {
-                const embedding = await generateEmbedding(textToEmbed);
-                if (embedding) {
-                    const f32arr = new Float32Array(embedding);
-                    db.prepare("INSERT OR REPLACE INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(updatedRow.rowid), f32arr);
-                    logDebug(`[Worker] Generated embedding for bookmark ${bookmarkId}`);
-                }
-            }
-        }
-    } catch (e) {
-        logDebug(`[Worker] Background embedding failed for ${bookmarkId}: ` + e);
-        console.error("Background embedding failed:", e);
-    }
-}
+// ---------------------------------------------------------------------------
+// GitHub Starred Sync
+// ---------------------------------------------------------------------------
 
 async function handleGithubStarredSync(job: any, payload: any) {
     const { userId } = payload;
@@ -393,7 +563,6 @@ async function handleGithubStarredSync(job: any, payload: any) {
     const stars = await response.json();
     let syncedCount = 0;
 
-    // Ensure "github" tag exists
     const githubTagId = generateId();
     db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)").run(githubTagId, "github");
     const tagRow = db.prepare("SELECT id FROM tags WHERE name = ?").get("github") as { id: string };
@@ -421,7 +590,6 @@ async function handleGithubStarredSync(job: any, payload: any) {
 
             linkTag.run(bmId, tagRow.id);
 
-            // Queue a metadata fetch job
             const metadataJobId = generateId();
             db.prepare(`
                 INSERT INTO jobs (id, type, payload, status, user_id)
@@ -434,7 +602,6 @@ async function handleGithubStarredSync(job: any, payload: any) {
 
     syncTransaction();
 
-    // Update the last sync time
     db.prepare("UPDATE users SET last_github_sync_at = datetime('now') WHERE id = ?").run(userId);
 
     logDebug(`[Worker] Synced ${syncedCount} new GitHub stars for user ${userId}`);

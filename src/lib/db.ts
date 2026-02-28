@@ -301,6 +301,13 @@ try {
   // Seed may fail if rules table doesn't exist yet (first run)
 }
 
+// Migration: add available_at column to jobs for exponential backoff
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN available_at TEXT");
+} catch (e) {
+  // Column already exists
+}
+
 export default db;
 
 // Helper to generate IDs

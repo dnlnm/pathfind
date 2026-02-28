@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import db from "@/lib/db";
+import db, { generateId } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
     const userId = session.user.id;
 
     const stats = db.prepare(`
@@ -28,18 +27,45 @@ export async function GET(request: NextRequest) {
         LIMIT 5
     `).all(userId);
 
+    // Maintenance stats: how many bookmarks are missing thumbnails / embeddings
+    const missingThumbnails = (db.prepare(`
+        SELECT COUNT(*) as count FROM bookmarks 
+        WHERE user_id = ? AND (thumbnail IS NULL OR thumbnail = '')
+    `).get(userId) as { count: number }).count;
+
+    const missingEmbeddings = (db.prepare(`
+        SELECT COUNT(*) as count FROM bookmarks b
+        LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
+        WHERE b.user_id = ? AND v.rowid IS NULL
+    `).get(userId) as { count: number }).count;
+
+    // Active bulk jobs with their progress
+    const bulkJobs = db.prepare(`
+        SELECT id, type, status, progress, payload, error, created_at, updated_at
+        FROM jobs 
+        WHERE user_id = ? 
+        AND type IN ('backfill_thumbnails', 'backfill_embeddings')
+        AND status IN ('pending', 'processing')
+        ORDER BY created_at DESC
+    `).all(userId);
+
     const result = {
         pending: stats.find(s => s.status === 'pending')?.count || 0,
         processing: stats.find(s => s.status === 'processing')?.count || 0,
         completed: stats.find(s => s.status === 'completed')?.count || 0,
         failed: stats.find(s => s.status === 'failed')?.count || 0,
-        activeJobs
+        activeJobs,
+        maintenance: {
+            missingThumbnails,
+            missingEmbeddings,
+        },
+        bulkJobs,
     };
 
     return NextResponse.json(result);
 }
 
-// POST to retry failed jobs or clear queue
+// POST to trigger jobs, retry failed, or clear queue
 export async function POST(request: NextRequest) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -47,14 +73,37 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    const { action } = await request.json();
+    const body = await request.json();
+    const { action, jobId } = body;
 
     if (action === 'retry_failed') {
-        db.prepare("UPDATE jobs SET status = 'pending', attempts = 0 WHERE user_id = ? AND status = 'failed'").run(userId);
+        db.prepare("UPDATE jobs SET status = 'pending', attempts = 0, available_at = NULL WHERE user_id = ? AND status = 'failed'").run(userId);
     } else if (action === 'clear_completed') {
         db.prepare("DELETE FROM jobs WHERE user_id = ? AND status = 'completed'").run(userId);
     } else if (action === 'clear_all') {
         db.prepare("DELETE FROM jobs WHERE user_id = ?").run(userId);
+    } else if (action === 'backfill_thumbnails' || action === 'backfill_embeddings') {
+        // Prevent duplicate bulk jobs
+        const existing = db.prepare(`
+            SELECT id FROM jobs 
+            WHERE user_id = ? AND type = ? AND status IN ('pending', 'processing')
+        `).get(userId, action);
+
+        if (existing) {
+            return NextResponse.json({ error: "A job of this type is already running" }, { status: 409 });
+        }
+
+        const id = generateId();
+        const overwrite = action === 'backfill_thumbnails' ? (body.overwrite === true) : false;
+        db.prepare(`
+            INSERT INTO jobs (id, type, payload, status, user_id)
+            VALUES (?, ?, ?, 'pending', ?)
+        `).run(id, action, JSON.stringify({ overwrite }), userId);
+
+
+        return NextResponse.json({ success: true, jobId: id });
+    } else if (action === 'cancel_job' && jobId) {
+        db.prepare("UPDATE jobs SET status = 'cancelled', updated_at = datetime('now') WHERE id = ? AND user_id = ?").run(jobId, userId);
     }
 
     return NextResponse.json({ success: true });
