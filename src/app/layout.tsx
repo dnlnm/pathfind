@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function RootLayout({
     children,
@@ -40,7 +40,7 @@ export default function RootLayout({
                 <SidebarProvider>
                     {children}
                 </SidebarProvider>
-                <Toaster richColors closeButton position="top-right" />
+                <Toaster position="bottom-right" />
             </body>
         </html>
     );

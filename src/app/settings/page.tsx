@@ -26,6 +26,24 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     Download,
     Upload,
     Loader2,
@@ -47,7 +65,8 @@ import {
     Zap,
     X,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Pencil
 } from "lucide-react";
 import { Rule, RuleCondition, RuleAction, RuleEvent } from "@/types";
 import { cn } from "@/lib/utils";
@@ -119,6 +138,10 @@ function SettingsContent() {
     const [ruleActions, setRuleActions] = useState<RuleAction[]>([{ type: "add_tags", params: { tags: [""] } }]);
     const [savingRule, setSavingRule] = useState(false);
     const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
+    const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
+    const [ruleToDelete, setRuleToDelete] = useState<Rule | null>(null);
+    const [existingTags, setExistingTags] = useState<{ id: string; name: string }[]>([]);
+    const [existingCollections, setExistingCollections] = useState<{ id: string; name: string }[]>([]);
 
     useEffect(() => {
         const fetchCounts = async () => {
@@ -192,6 +215,14 @@ function SettingsContent() {
                 .catch(() => { });
         };
         fetchTasks();
+        fetch("/api/collections")
+            .then(res => res.json())
+            .then(data => setExistingCollections(Array.isArray(data) ? data : []));
+
+        fetch("/api/tags")
+            .then(res => res.json())
+            .then(data => setExistingTags(Array.isArray(data) ? data : []));
+
         const interval = setInterval(fetchTasks, 3000);
         return () => clearInterval(interval);
     }, []);
@@ -550,7 +581,7 @@ function SettingsContent() {
     };
 
     // --- Rule Engine handlers ---
-    const handleCreateRule = async () => {
+    const handleSaveRule = async () => {
         if (!ruleName.trim()) { toast.error("Rule name is required"); return; }
         if (ruleConditions.some(c => !c.value.trim())) { toast.error("All condition values are required"); return; }
         if (ruleActions.some(a => a.type === "add_tags" && (!a.params?.tags?.length || a.params.tags.some((t: string) => !t.trim())))) {
@@ -562,8 +593,11 @@ function SettingsContent() {
 
         setSavingRule(true);
         try {
-            const res = await fetch("/api/rules", {
-                method: "POST",
+            const url = editingRuleId ? `/api/rules/${editingRuleId}` : "/api/rules";
+            const method = editingRuleId ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name: ruleName.trim(),
@@ -575,18 +609,34 @@ function SettingsContent() {
             });
             if (res.ok) {
                 const rule = await res.json();
-                setRules(prev => [...prev, rule]);
+                if (editingRuleId) {
+                    setRules(prev => prev.map(r => r.id === editingRuleId ? rule : r));
+                    toast.success("Rule updated");
+                } else {
+                    setRules(prev => [...prev, rule]);
+                    toast.success("Rule created");
+                }
                 setShowRuleForm(false);
+                setEditingRuleId(null);
                 setRuleName("");
                 setRuleConditions([{ field: "url", operator: "contains", value: "" }]);
                 setRuleActions([{ type: "add_tags", params: { tags: [""] } }]);
-                toast.success("Rule created");
             } else {
                 const data = await res.json();
-                toast.error(data.error || "Failed to create rule");
+                toast.error(data.error || "Failed to save rule");
             }
-        } catch { toast.error("Failed to create rule"); }
+        } catch { toast.error("Failed to save rule"); }
         setSavingRule(false);
+    };
+
+    const handleOpenEditRule = (rule: Rule) => {
+        setRuleName(rule.name);
+        setRuleEvent(rule.event);
+        setRuleConditionLogic(rule.conditionLogic);
+        setRuleConditions([...rule.conditions]);
+        setRuleActions([...rule.actions]);
+        setEditingRuleId(rule.id);
+        setShowRuleForm(true);
     };
 
     const handleToggleRule = async (ruleId: string, enabled: boolean) => {
@@ -600,13 +650,14 @@ function SettingsContent() {
         } catch { toast.error("Failed to toggle rule"); }
     };
 
-    const handleDeleteRule = async (ruleId: string) => {
-        if (!confirm("Delete this rule?")) return;
+    const handleDeleteRule = async () => {
+        if (!ruleToDelete) return;
         try {
-            const res = await fetch(`/api/rules/${ruleId}`, { method: "DELETE" });
+            const res = await fetch(`/api/rules/${ruleToDelete.id}`, { method: "DELETE" });
             if (res.ok) {
-                setRules(prev => prev.filter(r => r.id !== ruleId));
+                setRules(prev => prev.filter(r => r.id !== ruleToDelete.id));
                 toast.success("Rule deleted");
+                setRuleToDelete(null);
             }
         } catch { toast.error("Failed to delete rule"); }
     };
@@ -1375,12 +1426,18 @@ function SettingsContent() {
                                         <CardDescription>Rules automatically run when bookmarks are created or updated.</CardDescription>
                                     </div>
                                     <Button
-                                        onClick={() => setShowRuleForm(!showRuleForm)}
+                                        onClick={() => {
+                                            setEditingRuleId(null);
+                                            setRuleName("");
+                                            setRuleConditions([{ field: "url", operator: "contains", value: "" }]);
+                                            setRuleActions([{ type: "add_tags", params: { tags: [""] } }]);
+                                            setShowRuleForm(true);
+                                        }}
                                         size="sm"
                                         className="cursor-pointer gap-1.5"
                                     >
-                                        {showRuleForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                        {showRuleForm ? "Cancel" : "Add Rule"}
+                                        <Plus className="h-4 w-4" />
+                                        Add Rule
                                     </Button>
                                 </CardHeader>
                                 <CardContent>
@@ -1429,7 +1486,15 @@ function SettingsContent() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => handleDeleteRule(rule.id)}
+                                                                onClick={() => handleOpenEditRule(rule)}
+                                                                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer"
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => setRuleToDelete(rule)}
                                                                 className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
@@ -1467,14 +1532,49 @@ function SettingsContent() {
                                 </CardContent>
                             </Card>
 
-                            {/* Create Rule Form */}
-                            {showRuleForm && (
-                                <Card className="border-primary/20 bg-card/40 backdrop-blur-sm">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">New Rule</CardTitle>
-                                        <CardDescription>Define when and what should happen automatically.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
+                            {/* Delete Rule Alert Dialog */}
+                            <AlertDialog open={!!ruleToDelete} onOpenChange={(open) => !open && setRuleToDelete(null)}>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Rule</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Are you sure you want to delete <span className="font-semibold text-foreground">"{ruleToDelete?.name}"</span>?
+                                            This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={handleDeleteRule}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        >
+                                            Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+
+                            {/* Add/Edit Rule Dialog */}
+                            <Dialog
+                                open={showRuleForm}
+                                onOpenChange={(open) => {
+                                    if (!open) {
+                                        setShowRuleForm(false);
+                                        setEditingRuleId(null);
+                                        setRuleName("");
+                                        setRuleConditions([{ field: "url", operator: "contains", value: "" }]);
+                                        setRuleActions([{ type: "add_tags", params: { tags: [""] } }]);
+                                    }
+                                }}
+                            >
+                                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                                    <DialogHeader>
+                                        <DialogTitle>{editingRuleId ? "Edit Rule" : "New Rule"}</DialogTitle>
+                                        <DialogDescription>
+                                            {editingRuleId ? "Update your rule configuration." : "Define when and what should happen automatically."}
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-6 py-4">
                                         {/* Name */}
                                         <div className="space-y-2">
                                             <Label>Rule Name</Label>
@@ -1616,6 +1716,7 @@ function SettingsContent() {
                                                                     <Input
                                                                         placeholder="Tag name..."
                                                                         value={tag}
+                                                                        list="existing-tags"
                                                                         onChange={(e) => {
                                                                             const newTags = [...(action.params?.tags || [""])];
                                                                             newTags[tIdx] = e.target.value;
@@ -1655,6 +1756,7 @@ function SettingsContent() {
                                                         <Input
                                                             placeholder="Collection name..."
                                                             value={action.params?.collectionName || ""}
+                                                            list="existing-collections"
                                                             onChange={(e) => updateAction(idx, { params: { collectionName: e.target.value } })}
                                                             className="bg-background/50 h-8 text-xs"
                                                         />
@@ -1670,20 +1772,41 @@ function SettingsContent() {
                                                 <Plus className="h-3 w-3" /> Add Action
                                             </Button>
                                         </div>
-
-                                        <Separator className="bg-border/30" />
-
+                                    </div>
+                                    <DialogFooter className="mt-6">
                                         <Button
-                                            onClick={handleCreateRule}
+                                            variant="outline"
+                                            onClick={() => {
+                                                setShowRuleForm(false);
+                                                setEditingRuleId(null);
+                                            }}
+                                            className="h-11 cursor-pointer"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            onClick={handleSaveRule}
                                             disabled={savingRule}
-                                            className="w-full h-11 cursor-pointer font-medium gap-2"
+                                            className="h-11 px-8 cursor-pointer font-medium gap-2"
                                         >
                                             {savingRule ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                                            Create Rule
+                                            {editingRuleId ? "Update Rule" : "Create Rule"}
                                         </Button>
-                                    </CardContent>
-                                </Card>
-                            )}
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+
+                            <datalist id="existing-tags">
+                                {[...new Set(existingTags.map(t => t.name))].map(name => (
+                                    <option key={name} value={name} />
+                                ))}
+                            </datalist>
+
+                            <datalist id="existing-collections">
+                                {[...new Set(existingCollections.map(c => c.name))].map(name => (
+                                    <option key={name} value={name} />
+                                ))}
+                            </datalist>
                         </div>
                     )}
                 </div>

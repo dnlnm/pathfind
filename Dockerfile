@@ -22,6 +22,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine
+RUN apk add --no-cache libc6-compat
+
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
