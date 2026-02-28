@@ -22,7 +22,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +67,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
 
     const settingsTabs = [
         { id: "general", label: "General", icon: Settings2 },
+        { id: "rules", label: "Rules", icon: Zap },
         { id: "integrations", label: "Integrations", icon: Share2 },
         { id: "security", label: "Security", icon: ShieldCheck },
         { id: "data", label: "Data Management", icon: Database },

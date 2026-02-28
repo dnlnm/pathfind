@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
     Dialog,
     DialogContent,
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload } from "lucide-react";
+import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload, Tag, FolderOpen, Check, ChevronDown } from "lucide-react";
 import { BookmarkWithTags } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,23 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
     const [isDuplicate, setIsDuplicate] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Tag autocomplete state
+    const [existingTags, setExistingTags] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const tagInputRef = useRef<HTMLInputElement>(null);
+    const suggestionsRef = useRef<HTMLDivElement>(null);
+
+    // Collection autocomplete state
+    const [collectionInput, setCollectionInput] = useState("");
+    const [showCollectionSuggestions, setShowCollectionSuggestions] = useState(false);
+    const [highlightedCollectionIndex, setHighlightedCollectionIndex] = useState(-1);
+    const collectionInputRef = useRef<HTMLInputElement>(null);
+    const collectionSuggestionsRef = useRef<HTMLDivElement>(null);
+
+    // Notes collapsible state
+    const [notesOpen, setNotesOpen] = useState(false);
+
     const resetForm = () => {
         setUrl("");
         setTitle("");
@@ -56,6 +73,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
         setIsReadLater(false);
         setThumbnail("");
         setSelectedCollections([]);
+        setCollectionInput("");
         setIsDuplicate(false);
     };
 
@@ -88,6 +106,16 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                 .then(res => res.json())
                 .then(data => setAvailableCollections(data))
                 .catch(() => { });
+
+            fetch("/api/tags")
+                .then(res => res.json())
+                .then(data => setExistingTags(data.map((t: { name: string }) => t.name)))
+                .catch(() => { });
+        } else {
+            setShowSuggestions(false);
+            setHighlightedIndex(-1);
+            setShowCollectionSuggestions(false);
+            setHighlightedCollectionIndex(-1);
         }
     }, [open]);
 
@@ -101,6 +129,8 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
             setIsReadLater(bookmark.isReadLater);
             setThumbnail(bookmark.thumbnail || "");
             setSelectedCollections(bookmark.collections?.map(c => c.id) || []);
+            // Auto-expand notes if there's existing content
+            setNotesOpen(!!(bookmark.notes && bookmark.notes.trim()));
         } else {
             resetForm();
             if (open && initialValues) {
@@ -193,24 +223,83 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
         }
     };
 
-    const addTag = () => {
-        const normalized = tagInput.toLowerCase().trim().replace(/\s+/g, "-");
-        if (normalized && !tags.includes(normalized)) {
-            setTags([...tags, normalized]);
+    const addTag = useCallback((value?: string) => {
+        const raw = (value ?? tagInput).toLowerCase().trim().replace(/\s+/g, "-");
+        if (raw && !tags.includes(raw)) {
+            setTags(prev => [...prev, raw]);
         }
         setTagInput("");
-    };
+        setShowSuggestions(false);
+        setHighlightedIndex(-1);
+        tagInputRef.current?.focus();
+    }, [tagInput, tags]);
 
     const removeTag = (tag: string) => {
         setTags(tags.filter((t) => t !== tag));
     };
 
+    // Filtered suggestions: match input, exclude already-added tags
+    const suggestions = tagInput.trim()
+        ? existingTags.filter(
+            t => t.includes(tagInput.toLowerCase().trim()) && !tags.includes(t)
+        )
+        : [];
+
     const handleTagKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" || e.key === ",") {
+        if (e.key === "ArrowDown") {
             e.preventDefault();
-            addTag();
+            if (!showSuggestions && suggestions.length > 0) setShowSuggestions(true);
+            setHighlightedIndex(prev => Math.min(prev + 1, suggestions.length - 1));
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHighlightedIndex(prev => Math.max(prev - 1, -1));
+        } else if (e.key === "Escape") {
+            setShowSuggestions(false);
+            setHighlightedIndex(-1);
+        } else if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            if (showSuggestions && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+                addTag(suggestions[highlightedIndex]);
+            } else {
+                addTag();
+            }
         }
     };
+
+    // Collection combobox helpers
+    const collectionSuggestions = availableCollections.filter(
+        c => c.name.toLowerCase().includes(collectionInput.toLowerCase().trim())
+    );
+
+    const toggleCollection = (id: string) => {
+        setSelectedCollections(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleCollectionKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (!showCollectionSuggestions) setShowCollectionSuggestions(true);
+            setHighlightedCollectionIndex(prev => Math.min(prev + 1, collectionSuggestions.length - 1));
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHighlightedCollectionIndex(prev => Math.max(prev - 1, -1));
+        } else if (e.key === "Escape") {
+            setShowCollectionSuggestions(false);
+            setHighlightedCollectionIndex(-1);
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (showCollectionSuggestions && highlightedCollectionIndex >= 0 && collectionSuggestions[highlightedCollectionIndex]) {
+                toggleCollection(collectionSuggestions[highlightedCollectionIndex].id);
+                setCollectionInput("");
+                setShowCollectionSuggestions(false);
+                setHighlightedCollectionIndex(-1);
+            }
+        }
+    };
+
+    const selectedCollectionObjects = availableCollections.filter(c => selectedCollections.includes(c.id));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -315,26 +404,81 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
 
                     <div className="space-y-2">
                         <Label htmlFor="bookmark-tags">Tags</Label>
-                        <div className="flex gap-2">
-                            <Input
-                                id="bookmark-tags"
-                                placeholder="Add tag and press Enter"
-                                value={tagInput}
-                                onChange={(e) => setTagInput(e.target.value)}
-                                onKeyDown={handleTagKeyDown}
-                                className="bg-background/50"
-                            />
-                            <Button type="button" variant="outline" size="icon" onClick={addTag} className="shrink-0 cursor-pointer">
-                                <Plus className="h-4 w-4" />
-                            </Button>
+                        <div className="relative">
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                    <Input
+                                        id="bookmark-tags"
+                                        ref={tagInputRef}
+                                        placeholder="Type to search or create a tag…"
+                                        value={tagInput}
+                                        autoComplete="off"
+                                        onChange={(e) => {
+                                            setTagInput(e.target.value);
+                                            setShowSuggestions(true);
+                                            setHighlightedIndex(-1);
+                                        }}
+                                        onKeyDown={handleTagKeyDown}
+                                        onFocus={() => { if (tagInput.trim()) setShowSuggestions(true); }}
+                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                                        className="bg-background/50 pl-9"
+                                    />
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => addTag()}
+                                    className="shrink-0 cursor-pointer"
+                                    disabled={!tagInput.trim()}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            {/* Autocomplete dropdown */}
+                            {showSuggestions && suggestions.length > 0 && (
+                                <div
+                                    ref={suggestionsRef}
+                                    className="absolute z-50 top-full mt-1 w-full rounded-lg border border-border/50 bg-popover shadow-xl overflow-hidden"
+                                >
+                                    <div className="px-2 py-1 border-b border-border/30">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Existing tags</p>
+                                    </div>
+                                    <div className="max-h-44 overflow-y-auto">
+                                        {suggestions.map((suggestion, idx) => (
+                                            <button
+                                                key={suggestion}
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors cursor-pointer",
+                                                    idx === highlightedIndex
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "hover:bg-muted/60 text-foreground"
+                                                )}
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault(); // prevent blur from closing before click fires
+                                                    addTag(suggestion);
+                                                }}
+                                                onMouseEnter={() => setHighlightedIndex(idx)}
+                                            >
+                                                <Tag className="h-3 w-3 shrink-0 opacity-50" />
+                                                <span className="truncate">{suggestion}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
+
                         {tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 pt-1">
                                 {tags.map((tag) => (
                                     <Badge
                                         key={tag}
                                         variant="secondary"
-                                        className="gap-1 cursor-pointer hover:bg-destructive/20"
+                                        className="gap-1 cursor-pointer hover:bg-destructive/20 transition-colors"
                                         onClick={() => removeTag(tag)}
                                     >
                                         {tag}
@@ -346,45 +490,143 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="bookmark-notes">Notes (Markdown)</Label>
-                        <Textarea
-                            id="bookmark-notes"
-                            placeholder="Add notes..."
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            rows={3}
-                            className="bg-background/50 resize-none"
-                        />
+                        <Label htmlFor="bookmark-collections">Collections</Label>
+                        <div className="relative">
+                            <div className="relative">
+                                <FolderOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input
+                                    id="bookmark-collections"
+                                    ref={collectionInputRef}
+                                    placeholder={availableCollections.length === 0 ? "No collections yet" : "Search collections…"}
+                                    disabled={availableCollections.length === 0}
+                                    value={collectionInput}
+                                    autoComplete="off"
+                                    onChange={(e) => {
+                                        setCollectionInput(e.target.value);
+                                        setShowCollectionSuggestions(true);
+                                        setHighlightedCollectionIndex(-1);
+                                    }}
+                                    onFocus={() => setShowCollectionSuggestions(true)}
+                                    onBlur={() => setTimeout(() => setShowCollectionSuggestions(false), 150)}
+                                    onKeyDown={handleCollectionKeyDown}
+                                    className="bg-background/50 pl-9"
+                                />
+                            </div>
+
+                            {/* Collection dropdown */}
+                            {showCollectionSuggestions && collectionSuggestions.length > 0 && (
+                                <div
+                                    ref={collectionSuggestionsRef}
+                                    className="absolute z-50 top-full mt-1 w-full rounded-lg border border-border/50 bg-popover shadow-xl overflow-hidden"
+                                >
+                                    <div className="px-2 py-1 border-b border-border/30">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Collections</p>
+                                    </div>
+                                    <div className="max-h-44 overflow-y-auto">
+                                        {collectionSuggestions.map((col, idx) => {
+                                            const isSelected = selectedCollections.includes(col.id);
+                                            return (
+                                                <button
+                                                    key={col.id}
+                                                    type="button"
+                                                    className={cn(
+                                                        "w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors cursor-pointer",
+                                                        idx === highlightedCollectionIndex
+                                                            ? "bg-primary text-primary-foreground"
+                                                            : "hover:bg-muted/60 text-foreground"
+                                                    )}
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        toggleCollection(col.id);
+                                                        setCollectionInput("");
+                                                        setShowCollectionSuggestions(false);
+                                                        setHighlightedCollectionIndex(-1);
+                                                        collectionInputRef.current?.focus();
+                                                    }}
+                                                    onMouseEnter={() => setHighlightedCollectionIndex(idx)}
+                                                >
+                                                    <div
+                                                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                                                        style={{ backgroundColor: col.color || "var(--primary)" }}
+                                                    />
+                                                    <span className="truncate flex-1">{col.name}</span>
+                                                    {isSelected && (
+                                                        <Check className={cn(
+                                                            "h-3.5 w-3.5 shrink-0",
+                                                            idx === highlightedCollectionIndex ? "text-primary-foreground" : "text-primary"
+                                                        )} />
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Selected collection badges */}
+                        {selectedCollectionObjects.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                {selectedCollectionObjects.map((col) => (
+                                    <Badge
+                                        key={col.id}
+                                        variant="outline"
+                                        className="gap-1 cursor-pointer hover:bg-destructive/20 transition-colors"
+                                        style={col.color ? {
+                                            borderColor: `color-mix(in srgb, ${col.color} 40%, transparent)`,
+                                            backgroundColor: `color-mix(in srgb, ${col.color} 12%, transparent)`,
+                                            color: col.color,
+                                        } : undefined}
+                                        onClick={() => toggleCollection(col.id)}
+                                    >
+                                        <div
+                                            className="w-1.5 h-1.5 rounded-full"
+                                            style={{ backgroundColor: col.color || "var(--primary)" }}
+                                        />
+                                        {col.name}
+                                        <X className="h-3 w-3" />
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Collections</Label>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {availableCollections.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic">No collections created yet.</p>
-                            ) : (
-                                availableCollections.map((collection) => (
-                                    <Badge
-                                        key={collection.id}
-                                        variant={selectedCollections.includes(collection.id) ? "default" : "outline"}
-                                        className="cursor-pointer transition-opacity hover:opacity-80"
-                                        style={collection.color ? {
-                                            borderColor: selectedCollections.includes(collection.id) ? collection.color : `color-mix(in srgb, ${collection.color} 30%, transparent)`,
-                                            backgroundColor: selectedCollections.includes(collection.id) ? collection.color : `color-mix(in srgb, ${collection.color} 10%, transparent)`,
-                                            color: selectedCollections.includes(collection.id) ? '#fff' : collection.color
-                                        } : undefined}
-                                        onClick={() => {
-                                            setSelectedCollections(prev =>
-                                                prev.includes(collection.id)
-                                                    ? prev.filter(id => id !== collection.id)
-                                                    : [...prev, collection.id]
-                                            );
-                                        }}
-                                    >
-                                        {collection.name}
-                                    </Badge>
-                                ))
+                    {/* Notes — collapsible */}
+                    <div className="space-y-1">
+                        <button
+                            type="button"
+                            className="flex items-center gap-1.5 w-full group cursor-pointer"
+                            onClick={() => setNotesOpen(o => !o)}
+                        >
+                            <span className="text-sm font-medium leading-none">
+                                Notes
+                                {notes.trim() && !notesOpen && (
+                                    <span className="ml-1.5 text-[10px] font-normal text-muted-foreground align-middle">(has content)</span>
+                                )}
+                            </span>
+                            <ChevronDown
+                                className={cn(
+                                    "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ml-auto",
+                                    notesOpen && "rotate-180"
+                                )}
+                            />
+                        </button>
+                        <div
+                            className={cn(
+                                "grid transition-all duration-200",
+                                notesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                             )}
+                        >
+                            <div className="overflow-hidden">
+                                <Textarea
+                                    id="bookmark-notes"
+                                    placeholder="Add notes… (Markdown supported)"
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    rows={3}
+                                    className="bg-background/50 resize-none mt-2"
+                                />
+                            </div>
                         </div>
                     </div>
 

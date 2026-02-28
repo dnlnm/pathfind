@@ -82,3 +82,47 @@ export interface CollectionWithCount {
     color: string | null;
     count: number;
 }
+
+// Rule Engine types
+export type RuleEvent = 'bookmark.created' | 'bookmark.updated';
+export type ConditionField = 'url' | 'title' | 'description' | 'domain';
+export type ConditionOperator = 'contains' | 'starts_with' | 'equals' | 'matches_regex';
+export type ActionType = 'add_tags' | 'add_to_collection' | 'mark_read_later' | 'mark_archived';
+
+export interface RuleCondition {
+    field: ConditionField;
+    operator: ConditionOperator;
+    value: string;
+}
+
+export interface RuleAction {
+    type: ActionType;
+    params: Record<string, any>;
+}
+
+export interface DbRule {
+    id: string;
+    name: string;
+    event: string;
+    condition_logic: string;
+    conditions: string;
+    actions: string;
+    enabled: number;
+    priority: number;
+    user_id: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Rule {
+    id: string;
+    name: string;
+    event: RuleEvent;
+    conditionLogic: 'AND' | 'OR';
+    conditions: RuleCondition[];
+    actions: RuleAction[];
+    enabled: boolean;
+    priority: number;
+    createdAt: string;
+    updatedAt: string;
+}

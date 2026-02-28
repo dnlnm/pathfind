@@ -118,6 +118,21 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS rules (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    event TEXT NOT NULL,
+    condition_logic TEXT DEFAULT 'AND',
+    conditions TEXT NOT NULL,
+    actions TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    priority INTEGER DEFAULT 0,
+    user_id TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at);
   CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
@@ -126,6 +141,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
   CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+  CREATE INDEX IF NOT EXISTS idx_rules_user_id ON rules(user_id);
+  CREATE INDEX IF NOT EXISTS idx_rules_event ON rules(event);
 
   -- Full Text Search Table
   CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
@@ -250,6 +267,38 @@ try {
   `);
 } catch (e) {
   // Table already exists
+}
+
+// Migration: seed default "Reddit Auto-Organize" rule for existing users
+try {
+  const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
+  for (const user of users) {
+    const existing = db.prepare(
+      "SELECT id FROM rules WHERE name = ? AND user_id = ?"
+    ).get("Reddit Auto-Organize", user.id);
+    if (!existing) {
+      const ruleId = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO rules (id, name, event, condition_logic, conditions, actions, enabled, priority, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        ruleId,
+        "Reddit Auto-Organize",
+        "bookmark.created",
+        "AND",
+        JSON.stringify([{ field: "domain", operator: "contains", value: "reddit.com" }]),
+        JSON.stringify([
+          { type: "add_to_collection", params: { collectionName: "Reddit" } },
+          { type: "add_tags", params: { tags: ["reddit"] } }
+        ]),
+        1,
+        0,
+        user.id
+      );
+    }
+  }
+} catch (e) {
+  // Seed may fail if rules table doesn't exist yet (first run)
 }
 
 export default db;

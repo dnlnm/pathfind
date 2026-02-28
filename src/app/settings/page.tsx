@@ -19,6 +19,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
     Download,
     Upload,
     Loader2,
@@ -36,11 +43,16 @@ import {
     Copy,
     Check,
     Send,
-    Rss
+    Rss,
+    Zap,
+    X,
+    ChevronDown,
+    ChevronUp
 } from "lucide-react";
+import { Rule, RuleCondition, RuleAction, RuleEvent } from "@/types";
 import { cn } from "@/lib/utils";
 
-type TabType = "general" | "integrations" | "security" | "data" | "tasks";
+type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules";
 
 function SettingsContent() {
     const router = useRouter();
@@ -56,7 +68,7 @@ function SettingsContent() {
 
     useEffect(() => {
         const tab = searchParams.get("tab") as TabType;
-        if (tab && ["general", "integrations", "security", "data", "tasks"].includes(tab)) {
+        if (tab && ["general", "integrations", "security", "data", "tasks", "rules"].includes(tab)) {
             setActiveTab(tab);
         }
     }, [searchParams]);
@@ -95,6 +107,18 @@ function SettingsContent() {
     const [taskStats, setTaskStats] = useState<any>(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
+
+    // Rules state
+    const [rules, setRules] = useState<Rule[]>([]);
+    const [loadingRules, setLoadingRules] = useState(false);
+    const [showRuleForm, setShowRuleForm] = useState(false);
+    const [ruleName, setRuleName] = useState("");
+    const [ruleEvent, setRuleEvent] = useState<RuleEvent>("bookmark.created");
+    const [ruleConditionLogic, setRuleConditionLogic] = useState<"AND" | "OR">("AND");
+    const [ruleConditions, setRuleConditions] = useState<RuleCondition[]>([{ field: "url", operator: "contains", value: "" }]);
+    const [ruleActions, setRuleActions] = useState<RuleAction[]>([{ type: "add_tags", params: { tags: [""] } }]);
+    const [savingRule, setSavingRule] = useState(false);
+    const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchCounts = async () => {
@@ -154,6 +178,12 @@ function SettingsContent() {
         fetch("/api/settings/telegram")
             .then(res => res.json())
             .then(data => setTelegramStatus(data));
+
+        // Fetch rules
+        fetch("/api/rules")
+            .then(res => res.json())
+            .then(data => setRules(data.rules || []))
+            .catch(() => { });
 
         const fetchTasks = () => {
             fetch("/api/tasks")
@@ -519,8 +549,89 @@ function SettingsContent() {
         setIsClearing(false);
     };
 
+    // --- Rule Engine handlers ---
+    const handleCreateRule = async () => {
+        if (!ruleName.trim()) { toast.error("Rule name is required"); return; }
+        if (ruleConditions.some(c => !c.value.trim())) { toast.error("All condition values are required"); return; }
+        if (ruleActions.some(a => a.type === "add_tags" && (!a.params?.tags?.length || a.params.tags.some((t: string) => !t.trim())))) {
+            toast.error("All tag values are required"); return;
+        }
+        if (ruleActions.some(a => a.type === "add_to_collection" && !a.params?.collectionName?.trim())) {
+            toast.error("Collection name is required"); return;
+        }
+
+        setSavingRule(true);
+        try {
+            const res = await fetch("/api/rules", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: ruleName.trim(),
+                    event: ruleEvent,
+                    conditionLogic: ruleConditionLogic,
+                    conditions: ruleConditions,
+                    actions: ruleActions,
+                }),
+            });
+            if (res.ok) {
+                const rule = await res.json();
+                setRules(prev => [...prev, rule]);
+                setShowRuleForm(false);
+                setRuleName("");
+                setRuleConditions([{ field: "url", operator: "contains", value: "" }]);
+                setRuleActions([{ type: "add_tags", params: { tags: [""] } }]);
+                toast.success("Rule created");
+            } else {
+                const data = await res.json();
+                toast.error(data.error || "Failed to create rule");
+            }
+        } catch { toast.error("Failed to create rule"); }
+        setSavingRule(false);
+    };
+
+    const handleToggleRule = async (ruleId: string, enabled: boolean) => {
+        setRules(prev => prev.map(r => r.id === ruleId ? { ...r, enabled } : r));
+        try {
+            await fetch(`/api/rules/${ruleId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled }),
+            });
+        } catch { toast.error("Failed to toggle rule"); }
+    };
+
+    const handleDeleteRule = async (ruleId: string) => {
+        if (!confirm("Delete this rule?")) return;
+        try {
+            const res = await fetch(`/api/rules/${ruleId}`, { method: "DELETE" });
+            if (res.ok) {
+                setRules(prev => prev.filter(r => r.id !== ruleId));
+                toast.success("Rule deleted");
+            }
+        } catch { toast.error("Failed to delete rule"); }
+    };
+
+    const updateCondition = (idx: number, patch: Partial<RuleCondition>) => {
+        setRuleConditions(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+    };
+
+    const updateAction = (idx: number, patch: Partial<RuleAction>) => {
+        setRuleActions(prev => prev.map((a, i) => i === idx ? { ...a, ...patch } : a));
+    };
+
+    const getActionSummary = (action: RuleAction) => {
+        switch (action.type) {
+            case "add_tags": return `Add tags: ${(action.params?.tags || []).join(", ")}`;
+            case "add_to_collection": return `Add to collection: ${action.params?.collectionName || ""}`;
+            case "mark_read_later": return "Mark as Read Later";
+            case "mark_archived": return "Mark as Archived";
+            default: return action.type;
+        }
+    };
+
     const tabs = [
         { id: "general" as TabType, label: "General", icon: Settings2, description: "Display and behavior settings" },
+        { id: "rules" as TabType, label: "Rules", icon: Zap, description: "Automate actions when bookmarks are saved" },
         { id: "integrations" as TabType, label: "Integrations", icon: Share2, description: "Connect external services" },
         { id: "security" as TabType, label: "Security", icon: ShieldCheck, description: "Manage your credentials" },
         { id: "data" as TabType, label: "Data Management", icon: Database, description: "Import and export your data" },
@@ -1251,6 +1362,328 @@ function SettingsContent() {
                                     )}
                                 </CardContent>
                             </Card>
+                        </div>
+                    )}
+
+                    {activeTab === "rules" && (
+                        <div className="space-y-6">
+                            {/* Existing Rules List */}
+                            <Card className="border-border/40 bg-card/40 backdrop-blur-sm">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                                    <div>
+                                        <CardTitle className="text-lg">Your Rules</CardTitle>
+                                        <CardDescription>Rules automatically run when bookmarks are created or updated.</CardDescription>
+                                    </div>
+                                    <Button
+                                        onClick={() => setShowRuleForm(!showRuleForm)}
+                                        size="sm"
+                                        className="cursor-pointer gap-1.5"
+                                    >
+                                        {showRuleForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                        {showRuleForm ? "Cancel" : "Add Rule"}
+                                    </Button>
+                                </CardHeader>
+                                <CardContent>
+                                    {rules.length === 0 && !showRuleForm ? (
+                                        <div className="py-8 text-center border border-dashed border-border/40 rounded-2xl bg-muted/5">
+                                            <Zap className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                                            <p className="text-sm text-muted-foreground">No rules configured yet.</p>
+                                            <p className="text-xs text-muted-foreground mt-1">Create a rule to automate tagging, collections, and more.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {rules.map((rule) => (
+                                                <div key={rule.id} className="rounded-xl border border-border/30 bg-card/60 overflow-hidden transition-colors hover:border-border/50">
+                                                    <div className="flex items-center justify-between p-3.5">
+                                                        <button
+                                                            className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
+                                                            onClick={() => setExpandedRuleId(expandedRuleId === rule.id ? null : rule.id)}
+                                                        >
+                                                            <div className={cn(
+                                                                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                                                                rule.enabled ? "bg-primary/10" : "bg-muted/40"
+                                                            )}>
+                                                                <Zap className={cn("h-4 w-4", rule.enabled ? "text-primary" : "text-muted-foreground")} />
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-sm font-medium truncate">{rule.name}</p>
+                                                                <p className="text-[10px] text-muted-foreground">
+                                                                    {rule.event === "bookmark.created" ? "On bookmark created" : "On bookmark updated"}
+                                                                    {" · "}
+                                                                    {rule.conditions.length} condition{rule.conditions.length !== 1 ? "s" : ""}
+                                                                    {" · "}
+                                                                    {rule.actions.length} action{rule.actions.length !== 1 ? "s" : ""}
+                                                                </p>
+                                                            </div>
+                                                            {expandedRuleId === rule.id ? (
+                                                                <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                            ) : (
+                                                                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                            )}
+                                                        </button>
+                                                        <div className="flex items-center gap-2 ml-3 shrink-0">
+                                                            <Switch
+                                                                checked={rule.enabled}
+                                                                onCheckedChange={(checked) => handleToggleRule(rule.id, checked)}
+                                                            />
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleDeleteRule(rule.id)}
+                                                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                    {expandedRuleId === rule.id && (
+                                                        <div className="px-3.5 pb-3.5 pt-0 space-y-2 border-t border-border/20">
+                                                            <div className="pt-3 space-y-1.5">
+                                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Conditions ({rule.conditionLogic})</p>
+                                                                {rule.conditions.map((c, i) => (
+                                                                    <div key={i} className="text-xs text-muted-foreground bg-muted/20 rounded-lg px-3 py-1.5">
+                                                                        <span className="font-medium text-foreground">{c.field}</span>
+                                                                        {" "}
+                                                                        <span className="italic">{c.operator.replace("_", " ")}</span>
+                                                                        {" "}
+                                                                        <code className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{c.value}</code>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Actions</p>
+                                                                {rule.actions.map((a, i) => (
+                                                                    <div key={i} className="text-xs bg-primary/5 text-primary rounded-lg px-3 py-1.5">
+                                                                        {getActionSummary(a)}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Create Rule Form */}
+                            {showRuleForm && (
+                                <Card className="border-primary/20 bg-card/40 backdrop-blur-sm">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">New Rule</CardTitle>
+                                        <CardDescription>Define when and what should happen automatically.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        {/* Name */}
+                                        <div className="space-y-2">
+                                            <Label>Rule Name</Label>
+                                            <Input
+                                                placeholder="e.g. GitHub Auto-Tag"
+                                                value={ruleName}
+                                                onChange={(e) => setRuleName(e.target.value)}
+                                                className="bg-background/50"
+                                            />
+                                        </div>
+
+                                        {/* Event */}
+                                        <div className="space-y-2">
+                                            <Label>Trigger Event</Label>
+                                            <Select value={ruleEvent} onValueChange={(v) => setRuleEvent(v as RuleEvent)}>
+                                                <SelectTrigger className="bg-background/50">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="bookmark.created">Bookmark Created</SelectItem>
+                                                    <SelectItem value="bookmark.updated">Bookmark Updated</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <Separator className="bg-border/30" />
+
+                                        {/* Conditions */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <Label>Conditions</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-muted-foreground uppercase">Match</span>
+                                                    <Button
+                                                        variant={ruleConditionLogic === "AND" ? "default" : "outline"}
+                                                        size="sm"
+                                                        className="h-6 text-[10px] px-2 cursor-pointer"
+                                                        onClick={() => setRuleConditionLogic("AND")}
+                                                    >ALL</Button>
+                                                    <Button
+                                                        variant={ruleConditionLogic === "OR" ? "default" : "outline"}
+                                                        size="sm"
+                                                        className="h-6 text-[10px] px-2 cursor-pointer"
+                                                        onClick={() => setRuleConditionLogic("OR")}
+                                                    >ANY</Button>
+                                                </div>
+                                            </div>
+                                            {ruleConditions.map((cond, idx) => (
+                                                <div key={idx} className="flex items-center gap-2">
+                                                    <Select value={cond.field} onValueChange={(v) => updateCondition(idx, { field: v as any })}>
+                                                        <SelectTrigger className="w-[110px] bg-background/50 h-9 text-xs">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="url">URL</SelectItem>
+                                                            <SelectItem value="title">Title</SelectItem>
+                                                            <SelectItem value="description">Description</SelectItem>
+                                                            <SelectItem value="domain">Domain</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Select value={cond.operator} onValueChange={(v) => updateCondition(idx, { operator: v as any })}>
+                                                        <SelectTrigger className="w-[120px] bg-background/50 h-9 text-xs">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="contains">contains</SelectItem>
+                                                            <SelectItem value="starts_with">starts with</SelectItem>
+                                                            <SelectItem value="equals">equals</SelectItem>
+                                                            <SelectItem value="matches_regex">matches regex</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Input
+                                                        placeholder="Value..."
+                                                        value={cond.value}
+                                                        onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                                                        className="flex-1 bg-background/50 h-9 text-xs"
+                                                    />
+                                                    {ruleConditions.length > 1 && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setRuleConditions(prev => prev.filter((_, i) => i !== idx))}
+                                                            className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setRuleConditions(prev => [...prev, { field: "url", operator: "contains", value: "" }])}
+                                                className="text-xs cursor-pointer gap-1"
+                                            >
+                                                <Plus className="h-3 w-3" /> Add Condition
+                                            </Button>
+                                        </div>
+
+                                        <Separator className="bg-border/30" />
+
+                                        {/* Actions */}
+                                        <div className="space-y-3">
+                                            <Label>Actions</Label>
+                                            {ruleActions.map((action, idx) => (
+                                                <div key={idx} className="space-y-2 p-3 rounded-lg border border-border/30 bg-muted/10">
+                                                    <div className="flex items-center gap-2">
+                                                        <Select value={action.type} onValueChange={(v) => {
+                                                            const newAction: RuleAction = { type: v as any, params: {} };
+                                                            if (v === "add_tags") newAction.params = { tags: [""] };
+                                                            if (v === "add_to_collection") newAction.params = { collectionName: "" };
+                                                            updateAction(idx, newAction);
+                                                        }}>
+                                                            <SelectTrigger className="w-[180px] bg-background/50 h-9 text-xs">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="add_tags">Add Tags</SelectItem>
+                                                                <SelectItem value="add_to_collection">Add to Collection</SelectItem>
+                                                                <SelectItem value="mark_read_later">Mark Read Later</SelectItem>
+                                                                <SelectItem value="mark_archived">Mark Archived</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        {ruleActions.length > 1 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => setRuleActions(prev => prev.filter((_, i) => i !== idx))}
+                                                                className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive cursor-pointer shrink-0 ml-auto"
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    {action.type === "add_tags" && (
+                                                        <div className="space-y-2">
+                                                            {(action.params?.tags || [""]).map((tag: string, tIdx: number) => (
+                                                                <div key={tIdx} className="flex items-center gap-2">
+                                                                    <Input
+                                                                        placeholder="Tag name..."
+                                                                        value={tag}
+                                                                        onChange={(e) => {
+                                                                            const newTags = [...(action.params?.tags || [""])];
+                                                                            newTags[tIdx] = e.target.value;
+                                                                            updateAction(idx, { params: { tags: newTags } });
+                                                                        }}
+                                                                        className="flex-1 bg-background/50 h-8 text-xs"
+                                                                    />
+                                                                    {(action.params?.tags || []).length > 1 && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                const newTags = (action.params?.tags || []).filter((_: string, i: number) => i !== tIdx);
+                                                                                updateAction(idx, { params: { tags: newTags } });
+                                                                            }}
+                                                                            className="h-8 w-8 p-0 text-muted-foreground cursor-pointer"
+                                                                        >
+                                                                            <X className="h-3 w-3" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    const newTags = [...(action.params?.tags || [""]), ""];
+                                                                    updateAction(idx, { params: { tags: newTags } });
+                                                                }}
+                                                                className="text-[10px] h-7 cursor-pointer gap-1"
+                                                            >
+                                                                <Plus className="h-3 w-3" /> Add Tag
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                    {action.type === "add_to_collection" && (
+                                                        <Input
+                                                            placeholder="Collection name..."
+                                                            value={action.params?.collectionName || ""}
+                                                            onChange={(e) => updateAction(idx, { params: { collectionName: e.target.value } })}
+                                                            className="bg-background/50 h-8 text-xs"
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setRuleActions(prev => [...prev, { type: "add_tags", params: { tags: [""] } }])}
+                                                className="text-xs cursor-pointer gap-1"
+                                            >
+                                                <Plus className="h-3 w-3" /> Add Action
+                                            </Button>
+                                        </div>
+
+                                        <Separator className="bg-border/30" />
+
+                                        <Button
+                                            onClick={handleCreateRule}
+                                            disabled={savingRule}
+                                            className="w-full h-11 cursor-pointer font-medium gap-2"
+                                        >
+                                            {savingRule ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                                            Create Rule
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </div>
                     )}
                 </div>
