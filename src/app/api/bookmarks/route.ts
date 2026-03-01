@@ -33,6 +33,7 @@ function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
         thumbnail: row.thumbnail,
         isArchived: !!row.is_archived,
         isReadLater: !!row.is_read_later,
+        isNsfw: !!row.is_nsfw,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         userId: row.user_id,
@@ -47,8 +48,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = db.prepare("SELECT pagination_limit FROM users WHERE id = ?").get(userAuth.id) as { pagination_limit: number };
+    const user = db.prepare("SELECT pagination_limit, nsfw_display FROM users WHERE id = ?").get(userAuth.id) as { pagination_limit: number; nsfw_display: string | null };
     const defaultLimit = user?.pagination_limit || 30;
+    const nsfwDisplay = user?.nsfw_display ?? 'blur';
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
@@ -91,6 +93,20 @@ export async function GET(request: NextRequest) {
         params.push(collectionId);
     }
 
+    const nsfwFilter = searchParams.get("nsfw") || "";
+
+    // If we're specifically looking for nsfw==only, remove the default archive/readlater filters if they are not explicitly set
+    if (nsfwFilter === "only") {
+        const hasCustomFilter = filter === "readlater" || filter === "archived";
+        if (!hasCustomFilter) {
+            // Remove the default "is_archived = 0" added above
+            whereClauses = whereClauses.filter(clause => clause !== "b.is_archived = 0");
+        }
+        whereClauses.push("b.is_nsfw = 1");
+    } else if (nsfwDisplay === 'hide') {
+        whereClauses.push("b.is_nsfw = 0");
+    }
+
     const whereStr = whereClauses.join(" AND ");
 
     // Map sort parameter to SQL ORDER BY
@@ -125,7 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url, title, description, notes, tags, isReadLater, thumbnail } = body;
+    const { url, title, description, notes, tags, isReadLater, isNsfw, thumbnail } = body;
 
     if (!url) {
         return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -138,14 +154,21 @@ export async function POST(request: NextRequest) {
     let finalDescription = description || (existing?.description) || null;
     let finalFavicon: string | null = existing?.favicon || null;
     let finalThumbnail = thumbnail || (existing?.thumbnail) || null;
+    let finalIsNsfw = isNsfw !== undefined ? isNsfw : (existing ? !!existing.is_nsfw : false);
+    const isReddit = url && url.includes("reddit.com");
 
-    if (!finalTitle || !finalDescription || !finalFavicon || !finalThumbnail) {
+    // We fetch metadata if anything is missing, OR if it's a Reddit link and the client didn't explicitly send isNsfw as true.
+    // This allows us to "promote" a default `false` from the UI to `true` if Reddit says it's 18+.
+    if (!finalTitle || !finalDescription || !finalFavicon || !finalThumbnail || (isReddit && isNsfw === false)) {
         const fetched = await fetchUrlMetadata(url);
         finalTitle = finalTitle || fetched.title;
         finalDescription = finalDescription || fetched.description;
         finalFavicon = finalFavicon || fetched.favicon;
         if (!finalThumbnail) {
             finalThumbnail = fetched.thumbnail;
+        }
+        if ((isNsfw === undefined || isNsfw === false) && fetched.isNsfw === true) {
+            finalIsNsfw = true;
         }
     }
 
@@ -160,9 +183,9 @@ export async function POST(request: NextRequest) {
 
         db.prepare(`
             UPDATE bookmarks 
-            SET title = ?, description = ?, notes = ?, favicon = ?, thumbnail = ?, is_read_later = ?, updated_at = datetime('now')
+            SET title = ?, description = ?, notes = ?, favicon = ?, thumbnail = ?, is_read_later = ?, is_nsfw = ?, updated_at = datetime('now')
             WHERE id = ?
-        `).run(finalTitle, finalDescription, finalNotes, finalFavicon, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, id);
+        `).run(finalTitle, finalDescription, finalNotes, finalFavicon, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, finalIsNsfw ? 1 : 0, id);
 
         if (body.tags !== undefined) {
             db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
@@ -173,9 +196,9 @@ export async function POST(request: NextRequest) {
     } else {
         id = generateId();
         db.prepare(`
-            INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, userAuth.id);
+            INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, is_nsfw, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
     }
 
     // Create/connect tags

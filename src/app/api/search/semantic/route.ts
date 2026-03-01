@@ -31,6 +31,7 @@ function toBookmarkWithTags(row: DbBookmark & { distance?: number }): BookmarkWi
         thumbnail: row.thumbnail,
         isArchived: !!row.is_archived,
         isReadLater: !!row.is_read_later,
+        isNsfw: !!row.is_nsfw,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         userId: row.user_id,

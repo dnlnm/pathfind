@@ -2,7 +2,7 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const nextConfig = {
     output: "standalone",
-    serverExternalPackages: ["sqlite-vec"],
+    serverExternalPackages: ["sqlite-vec", "satori"],
     turbopack: {},
 };
 

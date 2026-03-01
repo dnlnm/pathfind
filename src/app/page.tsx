@@ -45,7 +45,7 @@ function BookmarkPageContent() {
   const [bookmarks, setBookmarks] = useState<BookmarkWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
-  const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0 });
+  const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0, nsfw: 0 });
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -66,11 +66,19 @@ function BookmarkPageContent() {
   const [newBulkTag, setNewBulkTag] = useState("");
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [sharedData, setSharedData] = useState<{ url?: string; title?: string; description?: string } | null>(null);
+  const [nsfwDisplayMode, setNsfwDisplayMode] = useState<"blur" | "hide" | "show">("blur");
 
   useEffect(() => {
     fetch("/api/collections")
       .then(res => res.json())
       .then(data => setCollections(data))
+      .catch(() => { });
+
+    fetch("/api/settings/nsfw")
+      .then(res => res.json())
+      .then(data => {
+        if (data.display) setNsfwDisplayMode(data.display);
+      })
       .catch(() => { });
   }, [refreshTrigger]);
 
@@ -107,11 +115,13 @@ function BookmarkPageContent() {
     const tag = searchParams.get("tag");
     const collection = searchParams.get("collection");
     const q = searchParams.get("q");
+    const nsfw = searchParams.get("nsfw");
 
     if (filter) params.set("filter", filter);
     if (tag) params.set("tag", tag);
     if (collection) params.set("collection", collection);
     if (q) params.set("q", q);
+    if (nsfw) params.set("nsfw", nsfw);
 
     params.set("page", String(targetPage));
     params.set("sort", sortBy);
@@ -146,22 +156,25 @@ function BookmarkPageContent() {
 
   const fetchCounts = useCallback(async () => {
     try {
-      const [allRes, readLaterRes, archivedRes] = await Promise.all([
+      const [allRes, readLaterRes, archivedRes, nsfwRes] = await Promise.all([
         fetch("/api/bookmarks?limit=0"),
         fetch("/api/bookmarks?filter=readlater&limit=0"),
         fetch("/api/bookmarks?filter=archived&limit=0"),
+        fetch("/api/bookmarks?nsfw=only&limit=0"),
       ]);
 
-      const [allData, readLaterData, archivedData] = await Promise.all([
+      const [allData, readLaterData, archivedData, nsfwData] = await Promise.all([
         allRes.json(),
         readLaterRes.json(),
         archivedRes.json(),
+        nsfwRes.json(),
       ]);
 
       setCounts({
         all: allData.total || 0,
         readLater: readLaterData.total || 0,
         archived: archivedData.total || 0,
+        nsfw: nsfwData.total || 0,
       });
     } catch {
       // Silent fail
@@ -309,6 +322,8 @@ function BookmarkPageContent() {
 
   const isAiSearch = searchParams.get("ai") === "true";
 
+  const currentNsfw = searchParams.get("nsfw") || "";
+
   const pageTitle = currentCollectionId
     ? `Collection: ${currentCollectionName || "..."}`
     : currentTag
@@ -319,7 +334,9 @@ function BookmarkPageContent() {
           ? "Read Later"
           : currentFilter === "archived"
             ? "Archived"
-            : "All Bookmarks";
+            : currentNsfw === "only"
+              ? "Sensitive Content"
+              : "All Bookmarks";
 
   const itemsPerRow = viewMode === "grid" ? columns : 1;
   const rowCount = Math.ceil(bookmarks.length / itemsPerRow);
@@ -513,6 +530,7 @@ function BookmarkPageContent() {
                         isSelected={selectedIds.has(bookmark.id)}
                         onSelect={handleSelect}
                         selectionMode={isInSelectionMode || selectedIds.size > 0}
+                        nsfwDisplayMode={nsfwDisplayMode}
                       />
                     ))}
                   </div>

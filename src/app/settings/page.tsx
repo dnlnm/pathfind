@@ -15,6 +15,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -99,7 +100,7 @@ function SettingsContent() {
             setActiveTab(tab);
         }
     }, [searchParams]);
-    const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0 });
+    const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0, nsfw: 0 });
 
     // Form/Settings states
     const [currentPassword, setCurrentPassword] = useState("");
@@ -107,19 +108,20 @@ function SettingsContent() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [changingPassword, setChangingPassword] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [githubToken, setGithubToken] = useState("");
+    const [githubConfigured, setGithubConfigured] = useState(false);
     const [lastGithubSync, setLastGithubSync] = useState<string | null>(null);
     const [savingToken, setSavingToken] = useState(false);
-    const [redditRssUrl, setRedditRssUrl] = useState("");
+    const [redditConfigured, setRedditConfigured] = useState(false);
     const [lastRedditSync, setLastRedditSync] = useState<string | null>(null);
     const [savingReddit, setSavingReddit] = useState(false);
     const [syncingReddit, setSyncingReddit] = useState(false);
     const [syncingStars, setSyncingStars] = useState(false);
     const [githubSyncEnabled, setGithubSyncEnabled] = useState(false);
     const [redditSyncEnabled, setRedditSyncEnabled] = useState(false);
-    const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "" });
+    const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "", botConfigured: false, webhookRegistered: false, webhookUrl: null as string | null });
     const [linkingToken, setLinkingToken] = useState<string | null>(null);
     const [isGeneratingTelegramToken, setIsGeneratingTelegramToken] = useState(false);
+    const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false);
     const [domainColors, setDomainColors] = useState<{ domain: string; color: string }[]>([]);
     const [newDomain, setNewDomain] = useState("");
     const [newColor, setNewColor] = useState("#6366f1");
@@ -130,6 +132,8 @@ function SettingsContent() {
     const [newTokenName, setNewTokenName] = useState("");
     const [isCreatingToken, setIsCreatingToken] = useState(false);
     const [newlyCreatedToken, setNewlyCreatedToken] = useState<string | null>(null);
+    const [nsfwDisplay, setNsfwDisplay] = useState<"blur" | "hide" | "show">("blur");
+    const [savingNsfw, setSavingNsfw] = useState(false);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [taskStats, setTaskStats] = useState<any>(null);
     const [isRetrying, setIsRetrying] = useState(false);
@@ -165,22 +169,25 @@ function SettingsContent() {
     useEffect(() => {
         const fetchCounts = async () => {
             try {
-                const [allRes, readLaterRes, archivedRes] = await Promise.all([
+                const [allRes, readLaterRes, archivedRes, nsfwRes] = await Promise.all([
                     fetch("/api/bookmarks?limit=0"),
                     fetch("/api/bookmarks?filter=readlater&limit=0"),
                     fetch("/api/bookmarks?filter=archived&limit=0"),
+                    fetch("/api/bookmarks?nsfw=only&limit=0"),
                 ]);
 
-                const [allData, readLaterData, archivedData] = await Promise.all([
+                const [allData, readLaterData, archivedData, nsfwData] = await Promise.all([
                     allRes.json(),
                     readLaterRes.json(),
                     archivedRes.json(),
+                    nsfwRes.json(),
                 ]);
 
                 setCounts({
                     all: allData.total || 0,
                     readLater: readLaterData.total || 0,
                     archived: archivedData.total || 0,
+                    nsfw: nsfwData.total || 0,
                 });
             } catch {
                 // Silent fail
@@ -192,7 +199,7 @@ function SettingsContent() {
         fetch("/api/settings/github")
             .then(res => res.json())
             .then(data => {
-                setGithubToken(data.token || "");
+                setGithubConfigured(data.configured || false);
                 setGithubSyncEnabled(data.syncEnabled || false);
                 setLastGithubSync(data.lastSync || null);
             });
@@ -200,7 +207,7 @@ function SettingsContent() {
         fetch("/api/settings/reddit")
             .then(res => res.json())
             .then(data => {
-                setRedditRssUrl(data.url || "");
+                setRedditConfigured(data.configured || false);
                 setLastRedditSync(data.lastSync || null);
                 setRedditSyncEnabled(data.syncEnabled || false);
             });
@@ -216,6 +223,12 @@ function SettingsContent() {
         fetch("/api/tokens")
             .then(res => res.json())
             .then(data => setApiTokens(Array.isArray(data) ? data : []));
+
+        fetch("/api/settings/nsfw")
+            .then(res => res.json())
+            .then(data => {
+                if (data.display) setNsfwDisplay(data.display);
+            });
 
         fetch("/api/settings/telegram")
             .then(res => res.json())
@@ -351,32 +364,13 @@ function SettingsContent() {
         e.target.value = "";
     };
 
-    const handleSaveGithubToken = async () => {
-        setSavingToken(true);
-        try {
-            const res = await fetch("/api/settings/github", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: githubToken, syncEnabled: githubSyncEnabled }),
-            });
-            if (res.ok) {
-                toast.success("GitHub settings saved");
-            } else {
-                toast.error("Failed to save settings");
-            }
-        } catch {
-            toast.error("Something went wrong");
-        }
-        setSavingToken(false);
-    };
-
     const handleToggleGithubSync = async (enabled: boolean) => {
         setGithubSyncEnabled(enabled);
         try {
             await fetch("/api/settings/github", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: githubToken, syncEnabled: enabled }),
+                body: JSON.stringify({ syncEnabled: enabled }),
             });
         } catch {
             // Background fail
@@ -384,8 +378,8 @@ function SettingsContent() {
     };
 
     const handleSyncStars = async () => {
-        if (!githubToken) {
-            toast.error("Please save your GitHub token first");
+        if (!githubConfigured) {
+            toast.error("Set GITHUB_TOKEN in .env first");
             return;
         }
 
@@ -404,32 +398,13 @@ function SettingsContent() {
         setSyncingStars(false);
     };
 
-    const handleSaveRedditRss = async () => {
-        setSavingReddit(true);
-        try {
-            const res = await fetch("/api/settings/reddit", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: redditRssUrl, syncEnabled: redditSyncEnabled }),
-            });
-            if (res.ok) {
-                toast.success("Reddit settings saved");
-            } else {
-                toast.error("Failed to save Reddit settings");
-            }
-        } catch {
-            toast.error("Something went wrong");
-        }
-        setSavingReddit(false);
-    };
-
     const handleToggleRedditSync = async (enabled: boolean) => {
         setRedditSyncEnabled(enabled);
         try {
             await fetch("/api/settings/reddit", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: redditRssUrl, syncEnabled: enabled }),
+                body: JSON.stringify({ syncEnabled: enabled }),
             });
         } catch {
             // Background fail
@@ -437,8 +412,8 @@ function SettingsContent() {
     };
 
     const handleSyncReddit = async () => {
-        if (!redditRssUrl) {
-            toast.error("Please save your Reddit RSS feed URL first");
+        if (!redditConfigured) {
+            toast.error("Set REDDIT_RSS_URL in .env first");
             return;
         }
 
@@ -520,6 +495,26 @@ function SettingsContent() {
         setSavingEmail(false);
     };
 
+    const handleSaveNsfwDisplay = async (value: string) => {
+        setNsfwDisplay(value as any);
+        setSavingNsfw(true);
+        try {
+            const res = await fetch("/api/settings/nsfw", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ display: value }),
+            });
+            if (res.ok) {
+                toast.success("NSFW setting updated");
+            } else {
+                toast.error("Failed to update NSFW setting");
+            }
+        } catch {
+            toast.error("Something went wrong");
+        }
+        setSavingNsfw(false);
+    };
+
     const handleCreateToken = async () => {
         if (!newTokenName) return;
         setIsCreatingToken(true);
@@ -552,6 +547,23 @@ function SettingsContent() {
         } catch {
             toast.error("Failed to revoke token");
         }
+    };
+
+    const handleRegisterWebhook = async () => {
+        setIsRegisteringWebhook(true);
+        try {
+            const res = await fetch("/api/settings/telegram", { method: "PUT" });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success("Webhook registered successfully!");
+                setTelegramStatus(prev => ({ ...prev, webhookRegistered: true }));
+            } else {
+                toast.error(data.error || "Failed to register webhook");
+            }
+        } catch {
+            toast.error("Failed to register webhook");
+        }
+        setIsRegisteringWebhook(false);
     };
 
     const handleGenerateTelegramToken = async () => {
@@ -858,6 +870,46 @@ function SettingsContent() {
                                                 </div>
                                             )}
                                         </div>
+
+                                        <Separator className="bg-border/40" />
+
+                                        <div className="space-y-4 pt-2">
+                                            <div className="flex flex-col gap-1">
+                                                <Label>Sensitive Content (NSFW)</Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Control how bookmarks marked as sensitive are displayed.
+                                                </p>
+                                            </div>
+
+                                            <div className="flex items-center gap-4">
+                                                <Select value={nsfwDisplay} onValueChange={handleSaveNsfwDisplay}>
+                                                    <SelectTrigger className="w-[240px] bg-background/50 h-10">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="blur" className="cursor-pointer">
+                                                            <div className="flex flex-col">
+                                                                <span>Blur Thumbnails</span>
+                                                                <span className="text-[10px] text-muted-foreground">Click to reveal (Default)</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                        <SelectItem value="hide" className="cursor-pointer">
+                                                            <div className="flex flex-col">
+                                                                <span>Hide Completely</span>
+                                                                <span className="text-[10px] text-muted-foreground">Do not show in any view</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                        <SelectItem value="show" className="cursor-pointer">
+                                                            <div className="flex flex-col">
+                                                                <span>Show Normally</span>
+                                                                <span className="text-[10px] text-muted-foreground">No special treatment</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                {savingNsfw && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                                            </div>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -870,9 +922,9 @@ function SettingsContent() {
                                 <div className="absolute top-0 right-0 p-4">
                                     <div className={cn(
                                         "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                        githubToken && githubSyncEnabled ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"
+                                        githubConfigured && githubSyncEnabled ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"
                                     )}>
-                                        {githubToken && githubSyncEnabled ? "Active" : "Disabled"}
+                                        {githubConfigured && githubSyncEnabled ? "Active" : "Disabled"}
                                     </div>
                                 </div>
                                 <CardHeader className="flex flex-row items-center gap-4 space-y-0">
@@ -886,23 +938,19 @@ function SettingsContent() {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="space-y-3">
-                                        <Label htmlFor="github-token">Personal Access Token</Label>
-                                        <div className="flex gap-3">
-                                            <Input
-                                                id="github-token"
-                                                type="password"
-                                                placeholder="ghp_xxxxxxxxxxxx"
-                                                value={githubToken}
-                                                onChange={(e) => setGithubToken(e.target.value)}
-                                                className="bg-background/50 h-10"
-                                            />
-                                            <Button
-                                                onClick={handleSaveGithubToken}
-                                                disabled={savingToken}
-                                                className="cursor-pointer px-6"
-                                            >
-                                                {savingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                                            </Button>
+                                        {/* Token status from env */}
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-sm">Personal Access Token</Label>
+                                            <div className={cn(
+                                                "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full",
+                                                githubConfigured
+                                                    ? "bg-emerald-500/10 text-emerald-500"
+                                                    : "bg-muted text-muted-foreground"
+                                            )}>
+                                                {githubConfigured
+                                                    ? <><Check className="h-3 w-3" /> Configured in .env</>
+                                                    : <>Set <code className="font-mono">GITHUB_TOKEN</code> in .env</>}
+                                            </div>
                                         </div>
                                         <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                                             <ShieldCheck className="h-3 w-3" />
@@ -915,6 +963,7 @@ function SettingsContent() {
                                             <Switch
                                                 id="github-sync-toggle"
                                                 checked={githubSyncEnabled}
+                                                disabled={!githubConfigured}
                                                 onCheckedChange={(checked) => handleToggleGithubSync(checked)}
                                             />
                                         </div>
@@ -924,7 +973,7 @@ function SettingsContent() {
                                         variant="secondary"
                                         className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
                                         onClick={handleSyncStars}
-                                        disabled={syncingStars || !githubToken}
+                                        disabled={syncingStars || !githubConfigured}
                                     >
                                         {syncingStars ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -952,9 +1001,9 @@ function SettingsContent() {
                                 <div className="absolute top-0 right-0 p-4">
                                     <div className={cn(
                                         "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                        redditRssUrl && redditSyncEnabled ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
+                                        redditConfigured && redditSyncEnabled ? "bg-orange-500/10 text-orange-500" : "bg-muted text-muted-foreground"
                                     )}>
-                                        {redditRssUrl && redditSyncEnabled ? "Active" : "Disabled"}
+                                        {redditConfigured && redditSyncEnabled ? "Active" : "Disabled"}
                                     </div>
                                 </div>
                                 <CardHeader className="flex flex-row items-center gap-4 space-y-0">
@@ -968,26 +1017,23 @@ function SettingsContent() {
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                     <div className="space-y-3">
-                                        <Label htmlFor="reddit-rss">Private RSS Feed URL</Label>
-                                        <div className="flex gap-3">
-                                            <Input
-                                                id="reddit-rss"
-                                                placeholder="https://www.reddit.com/user/me/saved/.rss?feed=xxx&user=xxx"
-                                                value={redditRssUrl}
-                                                onChange={(e) => setRedditRssUrl(e.target.value)}
-                                                className="bg-background/50 h-10"
-                                            />
-                                            <Button
-                                                onClick={handleSaveRedditRss}
-                                                disabled={savingReddit}
-                                                className="cursor-pointer px-6"
-                                            >
-                                                {savingReddit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                                            </Button>
+                                        {/* RSS URL status from env */}
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-sm">Private RSS Feed URL</Label>
+                                            <div className={cn(
+                                                "flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full",
+                                                redditConfigured
+                                                    ? "bg-emerald-500/10 text-emerald-500"
+                                                    : "bg-muted text-muted-foreground"
+                                            )}>
+                                                {redditConfigured
+                                                    ? <><Check className="h-3 w-3" /> Configured in .env</>
+                                                    : <>Set <code className="font-mono">REDDIT_RSS_URL</code> in .env</>}
+                                            </div>
                                         </div>
                                         <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/10 space-y-2">
                                             <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                                You can find your private RSS key in your <a href="https://www.reddit.com/prefs/feeds/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline font-medium">Reddit Preferences &gt; Feeds</a>. Look for the "RSS" button next to "your saved links".
+                                                Find your private RSS key in <a href="https://www.reddit.com/prefs/feeds/" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline font-medium">Reddit Preferences &gt; Feeds</a>. Look for the "RSS" button next to "your saved links".
                                             </p>
                                         </div>
                                         <div className="flex items-center justify-between py-1">
@@ -997,6 +1043,7 @@ function SettingsContent() {
                                             <Switch
                                                 id="reddit-sync-toggle"
                                                 checked={redditSyncEnabled}
+                                                disabled={!redditConfigured}
                                                 onCheckedChange={(checked) => handleToggleRedditSync(checked)}
                                             />
                                         </div>
@@ -1005,7 +1052,7 @@ function SettingsContent() {
                                             variant="secondary"
                                             className="w-full h-11 gap-2 cursor-pointer shadow-sm hover:shadow-md transition-all font-medium"
                                             onClick={handleSyncReddit}
-                                            disabled={syncingReddit || !redditRssUrl}
+                                            disabled={syncingReddit || !redditConfigured}
                                         >
                                             {syncingReddit ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1049,6 +1096,71 @@ function SettingsContent() {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
+                                    {/* Webhook Status Row */}
+                                    {telegramStatus.botConfigured && (
+                                        <div className={`flex items-center justify-between p-3 rounded-xl border ${telegramStatus.webhookRegistered
+                                            ? "bg-emerald-500/5 border-emerald-500/10"
+                                            : "bg-amber-500/5 border-amber-500/10"
+                                            }`}>
+                                            <div className="flex items-center gap-2.5">
+                                                {telegramStatus.webhookRegistered ? (
+                                                    <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                                                ) : (
+                                                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                                                )}
+                                                <div>
+                                                    <p className={`text-xs font-medium ${telegramStatus.webhookRegistered ? "text-emerald-500" : "text-amber-500"
+                                                        }`}>
+                                                        {telegramStatus.webhookRegistered ? "Webhook active" : "Webhook not registered"}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground">
+                                                        {telegramStatus.webhookRegistered
+                                                            ? "Bot is receiving updates via your app URL"
+                                                            : "Register the webhook so the bot can receive messages"}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {!telegramStatus.webhookRegistered && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleRegisterWebhook}
+                                                    disabled={isRegisteringWebhook}
+                                                    className="shrink-0 h-8 text-[11px] gap-1.5 border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500 cursor-pointer"
+                                                >
+                                                    {isRegisteringWebhook ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                        <RefreshCw className="h-3 w-3" />
+                                                    )}
+                                                    Register Webhook
+                                                </Button>
+                                            )}
+                                            {telegramStatus.webhookRegistered && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={handleRegisterWebhook}
+                                                    disabled={isRegisteringWebhook}
+                                                    className="shrink-0 h-8 text-[11px] gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                                                >
+                                                    {isRegisteringWebhook ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                        <RefreshCw className="h-3 w-3" />
+                                                    )}
+                                                    Re-register
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
+                                    {!telegramStatus.botConfigured && (
+                                        <div className="p-3 rounded-xl bg-muted/30 border border-border/20">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Set <code className="bg-muted px-1 rounded">TELEGRAM_BOT_TOKEN</code> in your <code className="bg-muted px-1 rounded">.env</code> to enable webhook management.
+                                            </p>
+                                        </div>
+                                    )}
                                     {telegramStatus.isLinked ? (
                                         <div className="space-y-4">
                                             <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
@@ -2346,12 +2458,11 @@ function SettingsContent() {
                                         <div className="rounded-lg border border-border/40 overflow-hidden">
                                             {/* Table header */}
                                             <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center px-4 py-2.5 bg-muted/30 border-b border-border/30 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                                <input
-                                                    type="checkbox"
-                                                    className="h-4 w-4 rounded cursor-pointer accent-primary"
+                                                <Checkbox
+                                                    className="cursor-pointer"
                                                     checked={selectedBrokenIds.size === brokenBookmarks.length && brokenBookmarks.length > 0}
-                                                    onChange={e => {
-                                                        if (e.target.checked) {
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked) {
                                                             setSelectedBrokenIds(new Set(brokenBookmarks.map(b => b.id)));
                                                         } else {
                                                             setSelectedBrokenIds(new Set());
@@ -2375,14 +2486,13 @@ function SettingsContent() {
                                                                 : "hover:bg-muted/20"
                                                         )}
                                                     >
-                                                        <input
-                                                            type="checkbox"
-                                                            className="h-4 w-4 rounded cursor-pointer accent-primary"
+                                                        <Checkbox
+                                                            className="cursor-pointer"
                                                             checked={selectedBrokenIds.has(bm.id)}
-                                                            onChange={e => {
+                                                            onCheckedChange={(checked) => {
                                                                 setSelectedBrokenIds(prev => {
                                                                     const next = new Set(prev);
-                                                                    if (e.target.checked) next.add(bm.id);
+                                                                    if (checked) next.add(bm.id);
                                                                     else next.delete(bm.id);
                                                                     return next;
                                                                 });

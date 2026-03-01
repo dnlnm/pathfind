@@ -131,16 +131,17 @@ async function runSchedulerLoop() {
     logDebug("[Worker] Scheduler loop started");
     while (true) {
         try {
-            // Find users for Reddit sync
-            const redditUsers = db.prepare(`
-                SELECT id FROM users 
-                WHERE reddit_rss_url IS NOT NULL 
-                AND reddit_sync_enabled = 1
-                AND (
-                    last_reddit_sync_at IS NULL 
-                    OR last_reddit_sync_at < datetime('now', '-1 hour')
-                )
-            `).all() as { id: string }[];
+            // Find users for Reddit sync (URL now comes from env, not per-user DB)
+            const redditUsers = process.env.REDDIT_RSS_URL
+                ? (db.prepare(`
+                    SELECT id FROM users 
+                    WHERE reddit_sync_enabled = 1
+                    AND (
+                        last_reddit_sync_at IS NULL 
+                        OR last_reddit_sync_at < datetime('now', '-1 hour')
+                    )
+                `).all() as { id: string }[])
+                : [];
 
             for (const user of redditUsers) {
                 const userId = user.id;
@@ -161,16 +162,17 @@ async function runSchedulerLoop() {
                 }
             }
 
-            // Find users for GitHub sync
-            const githubUsers = db.prepare(`
-                SELECT id FROM users 
-                WHERE github_token IS NOT NULL 
-                AND github_sync_enabled = 1
-                AND (
-                    last_github_sync_at IS NULL 
-                    OR last_github_sync_at < datetime('now', '-1 hour')
-                )
-            `).all() as { id: string }[];
+            // Find users for GitHub sync (token now comes from env, not per-user DB)
+            const githubUsers = process.env.GITHUB_TOKEN
+                ? (db.prepare(`
+                    SELECT id FROM users 
+                    WHERE github_sync_enabled = 1
+                    AND (
+                        last_github_sync_at IS NULL 
+                        OR last_github_sync_at < datetime('now', '-1 hour')
+                    )
+                `).all() as { id: string }[])
+                : [];
 
             for (const user of githubUsers) {
                 const userId = user.id;
@@ -263,6 +265,7 @@ async function handleMetadataFetch(job: any, payload: any) {
             description = CASE WHEN description IS NULL OR description = '' THEN ? ELSE description END,
             favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
             thumbnail = CASE WHEN thumbnail IS NULL OR thumbnail = '' THEN ? ELSE thumbnail END,
+            is_nsfw = CASE WHEN ? = 1 THEN 1 ELSE is_nsfw END,
             updated_at = datetime('now')
         WHERE id = ?
     `).run(
@@ -270,6 +273,7 @@ async function handleMetadataFetch(job: any, payload: any) {
         metadata.description || '',
         metadata.favicon || '',
         metadata.thumbnail || '',
+        metadata.isNsfw ? 1 : 0,
         bookmarkId
     );
 
@@ -427,15 +431,15 @@ async function handleBackfillEmbeddings(job: any, payload: any) {
 
 async function handleRedditRssSync(job: any, payload: any) {
     const { userId } = payload;
-    const user = db.prepare("SELECT reddit_rss_url FROM users WHERE id = ?").get(userId) as { reddit_rss_url: string | null };
+    const rssUrl = process.env.REDDIT_RSS_URL;
 
-    if (!user?.reddit_rss_url) {
-        throw new Error("Reddit RSS URL not configured");
+    if (!rssUrl) {
+        throw new Error("REDDIT_RSS_URL is not configured in .env");
     }
 
-    logDebug(`[Worker] Syncing Reddit feed for user ${userId} from: ${user.reddit_rss_url}`);
+    logDebug(`[Worker] Syncing Reddit feed for user ${userId} from env URL`);
 
-    const response = await fetch(user.reddit_rss_url, {
+    const response = await fetch(rssUrl, {
         headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json, application/rss+xml, application/xml, text/xml"
@@ -454,7 +458,7 @@ async function handleRedditRssSync(job: any, payload: any) {
     logDebug(`[Worker] Body length: ${text.length}`);
     logDebug(`[Worker] Body starts with: ${text.substring(0, 50).replace(/\n/g, " ")}`);
 
-    let items: { link: string; title: string; description: string | null }[] = [];
+    let items: { link: string; title: string; description: string | null; isNsfw?: boolean }[] = [];
 
     if (contentType.includes("application/json") || text.trim().startsWith("{")) {
         logDebug("[Worker] Detected Reddit JSON format");
@@ -477,7 +481,8 @@ async function handleRedditRssSync(job: any, payload: any) {
                     return {
                         link: link,
                         title: post.title || "Reddit Post",
-                        description: post.selftext || post.public_description || null
+                        description: post.selftext || post.public_description || null,
+                        isNsfw: !!post.over_18
                     };
                 });
             } else {
@@ -525,8 +530,8 @@ async function handleRedditRssSync(job: any, payload: any) {
     const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
 
     const insertBookmark = db.prepare(`
-        INSERT INTO bookmarks (id, url, title, description, user_id)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO bookmarks (id, url, title, description, is_nsfw, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
     `);
     const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
     const checkExisting = db.prepare("SELECT id FROM bookmarks WHERE url = ? AND user_id = ?");
@@ -546,6 +551,7 @@ async function handleRedditRssSync(job: any, payload: any) {
                 item.link,
                 item.title,
                 item.description,
+                item.isNsfw ? 1 : 0,
                 userId
             );
 
@@ -675,17 +681,17 @@ async function handleCheckBrokenLinks(job: any, _payload: any) {
 
 async function handleGithubStarredSync(job: any, payload: any) {
     const { userId } = payload;
-    const user = db.prepare("SELECT github_token FROM users WHERE id = ?").get(userId) as { github_token: string | null };
+    const githubToken = process.env.GITHUB_TOKEN;
 
-    if (!user?.github_token) {
-        throw new Error("GitHub token not configured");
+    if (!githubToken) {
+        throw new Error("GITHUB_TOKEN is not configured in .env");
     }
 
     logDebug(`[Worker] Syncing GitHub stars for user ${userId}`);
 
     const response = await fetch("https://api.github.com/user/starred", {
         headers: {
-            Authorization: `token ${user.github_token}`,
+            Authorization: `token ${githubToken}`,
             Accept: "application/vnd.github.v3+json",
             "User-Agent": "PathFind-App",
         },

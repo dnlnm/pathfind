@@ -1189,3 +1189,75 @@
 [2026-02-28T21:41:01.484Z] [Worker] https://www.reddit.com/r/NSFW_China/comments/1rh26px/join_my_gang/ → ok (200)
 [2026-02-28T21:41:02.293Z] [Worker] https://pypi.org/project/cloakbffrowser/ → ok (200)
 [2026-02-28T21:41:02.801Z] [Worker] Link check complete: 69 URLs checked for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T21:59:31.109Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T21:59:31.142Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-28T21:59:32.573Z] [Worker] Reddit response status: 200
+[2026-02-28T21:59:32.574Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-28T21:59:32.586Z] [Worker] Body length: 211524
+[2026-02-28T21:59:32.586Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdn4rn"
+[2026-02-28T21:59:32.587Z] [Worker] Detected Reddit JSON format
+[2026-02-28T21:59:32.589Z] [Worker] Found 25 children in JSON
+[2026-02-28T21:59:32.590Z] [Worker] Total items extracted: 25
+[2026-02-28T21:59:32.591Z] [Worker] First item target link: https://www.reddit.com/r/webscraping/comments/1rc9992/built_a_stealth_chromium_what_site_should_i_try/
+[2026-02-28T21:59:32.592Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T22:04:31.113Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T22:04:33.831Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T22:04:34.814Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T22:13:20.842Z] [Worker] Background worker started
+[2026-02-28T22:13:20.844Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-02-28T22:13:20.845Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-02-28T22:13:20.845Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-02-28T22:13:20.846Z] [Worker] Scheduler loop started
+[2026-02-28T23:03:20.928Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T23:03:23.507Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-02-28T23:03:24.791Z] [Worker] Reddit response status: 200
+[2026-02-28T23:03:24.792Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-02-28T23:03:24.802Z] [Worker] Body length: 211525
+[2026-02-28T23:03:24.803Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdn4rn"
+[2026-02-28T23:03:24.804Z] [Worker] Detected Reddit JSON format
+[2026-02-28T23:03:24.806Z] [Worker] Found 25 children in JSON
+[2026-02-28T23:03:24.807Z] [Worker] Total items extracted: 25
+[2026-02-28T23:03:24.808Z] [Worker] First item target link: https://www.reddit.com/r/webscraping/comments/1rc9992/built_a_stealth_chromium_what_site_should_i_try/
+[2026-02-28T23:03:24.810Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T23:08:20.932Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T23:08:22.955Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T23:08:23.399Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-02-28T23:40:54.368Z] [Worker] Background worker started
+[2026-02-28T23:40:54.370Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-02-28T23:40:54.371Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-02-28T23:40:54.372Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-02-28T23:40:54.372Z] [Worker] Scheduler loop started
+[2026-03-01T00:05:54.409Z] [Worker] Scheduling automatic Reddit sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-03-01T00:05:55.298Z] [Worker] Syncing Reddit feed for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86 from: https://www.reddit.com/user/dnlnm25/saved.json?feed=487b96abd45e51b92255661b5da6ce00a425e5b8&user=dnlnm25
+[2026-03-01T00:05:56.556Z] [Worker] Reddit response status: 200
+[2026-03-01T00:05:56.557Z] [Worker] Content-Type: application/json; charset=UTF-8
+[2026-03-01T00:05:56.578Z] [Worker] Body length: 211524
+[2026-03-01T00:05:56.579Z] [Worker] Body starts with: {"kind": "Listing", "data": {"after": "t3_1rdn4rn"
+[2026-03-01T00:05:56.580Z] [Worker] Detected Reddit JSON format
+[2026-03-01T00:05:56.583Z] [Worker] Found 25 children in JSON
+[2026-03-01T00:05:56.584Z] [Worker] Total items extracted: 25
+[2026-03-01T00:05:56.585Z] [Worker] First item target link: https://www.reddit.com/r/webscraping/comments/1rc9992/built_a_stealth_chromium_what_site_should_i_try/
+[2026-03-01T00:05:56.587Z] [Worker] Synced 0 new items from Reddit for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-03-01T00:10:54.424Z] [Worker] Scheduling automatic GitHub sync for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-03-01T00:10:54.892Z] [Worker] Syncing GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-03-01T00:10:55.454Z] [Worker] Synced 0 new GitHub stars for user e4c17dbe-7aba-47cc-8f66-3b6698b9ce86
+[2026-03-01T00:28:45.237Z] [Worker] Background worker started
+[2026-03-01T00:28:45.239Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-03-01T00:28:45.240Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-03-01T00:28:45.241Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-03-01T00:28:45.241Z] [Worker] Scheduler loop started
+[2026-03-01T01:09:25.017Z] [Worker] Background worker started
+[2026-03-01T01:09:25.019Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-03-01T01:09:25.021Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-03-01T01:09:25.021Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-03-01T01:09:25.022Z] [Worker] Scheduler loop started
+[2026-03-01T01:11:05.022Z] [Worker] Background worker started
+[2026-03-01T01:11:05.025Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-03-01T01:11:05.061Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-03-01T01:11:05.062Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-03-01T01:11:05.063Z] [Worker] Scheduler loop started
+[2026-03-01T01:15:02.332Z] [Worker] Background worker started
+[2026-03-01T01:15:02.334Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-03-01T01:15:02.336Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-03-01T01:15:02.336Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-03-01T01:15:02.337Z] [Worker] Scheduler loop started

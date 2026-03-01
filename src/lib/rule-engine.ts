@@ -160,6 +160,13 @@ function executeAction(action: RuleAction, bookmarkId: string, userId: string): 
             break;
         }
 
+        case "mark_nsfw": {
+            db.prepare(
+                "UPDATE bookmarks SET is_nsfw = 1, updated_at = datetime('now') WHERE id = ?"
+            ).run(bookmarkId);
+            break;
+        }
+
         default:
             console.warn(`[RuleEngine] Unknown action type: ${action.type}`);
     }

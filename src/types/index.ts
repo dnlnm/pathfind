@@ -17,6 +17,7 @@ export interface DbBookmark {
     thumbnail: string | null;
     is_archived: number;
     is_read_later: number;
+    is_nsfw: number;
     created_at: string;
     updated_at: string;
     user_id: string;
@@ -60,6 +61,7 @@ export interface BookmarkWithTags {
     thumbnail: string | null;
     isArchived: boolean;
     isReadLater: boolean;
+    isNsfw: boolean;
     createdAt: string;
     updatedAt: string;
     userId: string;
@@ -87,7 +89,10 @@ export interface CollectionWithCount {
 export type RuleEvent = 'bookmark.created' | 'bookmark.updated';
 export type ConditionField = 'url' | 'title' | 'description' | 'domain';
 export type ConditionOperator = 'contains' | 'starts_with' | 'equals' | 'matches_regex';
-export type ActionType = 'add_tags' | 'add_to_collection' | 'mark_read_later' | 'mark_archived';
+export type ActionType = 'add_tags' | 'add_to_collection' | 'mark_read_later' | 'mark_archived' | 'mark_nsfw';
+
+// User NSFW display preference
+export type NsfwDisplay = 'blur' | 'hide' | 'show';
 
 export interface RuleCondition {
     field: ConditionField;

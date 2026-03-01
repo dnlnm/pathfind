@@ -1,9 +1,35 @@
 import { NextRequest } from "next/server";
+import path from "path";
+import fs from "fs";
 import db from "@/lib/db";
 import { auth } from "@/lib/auth";
+import satori from "satori";
+import { html } from "satori-html";
 
 // How long to keep a cached favicon color before re-fetching (7 days)
 const CACHE_TTL_DAYS = 7;
+
+// Load Geist-SemiBold font once (lazy-cached at module level)
+let geistFontData: ArrayBuffer | null = null;
+
+function getGeistFont(): ArrayBuffer {
+    if (geistFontData) return geistFontData;
+    const fontPath = path.join(
+        process.cwd(),
+        "node_modules",
+        "geist",
+        "dist",
+        "fonts",
+        "geist-sans",
+        "Geist-SemiBold.ttf"
+    );
+    const buffer = fs.readFileSync(fontPath);
+    geistFontData = buffer.buffer.slice(
+        buffer.byteOffset,
+        buffer.byteOffset + buffer.byteLength
+    ) as ArrayBuffer;
+    return geistFontData;
+}
 
 async function extractFaviconColor(domain: string): Promise<string> {
     try {
@@ -64,6 +90,26 @@ async function getColor(userId: string | undefined, domain: string): Promise<str
     return hex;
 }
 
+/** Parse a hex color into { r, g, b } */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+    const h = hex.replace("#", "");
+    return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+    };
+}
+
+/** Lighten or darken a hex color by an offset amount */
+function adjustBrightness(hex: string, amount: number): string {
+    const { r, g, b } = hexToRgb(hex);
+    const clamp = (v: number) => Math.min(255, Math.max(0, v));
+    const nr = clamp(r + amount);
+    const ng = clamp(g + amount);
+    const nb = clamp(b + amount);
+    return `#${[nr, ng, nb].map(v => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const title = searchParams.get("title") || "No Title";
@@ -74,98 +120,139 @@ export async function GET(request: NextRequest) {
 
     const bgColor = await getColor(userId, domain);
 
-    // Calculate luminance to decide text color
-    const r = parseInt(bgColor.slice(1, 3), 16);
-    const g = parseInt(bgColor.slice(3, 5), 16);
-    const b = parseInt(bgColor.slice(5, 7), 16);
+    // Calculate luminance to decide text/overlay colors
+    const { r, g, b } = hexToRgb(bgColor);
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    const isDark = luminance < 0.6; // Threshold for dark background
-    const textColor = isDark ? "white" : "#1a1a1a";
-    const shadowOpacity = isDark ? "0.3" : "0"; // No shadow for dark text on light bg
+    const isDark = luminance < 0.6;
+    const textColor = isDark ? "#ffffff" : "#111111";
 
-    // Text wrapping logic
-    const fontSize = 84;
-    const maxCharsPerLine = 22;
-    const words = title.split(" ");
-    const lines: string[] = [];
-    let currentLine = "";
+    // Gradient stop — slightly lighter/darker version of bgColor
+    const gradientStop = adjustBrightness(bgColor, isDark ? 35 : -35);
 
-    words.forEach(word => {
-        if ((currentLine + word).length > maxCharsPerLine) {
-            if (currentLine) lines.push(currentLine.trim());
-            currentLine = word + " ";
-        } else {
-            currentLine += word + " ";
-        }
+    // Decorative circle overlays
+    const circleOpacity1 = isDark ? "0.13" : "0.07";
+    const circleOpacity2 = isDark ? "0.07" : "0.04";
+    const circleRgb = isDark ? "255,255,255" : "0,0,0";
+
+    // Domain pill background
+    const pillBg = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)";
+
+    const font = getGeistFont();
+
+    const domainHtml = domain
+        ? `<div style="
+            position: absolute;
+            bottom: 60px;
+            left: 80px;
+            display: flex;
+            align-items: center;
+            background: ${pillBg};
+            border-radius: 100px;
+            padding: 10px 28px;
+          ">
+            <span style="
+              color: ${textColor};
+              font-size: 28px;
+              font-family: Geist;
+              font-weight: 600;
+              opacity: 0.65;
+              letter-spacing: -0.01em;
+            ">${escapeHtml(domain)}</span>
+          </div>`
+        : "";
+
+    const markup = html(`
+      <div style="
+        width: 1200px;
+        height: 630px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        background: linear-gradient(135deg, ${bgColor} 0%, ${gradientStop} 100%);
+        font-family: Geist;
+        overflow: hidden;
+      ">
+        <div style="
+          display: flex;
+          position: absolute;
+          top: -100px;
+          right: -100px;
+          width: 420px;
+          height: 420px;
+          border-radius: 9999px;
+          background: rgba(${circleRgb},${circleOpacity1});
+        "></div>
+        <div style="
+          display: flex;
+          position: absolute;
+          bottom: -80px;
+          left: -60px;
+          width: 280px;
+          height: 280px;
+          border-radius: 9999px;
+          background: rgba(${circleRgb},${circleOpacity2});
+        "></div>
+        <div style="
+          display: flex;
+          position: absolute;
+          bottom: 60px;
+          right: 80px;
+          width: 120px;
+          height: 120px;
+          border-radius: 9999px;
+          background: rgba(${circleRgb},${circleOpacity1});
+        "></div>
+        ${domainHtml}
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 0 100px;
+          text-align: center;
+          max-width: 1000px;
+        ">
+          <span style="
+            color: ${textColor};
+            font-size: 88px;
+            font-family: Geist;
+            font-weight: 600;
+            line-height: 1.1;
+            letter-spacing: -0.04em;
+          ">${escapeHtml(title)}</span>
+        </div>
+      </div>
+    `);
+
+    // satori-html returns VNode which is structurally identical to ReactNode at runtime;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const svg = await satori(markup as any, {
+        width: 1200,
+        height: 630,
+        fonts: [
+            {
+                name: "Geist",
+                data: font,
+                weight: 600,
+                style: "normal",
+            },
+        ],
     });
-    if (currentLine) lines.push(currentLine.trim());
-
-    // Limit to 4 lines
-    const displayLines = lines.slice(0, 4);
-    const lineSpacing = fontSize * 1.2;
-    const startY = 315 - ((displayLines.length - 1) * lineSpacing) / 2;
-
-    const svg = `
-    <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap');
-            .title-text {
-                font-family: 'Geist', system-ui, -apple-system, sans-serif;
-                font-weight: 900;
-                letter-spacing: -0.04em;
-            }
-        </style>
-        <defs>
-            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur in="SourceAlpha" stdDeviation="10"/>
-                <feOffset dx="0" dy="10" result="offsetblur"/>
-                <feComponentTransfer>
-                    <feFuncA type="linear" slope="${shadowOpacity}"/>
-                </feComponentTransfer>
-                <feMerge> 
-                    <feMergeNode/>
-                    <feMergeNode in="SourceGraphic"/> 
-                </feMerge>
-            </filter>
-        </defs>
-        <rect width="1200" height="630" fill="${bgColor}" />
-        
-        <!-- Subtle pattern overlay -->
-        <rect width="1200" height="630" fill="${isDark ? 'white' : 'black'}" fill-opacity="0.05" />
-        <circle cx="1100" cy="100" r="200" fill="${isDark ? 'white' : 'black'}" fill-opacity="0.1" />
-        <circle cx="100" cy="530" r="150" fill="${isDark ? 'white' : 'black'}" fill-opacity="0.05" />
-
-        <g filter="url(#shadow)">
-            <text 
-                x="600" 
-                y="${startY}" 
-                class="title-text"
-                font-size="${fontSize}" 
-                fill="${textColor}" 
-                text-anchor="middle"
-                dominant-baseline="middle"
-            >
-                ${displayLines.map((line, i) => `
-                <tspan x="600" dy="${i === 0 ? 0 : lineSpacing}">${escapeSvg(line)}</tspan>
-                `).join("")}
-            </text>
-        </g>
-    </svg>
-    `.trim();
 
     return new Response(svg, {
         headers: {
             "Content-Type": "image/svg+xml",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
         },
     });
 }
 
-function escapeSvg(str: string) {
+function escapeHtml(str: string): string {
     return str
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
-        .replace(/'/g, "&apos;");
+        .replace(/'/g, "&#39;");
 }

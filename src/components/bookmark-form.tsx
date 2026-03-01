@@ -8,11 +8,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload, Tag, FolderOpen, Check, ChevronDown } from "lucide-react";
+import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload, Tag, FolderOpen, Check, ChevronDown, EyeOff } from "lucide-react";
 import { BookmarkWithTags } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
     const [tagInput, setTagInput] = useState("");
     const [tags, setTags] = useState<string[]>([]);
     const [isReadLater, setIsReadLater] = useState(false);
+    const [isNsfw, setIsNsfw] = useState(false);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);
     const [thumbnail, setThumbnail] = useState("");
@@ -71,6 +73,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
         setTagInput("");
         setTags([]);
         setIsReadLater(false);
+        setIsNsfw(false);
         setThumbnail("");
         setSelectedCollections([]);
         setCollectionInput("");
@@ -127,6 +130,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
             setNotes(bookmark.notes || "");
             setTags(bookmark.tags.map((t) => t.name));
             setIsReadLater(bookmark.isReadLater);
+            setIsNsfw(bookmark.isNsfw);
             setThumbnail(bookmark.thumbnail || "");
             setSelectedCollections(bookmark.collections?.map(c => c.id) || []);
             // Auto-expand notes if there's existing content
@@ -322,6 +326,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                     notes: notes || undefined,
                     tags,
                     isReadLater,
+                    isNsfw,
                     thumbnail: thumbnail || null,
                     collections: selectedCollections,
                 }),
@@ -709,17 +714,28 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="bookmark-readlater"
-                            checked={isReadLater}
-                            onChange={(e) => setIsReadLater(e.target.checked)}
-                            className="rounded border-border accent-primary"
-                        />
-                        <Label htmlFor="bookmark-readlater" className="text-sm text-muted-foreground cursor-pointer">
-                            Mark as Read Later
-                        </Label>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="bookmark-readlater"
+                                checked={isReadLater}
+                                onCheckedChange={(checked) => setIsReadLater(checked === true)}
+                            />
+                            <Label htmlFor="bookmark-readlater" className="text-sm text-muted-foreground cursor-pointer">
+                                Mark as Read Later
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="bookmark-nsfw"
+                                checked={isNsfw}
+                                onCheckedChange={(checked) => setIsNsfw(checked === true)}
+                            />
+                            <Label htmlFor="bookmark-nsfw" className="text-sm text-muted-foreground cursor-pointer flex items-center gap-1">
+                                <EyeOff className="h-3 w-3" />
+                                Mark as Sensitive
+                            </Label>
+                        </div>
                     </div>
 
                     <div className="flex gap-2 justify-end pt-2">

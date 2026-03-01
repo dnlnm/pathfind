@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 
 interface AppLayoutProps {
     children: React.ReactNode;
-    bookmarkCounts?: { all: number; readLater: number; archived: number };
+    bookmarkCounts?: { all: number; readLater: number; archived: number; nsfw: number };
     refreshTrigger?: number;
 }
 

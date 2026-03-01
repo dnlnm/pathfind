@@ -31,6 +31,7 @@ function toBookmarkResponse(row: DbBookmark) {
         thumbnail: row.thumbnail,
         isArchived: !!row.is_archived,
         isReadLater: !!row.is_read_later,
+        isNsfw: !!row.is_nsfw,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         userId: row.user_id,
@@ -75,16 +76,18 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { url, title, description, notes, tags, isReadLater, isArchived, thumbnail } = body;
+    const { url, title, description, notes, tags, isReadLater, isArchived, isNsfw, thumbnail } = body;
 
     let finalFavicon = existing.favicon;
     let finalThumbnail = thumbnail !== undefined ? thumbnail : existing.thumbnail;
     let finalTitle = title ?? existing.title;
     let finalDescription = description ?? existing.description;
+    let finalIsNsfw = isNsfw ?? !!existing.is_nsfw;
+    const isRedditURL = (url ?? existing.url)?.includes("reddit.com");
 
     // Fetch missing metadata if any are null or URL changed
     // But don't overwrite finalThumbnail if it was explicitly provided in the body
-    if ((url && url !== existing.url) || !finalFavicon || (finalThumbnail === null && !body.hasOwnProperty('thumbnail'))) {
+    if ((url && url !== existing.url) || !finalFavicon || (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) || (isRedditURL && isNsfw === false)) {
         const fetched = await fetchUrlMetadata(url ?? existing.url);
         finalFavicon = fetched.favicon;
         if (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) {
@@ -92,13 +95,16 @@ export async function PUT(
         }
         if (!finalTitle) finalTitle = fetched.title;
         if (!finalDescription) finalDescription = fetched.description;
+        if ((isNsfw === undefined || isNsfw === false) && fetched.isNsfw === true) {
+            finalIsNsfw = true;
+        }
     }
 
     db.prepare(`
     UPDATE bookmarks SET
       url = ?, title = ?, description = ?, notes = ?,
       favicon = ?, thumbnail = ?,
-      is_read_later = ?, is_archived = ?, updated_at = datetime('now')
+      is_read_later = ?, is_archived = ?, is_nsfw = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(
         url ?? existing.url,
@@ -109,6 +115,7 @@ export async function PUT(
         finalThumbnail,
         (isReadLater ?? !!existing.is_read_later) ? 1 : 0,
         (isArchived ?? !!existing.is_archived) ? 1 : 0,
+        finalIsNsfw ? 1 : 0,
         id
     );
 

@@ -338,6 +338,17 @@ try {
   db.exec("ALTER TABLE users ADD COLUMN last_link_check_at TEXT");
 } catch (e) { /* Column already exists */ }
 
+// Migration: NSFW flag on bookmarks
+try {
+  db.exec("ALTER TABLE bookmarks ADD COLUMN is_nsfw INTEGER DEFAULT 0");
+} catch (e) { /* Column already exists */ }
+
+// Migration: NSFW display preference on users
+// Options: 'blur' (default) | 'hide' | 'show'
+try {
+  db.exec("ALTER TABLE users ADD COLUMN nsfw_display TEXT DEFAULT 'blur'");
+} catch (e) { /* Column already exists */ }
+
 export default db;
 
 // Helper to generate IDs

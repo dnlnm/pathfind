@@ -22,7 +22,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,7 @@ interface SidebarCollection {
 }
 
 interface AppSidebarProps {
-    bookmarkCounts?: { all: number; readLater: number; archived: number };
+    bookmarkCounts?: { all: number; readLater: number; archived: number; nsfw: number };
     userName?: string;
     refreshTrigger?: number;
 }
@@ -54,6 +54,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
     const { setOpenMobile } = useSidebar();
     const searchParams = useSearchParams();
     const currentFilter = searchParams.get("filter") || "all";
+    const currentNsfw = searchParams.get("nsfw");
     const currentTag = searchParams.get("tag") || "";
     const currentCollectionId = searchParams.get("collection") || "";
     const currentTab = searchParams.get("tab") || "general";
@@ -61,7 +62,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
 
     const [tags, setTags] = useState<SidebarTag[]>([]);
     const [collections, setCollections] = useState<SidebarCollection[]>([]);
-    const [counts, setCounts] = useState(initialCounts || { all: 0, readLater: 0, archived: 0 });
+    const [counts, setCounts] = useState(initialCounts || { all: 0, readLater: 0, archived: 0, nsfw: 0 });
     const [collectionFormOpen, setCollectionFormOpen] = useState(false);
     const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
 
@@ -93,22 +94,25 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
 
     const fetchCounts = useCallback(async () => {
         try {
-            const [allRes, readLaterRes, archivedRes] = await Promise.all([
+            const [allRes, readLaterRes, archivedRes, nsfwRes] = await Promise.all([
                 fetch("/api/bookmarks?limit=0"),
                 fetch("/api/bookmarks?filter=readlater&limit=0"),
                 fetch("/api/bookmarks?filter=archived&limit=0"),
+                fetch("/api/bookmarks?nsfw=only&limit=0"),
             ]);
 
-            const [allData, readLaterData, archivedData] = await Promise.all([
+            const [allData, readLaterData, archivedData, nsfwData] = await Promise.all([
                 allRes.json(),
                 readLaterRes.json(),
                 archivedRes.json(),
+                nsfwRes.json(),
             ]);
 
             setCounts({
                 all: allData.total || 0,
                 readLater: readLaterData.total || 0,
                 archived: archivedData.total || 0,
+                nsfw: nsfwData.total || 0,
             });
         } catch {
             // Silent fail
@@ -135,7 +139,11 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
     const navigate = (filter: string, tag?: string, collectionId?: string) => {
         setOpenMobile(false);
         const params = new URLSearchParams();
-        if (filter !== "all") params.set("filter", filter);
+        if (filter === "nsfw") {
+            params.set("nsfw", "only");
+        } else if (filter !== "all") {
+            params.set("filter", filter);
+        }
         if (tag) params.set("tag", tag);
         if (collectionId) params.set("collection", collectionId);
         router.push(`/?${params.toString()}`);
@@ -145,6 +153,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         { label: "All Bookmarks", icon: Bookmark, filter: "all", count: counts.all },
         { label: "Read Later", icon: Clock, filter: "readlater", count: counts.readLater },
         { label: "Archived", icon: Archive, filter: "archived", count: counts.archived },
+        { label: "Sensitive", icon: EyeOff, filter: "nsfw", count: counts.nsfw },
     ];
 
     const normalTags = tags.filter(tag => !tag.name.startsWith("r/"));
@@ -230,7 +239,11 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                                         <SidebarMenuItem key={item.filter}>
                                             <SidebarMenuButton
                                                 onClick={() => navigate(item.filter)}
-                                                isActive={currentFilter === item.filter && !currentTag}
+                                                isActive={
+                                                    item.filter === "nsfw"
+                                                        ? currentNsfw === "only" && !currentTag && !currentCollectionId
+                                                        : currentFilter === item.filter && currentNsfw !== "only" && !currentTag && !currentCollectionId
+                                                }
                                                 className="cursor-pointer"
                                             >
                                                 <item.icon className="h-4 w-4" />

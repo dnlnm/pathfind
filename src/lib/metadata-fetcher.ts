@@ -85,11 +85,14 @@ export async function fetchUrlMetadata(url: string) {
                             finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=reddit.com`;
                         }
 
+                        const isNsfw = !!postData.over_18;
+
                         const result = {
                             title,
                             description: postData.selftext?.substring(0, 200) || postData.public_description || postData.description?.substring(0, 200) || null,
                             favicon: await imageUrlToBase64("https://www.reddit.com/favicon.ico", 50 * 1024),
-                            thumbnail: finalThumbnail
+                            thumbnail: finalThumbnail,
+                            isNsfw
                         };
                         console.log(`[Metadata] Reddit JSON Success:`, result.title);
                         if (result.title) return result;
@@ -185,13 +188,14 @@ export async function fetchUrlMetadata(url: string) {
             title,
             description,
             favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
-            thumbnail: finalThumbnail
+            thumbnail: finalThumbnail,
+            isNsfw: undefined
         };
         console.log(`[Metadata] Final result:`, result.title);
         return result;
     } catch (e) {
         console.error(`[Metadata] Error fetching ${url}:`, e);
-        return { title: null, description: null, favicon: null, thumbnail: null };
+        return { title: null, description: null, favicon: null, thumbnail: null, isNsfw: undefined };
     }
 }
 

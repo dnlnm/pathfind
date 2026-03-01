@@ -34,6 +34,8 @@ import {
     Trash2,
     Globe,
     ArchiveRestore,
+    EyeOff,
+    Eye,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -48,6 +50,7 @@ interface BookmarkCardProps {
     isSelected?: boolean;
     onSelect?: (id: string, selected: boolean) => void;
     selectionMode?: boolean;
+    nsfwDisplayMode?: "blur" | "hide" | "show";
 }
 
 export function BookmarkCard({
@@ -57,12 +60,14 @@ export function BookmarkCard({
     layout = "list",
     isSelected = false,
     onSelect,
-    selectionMode = false
+    selectionMode = false,
+    nsfwDisplayMode = "blur"
 }: BookmarkCardProps) {
     const router = useRouter();
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [revealed, setRevealed] = useState(false);
 
-    const handleToggle = async (field: "isReadLater" | "isArchived") => {
+    const handleToggle = async (field: "isReadLater" | "isArchived" | "isNsfw") => {
         try {
             const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
                 method: "PUT",
@@ -79,10 +84,15 @@ export function BookmarkCard({
                         ? bookmark.isReadLater
                             ? "Removed from Read Later"
                             : "Added to Read Later"
-                        : bookmark.isArchived
-                            ? "Unarchived"
-                            : "Archived"
+                        : field === "isNsfw"
+                            ? bookmark.isNsfw
+                                ? "NSFW flag removed"
+                                : "Marked as NSFW"
+                            : bookmark.isArchived
+                                ? "Unarchived"
+                                : "Archived"
                 );
+                if (field === "isNsfw") setRevealed(false);
                 onRefresh();
             }
         } catch {
@@ -145,12 +155,26 @@ export function BookmarkCard({
                         <img
                             src={bookmark.thumbnail}
                             alt=""
-                            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                            className={cn(
+                                "absolute inset-0 w-full h-full object-cover transition-all duration-300",
+                                bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" ? "blur-xl scale-110" : ""
+                            )}
                             onError={(e) => {
                                 (e.target as HTMLImageElement).style.opacity = "0";
                             }}
                             loading="lazy"
                         />
+                        {bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" && (
+                            <button
+                                className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 z-20 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); setRevealed(true); }}
+                            >
+                                <div className="bg-background/60 backdrop-blur-sm rounded-xl px-3 py-2 flex flex-col items-center gap-1">
+                                    <EyeOff className="h-4 w-4 text-foreground/70" />
+                                    <span className="text-[10px] font-medium text-foreground/70">Click to reveal</span>
+                                </div>
+                            </button>
+                        )}
                         {selectionMode && (
                             <div className="absolute top-3 left-3 z-30">
                                 <Checkbox
@@ -331,6 +355,12 @@ export function BookmarkCard({
                                         read later
                                     </Badge>
                                 )}
+                                {bookmark.isNsfw && (
+                                    <Badge variant="outline" className="text-xs px-2 py-0 h-6 border-rose-500/30 text-rose-500 gap-1">
+                                        <EyeOff className="h-3 w-3" />
+                                        nsfw
+                                    </Badge>
+                                )}
                                 <div className="flex items-center gap-1.5 ml-auto">
                                     <div className={cn("flex shrink-0", selectionMode ? "invisible pointer-events-none" : "")}>
                                         <DropdownMenu>
@@ -360,6 +390,13 @@ export function BookmarkCard({
                                                         <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
                                                     ) : (
                                                         <><Archive className="h-4 w-4 mr-2" /> Archive</>
+                                                    )}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleToggle("isNsfw")} className="cursor-pointer">
+                                                    {bookmark.isNsfw ? (
+                                                        <><Eye className="h-4 w-4 mr-2" /> Remove NSFW Flag</>
+                                                    ) : (
+                                                        <><EyeOff className="h-4 w-4 mr-2" /> Mark as NSFW</>
                                                     )}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
@@ -397,12 +434,23 @@ export function BookmarkCard({
                                 <img
                                     src={bookmark.thumbnail}
                                     alt=""
-                                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                                    className={cn(
+                                        "absolute inset-0 w-full h-full object-cover transition-all duration-300",
+                                        bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" ? "blur-lg scale-110" : ""
+                                    )}
                                     onError={(e) => {
                                         (e.target as HTMLImageElement).style.opacity = "0";
                                     }}
                                     loading="lazy"
                                 />
+                                {bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" && (
+                                    <button
+                                        className="absolute inset-0 flex items-center justify-center z-10 cursor-pointer"
+                                        onClick={(e) => { e.stopPropagation(); setRevealed(true); }}
+                                    >
+                                        <EyeOff className="h-4 w-4 text-foreground/60" />
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
