@@ -62,6 +62,8 @@ public/fallback-*.js.map
 worker-debug.log
 
 #sqlite database
-data/pathfind.db
-data/pathfind.db-shm
-data/pathfind.db-wal
+/data
+
+#reddit dev
+test-fetch.js
+test-reddit-metadata.ts
