@@ -36,8 +36,10 @@
     "satori-html": "^0.3.2",
     "sonner": "^2.0.7",
     "sqlite-vec": "^0.1.7-alpha.2",
-    "sqlite-vec-windows-x64": "^0.1.7-alpha.2",
     "tailwind-merge": "^3.4.1"
+  },
+  "optionalDependencies": {
+    "sqlite-vec-windows-x64": "^0.1.7-alpha.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
