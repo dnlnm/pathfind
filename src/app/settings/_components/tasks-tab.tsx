@@ -104,10 +104,10 @@ export function TasksTab({ taskStats, onRetryFailed, onClearTasks, onStartBulkJo
                             </div>
                             <div>
                                 <CardTitle className="text-base">Generate Embeddings</CardTitle>
-                                <CardDescription className="text-xs mt-0.5">Generate vector embeddings for semantic search on bookmarks that are missing them.</CardDescription>
+                                <CardDescription className="text-xs mt-0.5">Generate vector embeddings for semantic search on bookmarks that are missing them. <span className="text-destructive font-medium">NSFW links are excluded.</span></CardDescription>
                             </div>
                         </div>
-                        {embedIsRunning && <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 animate-pulse">Running</Badge>}
+                        {embedIsRunning && <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 animate-pulse">{embedPayload.overwrite ? "Regenerating All" : "Generating Missing"}</Badge>}
                         {embedIsPending && <Badge variant="outline" className="text-[10px] bg-amber-500/5 text-amber-500 border-amber-500/20 shrink-0">Queued</Badge>}
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -138,9 +138,14 @@ export function TasksTab({ taskStats, onRetryFailed, onClearTasks, onStartBulkJo
                                 ) : (
                                     <p className="text-xs text-emerald-500 flex items-center gap-1.5"><Check className="h-3.5 w-3.5" />All bookmarks have embeddings</p>
                                 )}
-                                <Button size="sm" onClick={() => onStartBulkJob('backfill_embeddings')} disabled={missingEmbeddings === 0} className="h-9 text-xs gap-2 cursor-pointer">
-                                    <RefreshCw className="h-3.5 w-3.5" />Start
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button size="sm" onClick={() => onStartBulkJob('backfill_embeddings', false)} disabled={missingEmbeddings === 0} className="h-9 text-xs gap-2 cursor-pointer">
+                                        <RefreshCw className="h-3.5 w-3.5" />Generate Missing
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => onStartBulkJob('backfill_embeddings', true)} className="h-9 text-xs gap-2 cursor-pointer">
+                                        <RefreshCw className="h-3.5 w-3.5" />Regenerate All
+                                    </Button>
+                                </div>
                             </>
                         )}
                     </CardContent>

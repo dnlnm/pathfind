@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         }
 
         const id = generateId();
-        const overwrite = action === 'backfill_thumbnails' ? (body.overwrite === true) : false;
+        const overwrite = (action === 'backfill_thumbnails' || action === 'backfill_embeddings') ? (body.overwrite === true) : false;
         const jobPayload = action === 'check_broken_links' ? JSON.stringify({}) : JSON.stringify({ overwrite });
         db.prepare(`
             INSERT INTO jobs (id, type, payload, status, user_id)

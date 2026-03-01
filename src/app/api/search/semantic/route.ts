@@ -79,10 +79,10 @@ export async function GET(request: NextRequest) {
 
         // We fetch the real bookmarks from the matched rowids.
         // We ensure we only extract bookmarks belonging to the user and match the filter.
-        let filterWhere = "";
-        if (filter === "readlater") filterWhere = "AND is_read_later = 1 AND is_archived = 0";
-        else if (filter === "archived") filterWhere = "AND is_archived = 1";
-        else filterWhere = "AND is_archived = 0";
+        let filterWhere = "AND is_nsfw = 0 ";
+        if (filter === "readlater") filterWhere += "AND is_read_later = 1 AND is_archived = 0";
+        else if (filter === "archived") filterWhere += "AND is_archived = 1";
+        else filterWhere += "AND is_archived = 0";
 
         const inClauseRows = vectorResults.map((r) => r.rowid).join(",");
 

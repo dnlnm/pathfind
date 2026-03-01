@@ -6,12 +6,17 @@ import { initJobProgress, updateJobProgress } from "../progress";
 export async function handleBackfillEmbeddings(job: any, payload: any) {
     const userId = job.user_id;
 
-    const bookmarks = db.prepare(`
+    let bookmarksQuery = `
         SELECT b.rowid, b.id, b.title, b.description, b.notes
         FROM bookmarks b
         LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
-        WHERE b.user_id = ? AND v.rowid IS NULL
-    `).all(userId) as { rowid: number; id: string; title: string | null; description: string | null; notes: string | null }[];
+        WHERE b.user_id = ? AND IFNULL(b.is_nsfw, 0) = 0
+    `;
+    if (!payload?.overwrite) {
+        bookmarksQuery += " AND v.rowid IS NULL";
+    }
+
+    const bookmarks = db.prepare(bookmarksQuery).all(userId) as { rowid: number; id: string; title: string | null; description: string | null; notes: string | null }[];
 
     const total = bookmarks.length;
     logDebug(`[Worker] Backfill embeddings: ${total} bookmarks to process for user ${userId}`);
