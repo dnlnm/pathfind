@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
     const bookmarkForRules = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;
     const ruleEvent = isUpdate ? "bookmark.updated" : "bookmark.created";
     try {
-        await evaluateRules(ruleEvent, bookmarkForRules, userAuth.id);
+        evaluateRules(ruleEvent, bookmarkForRules, userAuth.id);
     } catch (e) {
         console.error("[RuleEngine] Error during rule evaluation:", e);
     }

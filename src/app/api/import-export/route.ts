@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import db, { generateId } from "@/lib/db";
+import { evaluateRules } from "@/lib/rule-engine";
+import { DbBookmark } from "@/types";
 
 export async function GET() {
     const session = await auth();
@@ -93,6 +95,17 @@ export async function POST(request: Request) {
                 const tagRow = getTag.get(tagName) as { id: string };
                 linkTag.run(bmId, tagRow.id);
             }
+
+            // Run rules for each newly imported bookmark
+            try {
+                const bookmark = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(bmId) as DbBookmark;
+                if (bookmark) {
+                    evaluateRules("bookmark.created", bookmark, session.user!.id!);
+                }
+            } catch (e) {
+                console.error("[Import] Error during rule evaluation:", e);
+            }
+
             count++;
         }
     });

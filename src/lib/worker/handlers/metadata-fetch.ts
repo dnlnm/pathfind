@@ -1,7 +1,9 @@
 import db from "../../db";
 import { fetchUrlMetadata } from "../../metadata-fetcher";
 import { generateEmbedding } from "../../gemini";
+import { evaluateRules } from "../../rule-engine";
 import { logDebug } from "../logger";
+import { DbBookmark } from "@/types";
 
 export async function handleMetadataFetch(job: any, payload: any) {
     const { bookmarkId } = payload;
@@ -33,6 +35,16 @@ export async function handleMetadataFetch(job: any, payload: any) {
         metadata.isNsfw ? 1 : 0,
         bookmarkId
     );
+
+    // After updating metadata, evaluate rules again (as description/nsfw/title might have changed)
+    try {
+        const updatedBookmark = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(bookmarkId) as DbBookmark;
+        if (updatedBookmark) {
+            evaluateRules("bookmark.updated", updatedBookmark, updatedBookmark.user_id);
+        }
+    } catch (e) {
+        logDebug(`[Worker] Rule evaluation failed for ${bookmarkId}: ` + e);
+    }
 
     // After updating metadata, generate vector embedding for semantic search
     try {

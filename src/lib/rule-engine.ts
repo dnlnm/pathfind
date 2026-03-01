@@ -4,11 +4,11 @@ import { DbRule, RuleCondition, RuleAction, DbBookmark } from "@/types";
 /**
  * Evaluate all enabled rules for a given event and apply matching actions.
  */
-export async function evaluateRules(
+export function evaluateRules(
     event: string,
     bookmark: DbBookmark,
     userId: string
-): Promise<void> {
+): void {
     const rules = db.prepare(`
         SELECT * FROM rules 
         WHERE event = ? AND user_id = ? AND enabled = 1 
