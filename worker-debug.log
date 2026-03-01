@@ -1261,3 +1261,8 @@
 [2026-03-01T01:15:02.336Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
 [2026-03-01T01:15:02.336Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
 [2026-03-01T01:15:02.337Z] [Worker] Scheduler loop started
+[2026-03-01T11:09:10.371Z] [Worker] Background worker started
+[2026-03-01T11:09:10.372Z] [Worker] Lane "fast" started for types: metadata_fetch
+[2026-03-01T11:09:10.374Z] [Worker] Lane "sync" started for types: reddit_rss_sync, github_starred_sync
+[2026-03-01T11:09:10.375Z] [Worker] Lane "bulk" started for types: backfill_thumbnails, backfill_embeddings, check_broken_links
+[2026-03-01T11:09:10.375Z] [Worker] Scheduler loop started

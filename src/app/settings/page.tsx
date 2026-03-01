@@ -224,11 +224,11 @@ function SettingsContent() {
             .then(res => res.json())
             .then(data => setApiTokens(Array.isArray(data) ? data : []));
 
-        fetch("/api/settings/nsfw")
-            .then(res => res.json())
-            .then(data => {
-                if (data.display) setNsfwDisplay(data.display);
-            });
+        // Load NSFW display mode from localStorage (client-side preference)
+        const savedNsfw = localStorage.getItem("nsfw-display-mode") as "blur" | "hide" | "show" | null;
+        if (savedNsfw && ["blur", "hide", "show"].includes(savedNsfw)) {
+            setNsfwDisplay(savedNsfw);
+        }
 
         fetch("/api/settings/telegram")
             .then(res => res.json())
@@ -495,22 +495,14 @@ function SettingsContent() {
         setSavingEmail(false);
     };
 
-    const handleSaveNsfwDisplay = async (value: string) => {
+    const handleSaveNsfwDisplay = (value: string) => {
         setNsfwDisplay(value as any);
         setSavingNsfw(true);
         try {
-            const res = await fetch("/api/settings/nsfw", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ display: value }),
-            });
-            if (res.ok) {
-                toast.success("NSFW setting updated");
-            } else {
-                toast.error("Failed to update NSFW setting");
-            }
+            localStorage.setItem("nsfw-display-mode", value);
+            toast.success("NSFW setting updated");
         } catch {
-            toast.error("Something went wrong");
+            toast.error("Failed to update NSFW setting");
         }
         setSavingNsfw(false);
     };

@@ -74,12 +74,11 @@ function BookmarkPageContent() {
       .then(data => setCollections(data))
       .catch(() => { });
 
-    fetch("/api/settings/nsfw")
-      .then(res => res.json())
-      .then(data => {
-        if (data.display) setNsfwDisplayMode(data.display);
-      })
-      .catch(() => { });
+    // Load NSFW display mode from localStorage (client-side preference)
+    const saved = localStorage.getItem("nsfw-display-mode") as "blur" | "hide" | "show" | null;
+    if (saved && ["blur", "hide", "show"].includes(saved)) {
+      setNsfwDisplayMode(saved);
+    }
   }, [refreshTrigger]);
 
   const [columns, setColumns] = useState(1);
@@ -338,8 +337,13 @@ function BookmarkPageContent() {
               ? "Sensitive Content"
               : "All Bookmarks";
 
+  // Apply 'hide' mode client-side — filter out NSFW bookmarks when preference is 'hide'
+  const visibleBookmarks = nsfwDisplayMode === "hide"
+    ? bookmarks.filter(b => !b.isNsfw)
+    : bookmarks;
+
   const itemsPerRow = viewMode === "grid" ? columns : 1;
-  const rowCount = Math.ceil(bookmarks.length / itemsPerRow);
+  const rowCount = Math.ceil(visibleBookmarks.length / itemsPerRow);
 
   const virtualizer = useWindowVirtualizer({
     count: rowCount,
@@ -503,7 +507,7 @@ function BookmarkPageContent() {
             >
               {virtualItems.map((virtualRow) => {
                 const startIdx = virtualRow.index * itemsPerRow;
-                const rowItems = bookmarks.slice(startIdx, startIdx + itemsPerRow);
+                const rowItems = visibleBookmarks.slice(startIdx, startIdx + itemsPerRow);
 
                 return (
                   <div

@@ -48,9 +48,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = db.prepare("SELECT pagination_limit, nsfw_display FROM users WHERE id = ?").get(userAuth.id) as { pagination_limit: number; nsfw_display: string | null };
+    const user = db.prepare("SELECT pagination_limit FROM users WHERE id = ?").get(userAuth.id) as { pagination_limit: number };
     const defaultLimit = user?.pagination_limit || 30;
-    const nsfwDisplay = user?.nsfw_display ?? 'blur';
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q") || "";
@@ -103,8 +102,6 @@ export async function GET(request: NextRequest) {
             whereClauses = whereClauses.filter(clause => clause !== "b.is_archived = 0");
         }
         whereClauses.push("b.is_nsfw = 1");
-    } else if (nsfwDisplay === 'hide') {
-        whereClauses.push("b.is_nsfw = 0");
     }
 
     const whereStr = whereClauses.join(" AND ");
