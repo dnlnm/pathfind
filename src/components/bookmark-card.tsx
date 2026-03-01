@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookmarkWithTags } from "@/types";
 import {
     Card,
@@ -66,6 +66,27 @@ export function BookmarkCard({
     const router = useRouter();
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [revealed, setRevealed] = useState(false);
+    const [clickAction, setClickAction] = useState<"current" | "new">("new");
+
+    useEffect(() => {
+        const saved = localStorage.getItem("bookmark-click-action") as "current" | "new" | null;
+        if (saved) setClickAction(saved);
+
+        // Add listener for real-time updates when setting is changed in another tab or component
+        const handleStorageChange = () => {
+            const updated = localStorage.getItem("bookmark-click-action") as "current" | "new" | null;
+            if (updated) setClickAction(updated);
+        };
+
+        // Listen to storage events (from other tabs) and custom events (from our setting tab)
+        window.addEventListener("storage", handleStorageChange);
+        window.addEventListener("bookmark-click-action-changed", handleStorageChange);
+
+        return () => {
+            window.removeEventListener("storage", handleStorageChange);
+            window.removeEventListener("bookmark-click-action-changed", handleStorageChange);
+        };
+    }, []);
 
     const handleToggle = async (field: "isReadLater" | "isArchived" | "isNsfw") => {
         try {
@@ -252,7 +273,7 @@ export function BookmarkCard({
                                 <div className="min-w-0 flex-1">
                                     <a
                                         href={bookmark.url}
-                                        target="_blank"
+                                        target={clickAction === "new" ? "_blank" : "_self"}
                                         rel="noopener noreferrer"
                                         className={`text-sm font-medium text-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 w-full ${isGrid ? "text-base leading-tight" : ""}`}
                                         onClick={(e) => {
@@ -356,9 +377,8 @@ export function BookmarkCard({
                                     </Badge>
                                 )}
                                 {bookmark.isNsfw && (
-                                    <Badge variant="outline" className="text-xs px-2 py-0 h-6 border-rose-500/30 text-rose-500 gap-1">
-                                        <EyeOff className="h-3 w-3" />
-                                        nsfw
+                                    <Badge variant="outline" className="bg-rose-50 dark:bg-rose-800 px-0 w-6 h-6 flex items-center justify-center border-rose-500/30" title="NSFW">
+                                        <EyeOff className="h-3.5 w-3.5" />
                                     </Badge>
                                 )}
                                 <div className="flex items-center gap-1.5 ml-auto">
