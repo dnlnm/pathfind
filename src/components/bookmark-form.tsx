@@ -469,7 +469,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                                                 onMouseEnter={() => setHighlightedIndex(idx)}
                                             >
                                                 <Tag className="h-3 w-3 shrink-0 opacity-50" />
-                                                <span className="truncate">{suggestion}</span>
+                                                <span className="truncate">#{suggestion}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -486,7 +486,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                                         className="gap-1 cursor-pointer hover:bg-destructive/20 transition-colors"
                                         onClick={() => removeTag(tag)}
                                     >
-                                        {tag}
+                                        #{tag}
                                         <X className="h-3 w-3" />
                                     </Badge>
                                 ))}

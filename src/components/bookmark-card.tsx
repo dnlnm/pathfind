@@ -340,7 +340,7 @@ export function BookmarkCard({
                                             }
                                         }}
                                     >
-                                        {tag.name}
+                                        #{tag.name}
                                     </Badge>
                                 ))}
                                 {bookmark.collections?.map((col) => (

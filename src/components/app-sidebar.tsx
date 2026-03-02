@@ -336,7 +336,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                                                         )}
                                                         onClick={() => navigate("all", tag.name)}
                                                     >
-                                                        {tag.name}
+                                                        #{tag.name}
                                                         <span className="ml-1.5 opacity-50 text-[10px] font-normal">
                                                             {tag._count.bookmarks}
                                                         </span>
@@ -373,7 +373,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                                                         )}
                                                         onClick={() => navigate("all", tag.name)}
                                                     >
-                                                        {tag.name}
+                                                        #{tag.name}
                                                         <span className="ml-1.5 opacity-50 text-[10px] font-normal">
                                                             {tag._count.bookmarks}
                                                         </span>

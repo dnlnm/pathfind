@@ -326,7 +326,7 @@ function BookmarkPageContent() {
   const pageTitle = currentCollectionId
     ? `Collection: ${currentCollectionName || "..."}`
     : currentTag
-      ? `Tag: ${currentTag}`
+      ? `Tag: #${currentTag}`
       : currentQuery
         ? `${isAiSearch ? "✨ AI Search" : "Search"}: "${currentQuery}"`
         : currentFilter === "readlater"
