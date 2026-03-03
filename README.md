@@ -1,84 +1,93 @@
-# PathFind
+# <img src="./public/favicon.ico" width="32" height="32" valign="middle"> PathFind
 
-PathFind is a powerful, self-hosted, AI-assisted personal bookmark and collection manager. Built with Next.js 15, it provides a centralized place to collect, organize, and quickly retrieve links, articles, repositories, and media across the web.
+[![Next.js](https://img.shields.io/badge/Next.js-15%2F16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-FTS5-003B57?style=for-the-badge&logo=sqlite)](https://www.sqlite.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
+
+**PathFind** is a premium, self-hosted, AI-assisted personal bookmark and collection manager. Built with **Next.js 16** and **Tailwind CSS 4**, it provides a centralized, beautiful space to collect, organize, and instantly retrieve links, articles, and media from across the web.
+
+![PathFind Ecosystem Mockup](pathfind_ecosystem_mockup_1772558683406.png)
+
+---
+
+## 🌐 The PathFind Ecosystem
+
+PathFind is more than just a web app. It's a complete cross-platform bookmarking solution:
+
+- **[PathFind Web](https://github.com/dnlnm/pathfind)**: The core self-hosted server and dashboard.
+- **[PathFind Extension](https://github.com/dnlnm/pathfind-ext)**: Browser extension for Chrome, Edge, and Firefox.
+- **[PathFind iOS](https://github.com/dnlnm/pathfind-ios)**: Native SwiftUI mobile app for iPhone.
+- **[PathFind Android](https://github.com/dnlnm/pathfind-kt)**: Native Kotlin & Compose mobile app.
+
+---
 
 ## ✨ Features
 
-- **Rich Bookmark Management**: Save links and organize them using Tags and Collections. Keep your inbox clear with "Archive" and "Read Later" workflows.
-- **Automated Metadata & Thumbnails**: Automatically fetches titles, descriptions, favicons, and high-quality thumbnails for saved URLs.
-- **Lightning Fast Search**: Powered by SQLite FTS5 for instant Full-Text Search across titles, descriptions, URLs, and notes.
-- **AI-Powered**: Integrates Google Generative AI (Gemini) to help summarize and optionally organize your curated content.
-- **Companion Apps & Integrations**:
-  - **Chrome Extension**: Quickly save the page you're viewing directly into PathFind.
-  - **PWA Share Sheet integration**: Send links to PathFind straight from your mobile OS's native share menu.
-  - **Telegram Bot**: Message a dedicated bot to instantly save links while on the go.
-  - **GitHub Sync**: Automatically sync your GitHub starred repositories.
-  - **Reddit Sync**: Automatically import your saved Reddit posts via RSS.
-- **Modern, Responsive UI**: A beautiful, desktop and mobile-friendly interface designed with Tailwind CSS and Radix UI (shadcn/ui), complete with automatic dark mode.
-- **Designed for Self-Hosting**: A robust Next.js app running with Better-SQLite3 means zero complex external database setup. Everything runs locally out of the box.
+- **🧠 AI-Powered Insights**: Integrates with **Google Gemini** to automatically summarize content, extract key points, and suggest organization.
+- **🖼️ Rich Media Clipping**: Automatically fetches high-quality thumbnails, favicons, and metadata for every link you save.
+- **🔍 Lightning-Fast Search**: Instant full-text search (FTS5) across titles, descriptions, and notes.
+- **📁 Organized Collections**: Create custom collections and use nested tags to keep your digital life structured.
+- **📥 Smart Workflows**: Built-in "Read Later" and "Archive" states to help you manage your digital consumption.
+- **🤖 Automations**: 
+  - **GitHub Sync**: Automatically import your starred repositories.
+  - **Reddit Sync**: Keep track of your saved Reddit posts via RSS.
+  - **Telegram Bot**: Save links via a dedicated Telegram bot on the go.
+- **📱 PWA Ready**: Install PathFind as an app on your phone with native share sheet integration.
+
+---
 
 ## 🚀 Getting Started
 
-You can run PathFind either through Docker (recommended for production) or locally using Node.js.
-
 ### Option 1: Docker (Recommended)
 
-1. Clone the repository and navigate to the root directory.
-2. Create your `.env` file from the example below.
-3. Start the application:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/dnlnm/pathfind.git
+   cd pathfind
+   ```
+2. Configure your environment:
+   ```bash
+   cp .env.sample .env
+   # Edit .env with your ADMIN_EMAIL, ADMIN_PASSWORD, and AI keys
+   ```
+3. Launch:
    ```bash
    docker-compose up -d
    ```
-4. Access the app at `http://localhost:3000`. Your database will persist in the mapped `./data` directory.
+4. Access at `http://localhost:3000`.
 
-### Option 2: Local Setup
+### Option 2: Local Development
 
-1. **Install Dependencies**
+1. **Install dependencies**:
    ```bash
    npm install
-   # or yarn / pnpm / bun
    ```
-
-2. **Configure Environment Variables**
-   Create a `.env` file in the root directory:
-   ```env
-   AUTH_SECRET="your-random-strong-secret-in-production"
-   ADMIN_EMAIL="admin@pathfind.local"
-   ADMIN_PASSWORD="super-strong-password"
-   
-   NEXT_PUBLIC_APP_URL="http://localhost:3000"
-   AUTH_URL="http://localhost:3000"
-   AUTH_TRUST_HOST=true
-   
-   # Optional Integrations
-   # TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
-   # TELEGRAM_BOT_USERNAME="your_bot_username"
-   ```
-
-3. **Start the Development Server**
+2. **Setup environment**:
+   Create a `.env` file (refer to `.env.sample`).
+3. **Run development server**:
    ```bash
    npm run dev
    ```
-   *(For experimental HTTPS locally, run `npm run dev:https`)*
 
-4. Open [http://localhost:3000](http://localhost:3000) and login with your configured admin credentials.
-
-## 🧩 Browser Extension
-
-PathFind comes with a companion Chrome extension that makes clipping web pages frictionless. Located inside the `chrome-extension` directory, it connects securely to your personal instance using API Tokens (you can generate API keys directly from your Settings page).
-
-1. Navigate to the `chrome-extension/` folder.
-2. Follow its setup instructions to build and load the unpacked extension in Chrome/Edge/Brave.
+---
 
 ## 🛠 Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Database**: SQLite (via `better-sqlite3`)
-- **Authentication**: NextAuth.js (Auth.js)
-- **Styling**: Tailwind CSS, CSS Variables, Shadcn UI
-- **AI Integration**: `@google/generative-ai` SDK
-- **PWA**: Next-PWA for offline support & app-like behavior
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) & [Shadcn UI](https://ui.shadcn.com/)
+- **Database**: [SQLite](https://www.sqlite.org/) via `better-sqlite3` (with [sqlite-vec](https://github.com/asg017/sqlite-vec) for embeddings)
+- **Auth**: [Auth.js (NextAuth)](https://authjs.dev/)
+- **AI**: [Google Generative AI (Gemini)](https://ai.google.dev/)
+- **PWA**: [@ducanh2912/next-pwa](https://github.com/ducanh2912/next-pwa)
+
+---
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are very welcome! Feel free to review the issue tracker or submit a Pull Request.
+We welcome contributions! Please feel free to open issues or submit pull requests.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
