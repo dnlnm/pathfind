@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import db, { generateId } from "@/lib/db";
+import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { generateEmbedding } from "@/lib/gemini";
@@ -114,18 +114,19 @@ export async function POST(request: NextRequest) {
     // Auto-fetch metadata if any info is missing
     let finalTitle = title || (existing?.title) || null;
     let finalDescription = description || (existing?.description) || null;
-    let finalFavicon: string | null = existing?.favicon || null;
     let finalThumbnail = thumbnail || (existing?.thumbnail) || null;
     let finalIsNsfw = isNsfw !== undefined ? isNsfw : (existing ? !!existing.is_nsfw : false);
     const isReddit = url && url.includes("reddit.com");
 
     // We fetch metadata if anything is missing, OR if it's a Reddit link and the client didn't explicitly send isNsfw as true.
     // This allows us to "promote" a default `false` from the UI to `true` if Reddit says it's 18+.
-    if (!finalTitle || !finalDescription || !finalFavicon || !finalThumbnail || (isReddit && isNsfw === false)) {
+    if (!finalTitle || !finalDescription || !finalThumbnail || (isReddit && isNsfw === false)) {
         const fetched = await fetchUrlMetadata(url);
         finalTitle = finalTitle || fetched.title;
         finalDescription = finalDescription || fetched.description;
-        finalFavicon = finalFavicon || fetched.favicon;
+        if (fetched.favicon) {
+            upsertDomainFavicon(url, fetched.favicon);
+        }
         if (!finalThumbnail) {
             finalThumbnail = fetched.thumbnail;
         }
@@ -145,9 +146,9 @@ export async function POST(request: NextRequest) {
 
         db.prepare(`
             UPDATE bookmarks 
-            SET title = ?, description = ?, notes = ?, favicon = ?, thumbnail = ?, is_read_later = ?, is_nsfw = ?, updated_at = datetime('now')
+            SET title = ?, description = ?, notes = ?, thumbnail = ?, is_read_later = ?, is_nsfw = ?, updated_at = datetime('now')
             WHERE id = ?
-        `).run(finalTitle, finalDescription, finalNotes, finalFavicon, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, finalIsNsfw ? 1 : 0, id);
+        `).run(finalTitle, finalDescription, finalNotes, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, finalIsNsfw ? 1 : 0, id);
 
         if (body.tags !== undefined) {
             db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
@@ -158,9 +159,9 @@ export async function POST(request: NextRequest) {
     } else {
         id = generateId();
         db.prepare(`
-            INSERT INTO bookmarks (id, url, title, description, notes, favicon, thumbnail, is_read_later, is_nsfw, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(id, url, finalTitle, finalDescription, notes || null, finalFavicon, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
+            INSERT INTO bookmarks (id, url, title, description, notes, thumbnail, is_read_later, is_nsfw, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, url, finalTitle, finalDescription, notes || null, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
     }
 
     // Create/connect tags

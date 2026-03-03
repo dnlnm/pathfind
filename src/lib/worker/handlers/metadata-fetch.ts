@@ -4,6 +4,7 @@ import { generateEmbedding } from "../../gemini";
 import { evaluateRules } from "../../rule-engine";
 import { logDebug } from "../logger";
 import { DbBookmark } from "@/types";
+import { upsertDomainFavicon } from "../../db";
 
 export async function handleMetadataFetch(job: any, payload: any) {
     const { bookmarkId } = payload;
@@ -17,12 +18,15 @@ export async function handleMetadataFetch(job: any, payload: any) {
     console.log(`[Worker] Fetching metadata for: ${bookmark.url}`);
     const metadata = await fetchUrlMetadata(bookmark.url);
 
+    if (metadata.favicon) {
+        upsertDomainFavicon(bookmark.url, metadata.favicon);
+    }
+
     db.prepare(`
         UPDATE bookmarks 
         SET 
             title = CASE WHEN title IS NULL OR title = '' THEN ? ELSE title END,
             description = CASE WHEN description IS NULL OR description = '' THEN ? ELSE description END,
-            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
             thumbnail = CASE WHEN thumbnail IS NULL OR thumbnail = '' THEN ? ELSE thumbnail END,
             is_nsfw = CASE WHEN ? = 1 THEN 1 ELSE is_nsfw END,
             updated_at = datetime('now')
@@ -30,7 +34,6 @@ export async function handleMetadataFetch(job: any, payload: any) {
     `).run(
         metadata.title || '',
         metadata.description || '',
-        metadata.favicon || '',
         metadata.thumbnail || '',
         metadata.isNsfw ? 1 : 0,
         bookmarkId

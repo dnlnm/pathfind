@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import db from "@/lib/db";
+import { getDomainFavicon } from "@/lib/bookmark-queries";
 import { auth } from "@/lib/auth";
 
 // GET — return all bookmarks with link_status = 'broken' or 'redirected'
@@ -11,13 +12,18 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const bookmarks = db.prepare(`
-        SELECT id, url, title, favicon, link_status, link_status_code, link_checked_at
+    const bookmarksRaw = db.prepare(`
+        SELECT id, url, title, link_status, link_status_code, link_checked_at
         FROM bookmarks
         WHERE user_id = ?
         AND link_status IN ('broken', 'redirected')
         ORDER BY link_checked_at DESC
-    `).all(userId);
+    `).all(userId) as any[];
+
+    const bookmarks = bookmarksRaw.map(b => ({
+        ...b,
+        favicon: getDomainFavicon(b.url),
+    }));
 
     return NextResponse.json(bookmarks);
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import db, { generateId } from "@/lib/db";
+import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -64,10 +64,13 @@ export async function POST(req: NextRequest) {
                 try {
                     const metadata = await fetchUrlMetadata(url);
                     const id = generateId();
+                    if (metadata.favicon) {
+                        upsertDomainFavicon(url, metadata.favicon);
+                    }
                     db.prepare(`
-                        INSERT INTO bookmarks (id, url, title, description, favicon, thumbnail, user_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    `).run(id, url, metadata.title || url, metadata.description, metadata.favicon, metadata.thumbnail, user.id);
+                        INSERT INTO bookmarks (id, url, title, description, thumbnail, user_id)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    `).run(id, url, metadata.title || url, metadata.description, metadata.thumbnail, user.id);
 
                     await sendMessage(chatId, `🔖 Saved: ${metadata.title || url}`);
                 } catch (error) {

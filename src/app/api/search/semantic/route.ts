@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import db from "@/lib/db";
+import { getDomainFavicon } from "@/lib/bookmark-queries";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { generateEmbedding } from "@/lib/gemini";
 import { DbBookmark, BookmarkWithTags } from "@/types";
@@ -27,7 +28,7 @@ function toBookmarkWithTags(row: DbBookmark & { distance?: number }): BookmarkWi
         title: row.title,
         description: row.description,
         notes: row.notes,
-        favicon: row.favicon,
+        favicon: getDomainFavicon(row.url),
         thumbnail: row.thumbnail,
         isArchived: !!row.is_archived,
         isReadLater: !!row.is_read_later,

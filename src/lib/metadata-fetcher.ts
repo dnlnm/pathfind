@@ -1,3 +1,111 @@
+async function parseHtmlMetadata(html: string, url: string) {
+    const urlObj = new URL(url);
+    const isReddit = urlObj.hostname.includes("reddit.com");
+
+    const getMeta = (prop: string) => {
+        const patterns = [
+            new RegExp(`<meta[^>]*property=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i"),
+            new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*property=["']${prop}["']`, "i"),
+            new RegExp(`<meta[^>]*name=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i"),
+            new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*name=["']${prop}["']`, "i")
+        ];
+
+        for (const pattern of patterns) {
+            const match = html.match(pattern);
+            if (match) return decodeHtml(match[1]);
+        }
+        return null;
+    };
+
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    let title = getMeta("og:title") || getMeta("twitter:title") || (titleMatch ? decodeHtml(titleMatch[1].trim()) : null);
+
+    if (title) {
+        title = title.replace(/^[\(\[]\d+\+?[\)\]]\s*/, "").trim();
+    }
+
+    if (title && isReddit) {
+        title = title.replace(/ - Reddit$/i, "").replace(/^Reddit - /i, "").trim();
+    }
+
+    const description = getMeta("og:description") || getMeta("description") || getMeta("twitter:description");
+    let thumbnail = getMeta("og:image") || getMeta("twitter:image");
+
+    const faviconMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']*)["']/i) ||
+        html.match(/<link[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut )?icon["']/i);
+
+    let favicon: string | null = null;
+    if (faviconMatch) {
+        try {
+            favicon = new URL(faviconMatch[1], url).href;
+        } catch {
+            favicon = null;
+        }
+    }
+
+    if (!favicon) {
+        try {
+            if (isReddit) {
+                favicon = "https://www.reddit.com/favicon.ico";
+            } else {
+                favicon = `https://twenty-icons.com/${urlObj.hostname}`;
+            }
+        } catch {
+            favicon = null;
+        }
+    }
+
+    let finalThumbnail = thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail;
+    const hostname = isReddit ? "reddit.com" : urlObj.hostname;
+
+    if (!finalThumbnail && title) {
+        finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`;
+    }
+
+    return {
+        title,
+        description,
+        favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
+        thumbnail: finalThumbnail,
+        isNsfw: undefined
+    };
+}
+
+async function fetchWithFlareSolverr(url: string) {
+    const flareSolverrUrl = process.env.FLARESOLVERR_URL;
+    if (!flareSolverrUrl) return null;
+
+    console.log(`[Metadata] Attempting FlareSolverr bypass for: ${url}`);
+    try {
+        const response = await fetch(flareSolverrUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cmd: "request.get",
+                url: url,
+                maxTimeout: 60000
+            })
+        });
+
+        if (!response.ok) {
+            console.error(`[Metadata] FlareSolverr error: ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        if (data.status === "ok") {
+            console.log(`[Metadata] FlareSolverr success for: ${url}`);
+            return data.solution.response as string;
+        } else {
+            console.warn(`[Metadata] FlareSolverr failed: ${data.message}`);
+            return null;
+        }
+    } catch (e) {
+        console.error(`[Metadata] FlareSolverr fetch failed`, e);
+        return null;
+    }
+}
+
 export async function fetchUrlMetadata(url: string) {
     console.log(`[Metadata] Fetching: ${url}`);
     try {
@@ -105,92 +213,53 @@ export async function fetchUrlMetadata(url: string) {
             }
         }
 
+        let html = "";
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => {
+            console.log(`[Metadata] Timeout reached for ${url}, aborting...`);
+            controller.abort();
+        }, 12000);
 
-        const response = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-                // Use a generic but common UA
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html"
-            },
-        });
-        clearTimeout(timeout);
+        try {
+            console.log(`[Metadata] Starting fetch for ${url}`);
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html"
+                },
+            });
 
-        const html = await response.text();
-        console.log(`[Metadata] HTML length: ${html.length}`);
+            console.log(`[Metadata] Headers received for ${url}, reading body...`);
 
-        const getMeta = (prop: string) => {
-            // More robust meta tag extraction
-            const patterns = [
-                new RegExp(`<meta[^>]*property=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i"),
-                new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*property=["']${prop}["']`, "i"),
-                new RegExp(`<meta[^>]*name=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i"),
-                new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*name=["']${prop}["']`, "i")
-            ];
-
-            for (const pattern of patterns) {
-                const match = html.match(pattern);
-                if (match) return decodeHtml(match[1]);
+            // Read stream carefully or just use text() and cap it
+            const fullHtml = await response.text();
+            // Capping HTML length to avoid regex hanging on massive pages (like eBay)
+            html = fullHtml.length > 512 * 1024 ? fullHtml.substring(0, 512 * 1024) : fullHtml;
+            console.log(`[Metadata] Body read complete for ${url}, original length: ${fullHtml.length}, processed length: ${html.length}`);
+        } catch (e: any) {
+            if (e.name === 'AbortError') {
+                console.warn(`[Metadata] Fetch aborted due to timeout: ${url}`);
+            } else {
+                console.error(`[Metadata] Fetch error for ${url}:`, e);
             }
-            return null;
-        };
-
-        const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-        let title = getMeta("og:title") || getMeta("twitter:title") || (titleMatch ? decodeHtml(titleMatch[1].trim()) : null);
-
-        if (title) {
-            // Remove notification counts like (1) or [10+] from the start of the title
-            title = title.replace(/^[\(\[]\d+\+?[\)\]]\s*/, "").trim();
+            // Do not return here, try parsing what we have or attempt FlareSolverr
+        } finally {
+            clearTimeout(timeout);
         }
 
-        if (title && isReddit) {
-            title = title.replace(/ - Reddit$/i, "").replace(/^Reddit - /i, "").trim();
-        }
+        let result = await parseHtmlMetadata(html || "", url);
 
-        const description = getMeta("og:description") || getMeta("description") || getMeta("twitter:description");
-        let thumbnail = getMeta("og:image") || getMeta("twitter:image");
+        // Check for Cloudflare challenge
+        const isCloudflare = result.title === "Just a moment..." || result.title?.includes("Attention Required! | Cloudflare");
 
-        const faviconMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']*)["']/i) ||
-            html.match(/<link[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut )?icon["']/i);
-
-        let favicon: string | null = null;
-        if (faviconMatch) {
-            try {
-                favicon = new URL(faviconMatch[1], url).href;
-            } catch {
-                favicon = null;
+        if (isCloudflare && process.env.FLARESOLVERR_URL) {
+            const bypassedHtml = await fetchWithFlareSolverr(url);
+            if (bypassedHtml) {
+                result = await parseHtmlMetadata(bypassedHtml, url);
             }
         }
 
-        if (!favicon) {
-            try {
-                // If the site-specific favicon fails, use a custom reliable one for Reddit
-                if (isReddit) {
-                    favicon = "https://www.reddit.com/favicon.ico";
-                } else {
-                    favicon = `https://twenty-icons.com/${urlObj.hostname}`;
-                }
-            } catch {
-                favicon = null;
-            }
-        }
-
-        let finalThumbnail = thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail;
-        const hostname = isReddit ? "reddit.com" : urlObj.hostname;
-
-        if (!finalThumbnail && title) {
-            finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`;
-        }
-
-        const result = {
-            title,
-            description,
-            favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
-            thumbnail: finalThumbnail,
-            isNsfw: undefined
-        };
         console.log(`[Metadata] Final result:`, result.title);
         return result;
     } catch (e) {
@@ -213,7 +282,7 @@ async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise
             }
         }
 
-        const fetchImage = async (imgUrl: string) => {
+        const fetchWithTimeout = async (imgUrl: string) => {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 10000);
             try {
@@ -224,39 +293,37 @@ async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise
                         "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
                     },
                 });
+                const buffer = await res.arrayBuffer();
+                return { ok: res.ok, status: res.status, contentType: res.headers.get('content-type'), buffer };
+            } finally {
                 clearTimeout(timeout);
-                return res;
-            } catch (err) {
-                clearTimeout(timeout);
-                throw err;
             }
         };
 
-        let response = await fetchImage(targetUrl).catch(() => ({ ok: false, status: 0 } as any));
+        let result = await fetchWithTimeout(targetUrl).catch(() => null);
 
-        if (!response.ok && targetUrl !== url) {
+        if ((!result || !result.ok) && targetUrl !== url) {
             // Fall back to the original signed preview URL if the bare i.redd.it fails (usually 403/404)
-            response = await fetchImage(url).catch(() => ({ ok: false, status: 0 } as any));
+            result = await fetchWithTimeout(url).catch(() => null);
         }
 
-        if (!response.ok) {
-            console.warn(`[Metadata] Failed to fetch image: ${response.status} ${url}`);
+        if (!result || !result.ok) {
+            console.warn(`[Metadata] Failed to fetch image: ${result?.status || 'error'} ${url}`);
             return null;
         }
 
-        const contentType = response.headers?.get('content-type');
+        const contentType = result.contentType;
         if (!contentType || !contentType.startsWith('image/')) {
             console.warn(`[Metadata] Invalid image content type: ${contentType} ${targetUrl}`);
             return null;
         }
 
-        const buffer = await response.arrayBuffer();
-        if (buffer.byteLength > maxSize) {
-            console.warn(`[Metadata] Image too large: ${buffer.byteLength} bytes`);
+        if (result.buffer.byteLength > maxSize) {
+            console.warn(`[Metadata] Image too large: ${result.buffer.byteLength} bytes`);
             return null;
         }
 
-        const base64 = Buffer.from(buffer).toString('base64');
+        const base64 = Buffer.from(result.buffer).toString('base64');
         return `data:${contentType};base64,${base64}`;
     } catch (e) {
         console.error(`[Metadata] Failed to convert image to base64: ${url}`, e);

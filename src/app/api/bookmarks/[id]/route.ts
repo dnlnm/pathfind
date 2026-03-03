@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import db, { generateId } from "@/lib/db";
+import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { DbBookmark } from "@/types";
@@ -43,18 +43,21 @@ export async function PUT(
     const body = await request.json();
     const { url, title, description, notes, tags, isReadLater, isArchived, isNsfw, thumbnail } = body;
 
-    let finalFavicon = existing.favicon;
     let finalThumbnail = thumbnail !== undefined ? thumbnail : existing.thumbnail;
     let finalTitle = title ?? existing.title;
     let finalDescription = description ?? existing.description;
     let finalIsNsfw = isNsfw ?? !!existing.is_nsfw;
     const isRedditURL = (url ?? existing.url)?.includes("reddit.com");
 
+    const resolvedUrl = url ?? existing.url;
+
     // Fetch missing metadata if any are null or URL changed
     // But don't overwrite finalThumbnail if it was explicitly provided in the body
-    if ((url && url !== existing.url) || !finalFavicon || (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) || (isRedditURL && isNsfw === false)) {
-        const fetched = await fetchUrlMetadata(url ?? existing.url);
-        finalFavicon = fetched.favicon;
+    if ((url && url !== existing.url) || (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) || (isRedditURL && isNsfw === false)) {
+        const fetched = await fetchUrlMetadata(resolvedUrl);
+        if (fetched.favicon) {
+            upsertDomainFavicon(resolvedUrl, fetched.favicon);
+        }
         if (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) {
             finalThumbnail = fetched.thumbnail;
         }
@@ -68,15 +71,14 @@ export async function PUT(
     db.prepare(`
     UPDATE bookmarks SET
       url = ?, title = ?, description = ?, notes = ?,
-      favicon = ?, thumbnail = ?,
+      thumbnail = ?,
       is_read_later = ?, is_archived = ?, is_nsfw = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(
-        url ?? existing.url,
+        resolvedUrl,
         finalTitle,
         finalDescription,
         notes ?? existing.notes,
-        finalFavicon,
         finalThumbnail,
         (isReadLater ?? !!existing.is_read_later) ? 1 : 0,
         (isArchived ?? !!existing.is_archived) ? 1 : 0,

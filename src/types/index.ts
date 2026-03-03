@@ -13,7 +13,6 @@ export interface DbBookmark {
     title: string | null;
     description: string | null;
     notes: string | null;
-    favicon: string | null;
     thumbnail: string | null;
     is_archived: number;
     is_read_later: number;

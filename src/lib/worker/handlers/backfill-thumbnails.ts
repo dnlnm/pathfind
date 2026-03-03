@@ -1,4 +1,4 @@
-import db from "../../db";
+import db, { upsertDomainFavicon } from "../../db";
 import { fetchUrlMetadata } from "../../metadata-fetcher";
 import { logDebug, isJobCancelled } from "../logger";
 import { initJobProgress, updateJobProgress } from "../progress";
@@ -36,23 +36,24 @@ export async function handleBackfillThumbnails(job: any, payload: any) {
         const bm = bookmarks[i];
         try {
             const metadata = await fetchUrlMetadata(bm.url);
+            if (metadata.favicon) {
+                upsertDomainFavicon(bm.url, metadata.favicon);
+            }
             if (metadata.thumbnail) {
                 if (overwrite) {
                     db.prepare(`
                         UPDATE bookmarks SET
                             thumbnail = ?,
-                            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
                             updated_at = datetime('now')
                         WHERE id = ?
-                    `).run(metadata.thumbnail, metadata.favicon || '', bm.id);
+                    `).run(metadata.thumbnail, bm.id);
                 } else {
                     db.prepare(`
                         UPDATE bookmarks SET
                             thumbnail = ?,
-                            favicon = CASE WHEN favicon IS NULL OR favicon = '' THEN ? ELSE favicon END,
                             updated_at = datetime('now')
                         WHERE id = ? AND (thumbnail IS NULL OR thumbnail = '')
-                    `).run(metadata.thumbnail, metadata.favicon || '', bm.id);
+                    `).run(metadata.thumbnail, bm.id);
                 }
             }
         } catch (e) {

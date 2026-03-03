@@ -74,6 +74,12 @@ db.exec(`
     fetched_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS domain_favicons (
+    domain TEXT PRIMARY KEY,
+    favicon TEXT NOT NULL,
+    fetched_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS collections (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -269,6 +275,36 @@ try {
   // Table already exists
 }
 
+// Migration: create domain_favicons and migrate existing favicons
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS domain_favicons (
+      domain TEXT PRIMARY KEY,
+      favicon TEXT NOT NULL,
+      fetched_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  const cols = db.pragma("table_info(bookmarks)") as { name: string }[];
+  if (cols.some((c) => c.name === "favicon")) {
+    const bms = db.prepare("SELECT id, url, favicon FROM bookmarks WHERE favicon IS NOT NULL AND favicon != ''").all() as any[];
+    const insertFavicon = db.prepare('INSERT OR IGNORE INTO domain_favicons (domain, favicon) VALUES (?, ?)');
+    db.transaction(() => {
+      for (const bm of bms) {
+        try {
+          const domain = new URL(bm.url).hostname;
+          if (domain && bm.favicon) {
+            insertFavicon.run(domain, bm.favicon);
+          }
+        } catch { } // ignore invalid urls
+      }
+    })();
+    db.exec('ALTER TABLE bookmarks DROP COLUMN favicon;');
+  }
+} catch (e) {
+  console.error("Migration error for domain_favicons:", e);
+}
+
 // Migration: seed default "Reddit Auto-Organize" rule for existing users
 try {
   const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
@@ -354,4 +390,19 @@ export default db;
 // Helper to generate IDs
 export function generateId(): string {
   return crypto.randomUUID();
+}
+
+export function upsertDomainFavicon(url: string, faviconBase64: string | null) {
+  if (!faviconBase64) return;
+  try {
+    const domain = new URL(url).hostname;
+    if (domain) {
+      db.prepare(`
+        INSERT OR REPLACE INTO domain_favicons (domain, favicon, fetched_at) 
+        VALUES (?, ?, datetime('now'))
+      `).run(domain, faviconBase64);
+    }
+  } catch {
+    // invalid URL
+  }
 }

@@ -1,6 +1,16 @@
 import db from "@/lib/db";
 import { DbBookmark, BookmarkWithTags } from "@/types";
 
+export function getDomainFavicon(url: string): string | null {
+  try {
+    const domain = new URL(url).hostname;
+    const row = db.prepare('SELECT favicon FROM domain_favicons WHERE domain = ?').get(domain) as { favicon: string } | undefined;
+    return row?.favicon || null;
+  } catch {
+    return null;
+  }
+}
+
 export function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] {
   return db.prepare(`
     SELECT t.id, t.name FROM tags t
@@ -24,7 +34,7 @@ export function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
     title: row.title,
     description: row.description,
     notes: row.notes,
-    favicon: row.favicon,
+    favicon: getDomainFavicon(row.url),
     thumbnail: row.thumbnail,
     isArchived: !!row.is_archived,
     isReadLater: !!row.is_read_later,

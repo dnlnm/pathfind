@@ -6,25 +6,32 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Upload, Download } from "lucide-react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 export function DataTab() {
     const router = useRouter();
     const [importing, setImporting] = useState(false);
+    const [includeThumbnails, setIncludeThumbnails] = useState(false);
 
-    const handleExport = async () => {
+    const handleExport = async (format: "html" | "json" = "html") => {
         try {
-            const res = await fetch("/api/import-export");
+            const urlParams = new URLSearchParams({ format });
+            if (format === "json" && includeThumbnails) {
+                urlParams.append("includeThumbnails", "true");
+            }
+            const res = await fetch(`/api/import-export?${urlParams.toString()}`);
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `pathfind-bookmarks-${new Date().toISOString().split("T")[0]}.html`;
+                a.download = `pathfind-bookmarks-${new Date().toISOString().split("T")[0]}.${format}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
-                toast.success("Bookmarks exported");
+                toast.success(`Bookmarks exported as ${format.toUpperCase()}`);
             }
         } catch {
             toast.error("Export failed");
@@ -37,10 +44,13 @@ export function DataTab() {
         setImporting(true);
         try {
             const text = await file.text();
+            const isJson = file.name.endsWith(".json");
+            const payload = isJson ? { json: text } : { html: text };
+
             const res = await fetch("/api/import-export", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ html: text }),
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
                 const data = await res.json();
@@ -72,9 +82,9 @@ export function DataTab() {
                                 </div>
                                 <span className="font-semibold text-sm">Import</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">Upload a Netscape HTML bookmark file (from Chrome, Safari, etc).</p>
+                            <p className="text-xs text-muted-foreground">Upload a Netscape HTML or Pathfind JSON backup file.</p>
                             <div className="relative">
-                                <input type="file" accept=".html,.htm" onChange={handleImport} className="absolute inset-0 opacity-0 cursor-pointer" id="import-file" />
+                                <input type="file" accept=".html,.htm,.json" onChange={handleImport} className="absolute inset-0 opacity-0 cursor-pointer" id="import-file" />
                                 <Button variant="outline" asChild className="w-full gap-2 cursor-pointer bg-background/50">
                                     <label htmlFor="import-file">
                                         {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -90,11 +100,27 @@ export function DataTab() {
                                 </div>
                                 <span className="font-semibold text-sm">Export</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">Download all your PathFind bookmarks as a standard HTML file.</p>
-                            <Button variant="outline" onClick={handleExport} className="w-full gap-2 cursor-pointer bg-background/50">
-                                <Download className="h-4 w-4" />
-                                Export All
-                            </Button>
+                            <p className="text-xs text-muted-foreground">Download all your PathFind bookmarks as HTML or a full JSON backup.</p>
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={() => handleExport("html")} className="flex-1 gap-2 cursor-pointer bg-background/50">
+                                    <Download className="h-4 w-4" />
+                                    HTML
+                                </Button>
+                                <Button variant="outline" onClick={() => handleExport("json")} className="flex-1 gap-2 cursor-pointer bg-background/50">
+                                    <Download className="h-4 w-4" />
+                                    JSON
+                                </Button>
+                            </div>
+                            <div className="flex items-center space-x-2 pt-1 border-t border-border/10">
+                                <Checkbox
+                                    id="includeThumbnails"
+                                    checked={includeThumbnails}
+                                    onCheckedChange={(checked) => setIncludeThumbnails(checked === true)}
+                                />
+                                <Label htmlFor="includeThumbnails" className="text-[10px] leading-tight text-muted-foreground font-normal cursor-pointer">
+                                    Include full thumbnail images (makes file larger)
+                                </Label>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
