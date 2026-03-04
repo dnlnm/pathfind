@@ -12,7 +12,7 @@ import {
     PopoverContent,
     PopoverTrigger
 } from "@/components/ui/popover";
-import { Search, Plus, X, RefreshCw, ChevronRight, Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { Search, Plus, X, RefreshCw, ChevronRight, Loader2, CheckCircle2, AlertCircle, Sparkles, HelpCircle, Archive, Tag, FolderOpen, Clock, Globe, Info, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -112,6 +112,72 @@ export function Header({ onAddBookmark }: HeaderProps) {
                     >
                         <Sparkles className="h-4 w-4" />
                     </Toggle>
+
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                                title="Search Syntax Help"
+                            >
+                                <HelpCircle className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[320px] p-0 overflow-hidden border-border/50 shadow-2xl" align="end" sideOffset={12}>
+                            <div className="bg-card">
+                                <div className="p-4 border-b border-border/40 bg-muted/20">
+                                    <div className="flex items-center gap-2">
+                                        <Info className="h-4 w-4 text-primary" />
+                                        <h4 className="text-sm font-bold">Search Syntax</h4>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-1">Power user qualifiers for precision search.</p>
+                                </div>
+                                <div className="p-3 space-y-3">
+                                    <div className="space-y-1.5">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Filters</p>
+                                        <div className="grid grid-cols-1 gap-1">
+                                            {[
+                                                { q: "is:archived", d: "Archived only", i: Archive },
+                                                { q: "is:readlater", d: "Read later only", i: Clock },
+                                                { q: "is:broken", d: "Broken links", i: AlertCircle },
+                                                { q: "is:nsfw", d: "Sensitive content", i: EyeOff },
+                                                { q: "has:notes", d: "With notes", i: Info },
+                                            ].map(item => (
+                                                <div key={item.q} className="flex items-center justify-between group py-1">
+                                                    <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded text-primary font-mono">{item.q}</code>
+                                                    <span className="text-[10px] text-muted-foreground">{item.d}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 pt-2 border-t border-border/10">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Attributes</p>
+                                        <div className="space-y-1">
+                                            {[
+                                                { q: "url:github.com", d: "Match domain", i: Globe },
+                                                { q: "#react", d: "Tag name", i: Tag },
+                                                { q: "collection:Read", d: "Collection", i: FolderOpen },
+                                                { q: "after:2024-01-01", d: "Since date" },
+                                            ].map(item => (
+                                                <div key={item.q} className="flex items-center justify-between py-1">
+                                                    <code className="text-[11px] bg-muted px-1.5 py-0.5 rounded text-primary font-mono">{item.q}</code>
+                                                    <span className="text-[10px] text-muted-foreground">{item.d}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-2 p-2 rounded bg-primary/5 border border-primary/10">
+                                        <p className="text-[10px] text-primary/80 leading-relaxed italic">
+                                            Combine filters with text search. Use <strong>-</strong> or <strong>!</strong> to negate (e.g. <code>-is:nsfw</code>).
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                 </form>
             </div>
 

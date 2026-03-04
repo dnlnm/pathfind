@@ -8,6 +8,8 @@ import { normalizeUrl } from "@/lib/url-normalizer";
 import { DbBookmark } from "@/types";
 import { toBookmarkWithTags } from "@/lib/bookmark-queries";
 
+import { parseSearchQuery } from "@/lib/search-query-parser";
+
 export async function GET(request: NextRequest) {
     const userAuth = await getAuthenticatedUser(request);
     if (!userAuth) {
@@ -30,22 +32,92 @@ export async function GET(request: NextRequest) {
     let whereClauses = ["b.user_id = ?"];
     const params: (string | number)[] = [userAuth.id];
 
-    if (filter === "readlater") {
-        whereClauses.push("b.is_read_later = 1");
-        whereClauses.push("b.is_archived = 0");
-    } else if (filter === "archived") {
-        whereClauses.push("b.is_archived = 1");
-    } else {
-        whereClauses.push("b.is_archived = 0");
-    }
+    // Default filters
+    let explicitArchived = false;
+    let explicitReadLater = false;
 
     if (query) {
-        // Use FTS5 for search. We append * to each word to allow prefix matching (e.g., "dev" matches "development")
-        const ftsQuery = query.trim().split(/\s+/).filter(t => t.length > 0).map(t => `${t}*`).join(' ');
+        const parsed = parseSearchQuery(query);
+
+        // Text search terms
+        const ftsQuery = parsed.textTerms.filter(t => t.length > 0).map(t => `${t}*`).join(' ');
         if (ftsQuery) {
             whereClauses.push("b.id IN (SELECT id FROM bookmarks_fts WHERE bookmarks_fts MATCH ?)");
             params.push(ftsQuery);
         }
+
+        // Qualifiers
+        for (const q of parsed.qualifiers) {
+            const negated = q.negated;
+            const op = negated ? "!=" : "=";
+            const notIn = negated ? "NOT IN" : "IN";
+
+            switch (q.type) {
+                case "is":
+                    if (q.value === "archived") {
+                        whereClauses.push(`b.is_archived ${op} 1`);
+                        explicitArchived = true;
+                    } else if (q.value === "readlater") {
+                        whereClauses.push(`b.is_read_later ${op} 1`);
+                        explicitReadLater = true;
+                    } else if (q.value === "nsfw") {
+                        whereClauses.push(`b.is_nsfw ${op} 1`);
+                    } else if (q.value === "broken") {
+                        whereClauses.push(`b.link_status ${op} 'broken'`);
+                    } else if (q.value === "tagged") {
+                        whereClauses.push(`b.id ${notIn} (SELECT bookmark_id FROM bookmark_tags)`);
+                    } else if (q.value === "incollection") {
+                        whereClauses.push(`b.id ${notIn} (SELECT bookmark_id FROM bookmark_collections)`);
+                    }
+                    break;
+                case "has":
+                    if (q.value === "notes") {
+                        whereClauses.push(`(b.notes IS ${negated ? "" : "NOT"} NULL AND b.notes ${negated ? "=" : "!="} '')`);
+                    } else if (q.value === "description") {
+                        whereClauses.push(`(b.description IS ${negated ? "" : "NOT"} NULL AND b.description ${negated ? "=" : "!="} '')`);
+                    } else if (q.value === "thumbnail") {
+                        whereClauses.push(`(b.thumbnail IS ${negated ? "" : "NOT"} NULL AND b.thumbnail ${negated ? "=" : "!="} '')`);
+                    }
+                    break;
+                case "url":
+                    whereClauses.push(`b.url ${negated ? "NOT" : ""} LIKE ?`);
+                    params.push(`%${q.value}%`);
+                    break;
+                case "title":
+                    whereClauses.push(`b.title ${negated ? "NOT" : ""} LIKE ?`);
+                    params.push(`%${q.value}%`);
+                    break;
+                case "tag":
+                    whereClauses.push(`b.id ${notIn} (SELECT bt.bookmark_id FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id WHERE t.name = ?)`);
+                    params.push(q.value);
+                    break;
+                case "collection":
+                    whereClauses.push(`b.id ${notIn} (SELECT bc.bookmark_id FROM bookmark_collections bc JOIN collections c ON c.id = bc.collection_id WHERE c.name = ?)`);
+                    params.push(q.value);
+                    break;
+                case "after":
+                    whereClauses.push(`b.created_at ${negated ? "<" : ">="} ?`);
+                    params.push(q.value);
+                    break;
+                case "before":
+                    whereClauses.push(`b.created_at ${negated ? ">" : "<="} ?`);
+                    params.push(`${q.value} 23:59:59`);
+                    break;
+            }
+        }
+    }
+
+    // Apply sidebar/fallback filters only if not overridden by query qualifiers
+    if (!explicitArchived) {
+        if (filter === "archived") {
+            whereClauses.push("b.is_archived = 1");
+        } else {
+            whereClauses.push("b.is_archived = 0");
+        }
+    }
+
+    if (!explicitReadLater && filter === "readlater") {
+        whereClauses.push("b.is_read_later = 1");
     }
 
     if (tag) {
@@ -59,14 +131,7 @@ export async function GET(request: NextRequest) {
     }
 
     const nsfwFilter = searchParams.get("nsfw") || "";
-
-    // If we're specifically looking for nsfw==only, remove the default archive/readlater filters if they are not explicitly set
     if (nsfwFilter === "only") {
-        const hasCustomFilter = filter === "readlater" || filter === "archived";
-        if (!hasCustomFilter) {
-            // Remove the default "is_archived = 0" added above
-            whereClauses = whereClauses.filter(clause => clause !== "b.is_archived = 0");
-        }
         whereClauses.push("b.is_nsfw = 1");
     }
 
