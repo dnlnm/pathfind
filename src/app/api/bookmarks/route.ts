@@ -4,6 +4,7 @@ import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { generateEmbedding } from "@/lib/gemini";
 import { evaluateRules } from "@/lib/rule-engine";
+import { normalizeUrl } from "@/lib/url-normalizer";
 import { DbBookmark } from "@/types";
 import { toBookmarkWithTags } from "@/lib/bookmark-queries";
 
@@ -109,7 +110,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    const existing = db.prepare("SELECT * FROM bookmarks WHERE url = ? AND user_id = ?").get(url, userAuth.id) as DbBookmark | undefined;
+    const canonicalUrl = normalizeUrl(url);
+
+    const existing = db.prepare("SELECT * FROM bookmarks WHERE canonical_url = ? AND user_id = ?").get(canonicalUrl, userAuth.id) as DbBookmark | undefined;
 
     // Auto-fetch metadata if any info is missing
     let finalTitle = title || (existing?.title) || null;
@@ -159,9 +162,9 @@ export async function POST(request: NextRequest) {
     } else {
         id = generateId();
         db.prepare(`
-            INSERT INTO bookmarks (id, url, title, description, notes, thumbnail, is_read_later, is_nsfw, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(id, url, finalTitle, finalDescription, notes || null, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
+            INSERT INTO bookmarks (id, url, canonical_url, title, description, notes, thumbnail, is_read_later, is_nsfw, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, url, canonicalUrl, finalTitle, finalDescription, notes || null, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
     }
 
     // Create/connect tags

@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import db from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
+import { normalizeUrl } from "@/lib/url-normalizer";
 
 export async function GET(request: NextRequest) {
     const userAuth = await getAuthenticatedUser(request);
@@ -15,11 +16,17 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "URL parameter is required" }, { status: 400 });
     }
 
-    const bookmark = db.prepare(`
-        SELECT id FROM bookmarks 
-        WHERE url = ? AND user_id = ?
-        LIMIT 1
-    `).get(url, userAuth.id);
+    const canonicalUrl = normalizeUrl(url.trim());
 
-    return NextResponse.json({ bookmarked: !!bookmark });
+    const bookmark = db.prepare(`
+        SELECT id, title, url FROM bookmarks 
+        WHERE canonical_url = ? AND user_id = ?
+        LIMIT 1
+    `).get(canonicalUrl, userAuth.id) as { id: string; title: string | null; url: string } | undefined;
+
+    return NextResponse.json({
+        bookmarked: !!bookmark,
+        existingTitle: bookmark?.title ?? null,
+        existingUrl: bookmark?.url ?? null,
+    });
 }

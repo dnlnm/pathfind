@@ -67,6 +67,14 @@ export function BookmarkCard({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [revealed, setRevealed] = useState(false);
     const [clickAction, setClickAction] = useState<"current" | "new">("new");
+    // Optimistic local state — mirrors the bookmark prop but updates immediately
+    const [localBookmark, setLocalBookmark] = useState(bookmark);
+    const [isDeleted, setIsDeleted] = useState(false);
+
+    // Sync local state when the parent passes a new bookmark prop (e.g. after a real refresh)
+    useEffect(() => {
+        setLocalBookmark(bookmark);
+    }, [bookmark]);
 
     useEffect(() => {
         const saved = localStorage.getItem("bookmark-click-action") as "current" | "new" | null;
@@ -89,48 +97,64 @@ export function BookmarkCard({
     }, []);
 
     const handleToggle = async (field: "isReadLater" | "isArchived" | "isNsfw") => {
+        const previousValue = localBookmark[field];
+        const nextValue = !previousValue;
+
+        // Optimistically flip the local state immediately
+        setLocalBookmark(prev => ({ ...prev, [field]: nextValue }));
+        if (field === "isNsfw" && nextValue === false) setRevealed(false);
+
+        const successMessage =
+            field === "isReadLater"
+                ? previousValue ? "Removed from Read Later" : "Added to Read Later"
+                : field === "isNsfw"
+                    ? previousValue ? "NSFW flag removed" : "Marked as NSFW"
+                    : previousValue ? "Unarchived" : "Archived";
+
         try {
-            const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
+            const res = await fetch(`/api/bookmarks/${localBookmark.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    [field]: !bookmark[field],
-                    tags: bookmark.tags.map((t) => t.name),
-                    collections: bookmark.collections?.map((c) => c.id),
+                    [field]: nextValue,
+                    tags: localBookmark.tags.map((t) => t.name),
+                    collections: localBookmark.collections?.map((c) => c.id),
                 }),
             });
             if (res.ok) {
-                toast.success(
-                    field === "isReadLater"
-                        ? bookmark.isReadLater
-                            ? "Removed from Read Later"
-                            : "Added to Read Later"
-                        : field === "isNsfw"
-                            ? bookmark.isNsfw
-                                ? "NSFW flag removed"
-                                : "Marked as NSFW"
-                            : bookmark.isArchived
-                                ? "Unarchived"
-                                : "Archived"
-                );
-                if (field === "isNsfw") setRevealed(false);
+                toast.success(successMessage);
+                // Quietly sync in background without a blocking re-fetch
                 onRefresh();
+            } else {
+                // Revert on server error
+                setLocalBookmark(prev => ({ ...prev, [field]: previousValue }));
+                toast.error("Failed to update bookmark");
             }
         } catch {
+            // Revert on network error
+            setLocalBookmark(prev => ({ ...prev, [field]: previousValue }));
             toast.error("Failed to update bookmark");
         }
     };
 
     const handleDelete = async () => {
+        // Optimistically hide the card immediately
+        setIsDeleted(true);
+
         try {
-            const res = await fetch(`/api/bookmarks/${bookmark.id}`, {
+            const res = await fetch(`/api/bookmarks/${localBookmark.id}`, {
                 method: "DELETE",
             });
             if (res.ok) {
                 toast.success("Bookmark deleted");
                 onRefresh();
+            } else {
+                // Revert — bring the card back
+                setIsDeleted(false);
+                toast.error("Failed to delete bookmark");
             }
         } catch {
+            setIsDeleted(false);
             toast.error("Failed to delete bookmark");
         }
     };
@@ -149,6 +173,8 @@ export function BookmarkCard({
 
     const isGrid = layout === "grid";
 
+    if (isDeleted) return null;
+
     return (
         <>
             <Card
@@ -160,32 +186,32 @@ export function BookmarkCard({
                 )}
                 onClick={() => {
                     if (selectionMode) {
-                        onSelect?.(bookmark.id, !isSelected);
+                        onSelect?.(localBookmark.id, !isSelected);
                     }
                 }}
             >
                 {isSelected && (
                     <div className="absolute inset-0 bg-primary/5 z-10 pointer-events-none" />
                 )}
-                {isGrid && bookmark.thumbnail && (
+                {isGrid && localBookmark.thumbnail && (
                     <div className="w-full aspect-video rounded-t-2xl border-b border-border/20 bg-muted/30 overflow-hidden relative shrink-0">
                         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                             <Globe className="h-8 w-8" />
                         </div>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                            src={bookmark.thumbnail}
+                            src={localBookmark.thumbnail!}
                             alt=""
                             className={cn(
                                 "absolute inset-0 w-full h-full object-cover transition-all duration-300",
-                                bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" ? "blur-xl scale-110" : ""
+                                localBookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" ? "blur-xl scale-110" : ""
                             )}
                             onError={(e) => {
                                 (e.target as HTMLImageElement).style.opacity = "0";
                             }}
                             loading="lazy"
                         />
-                        {bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" && (
+                        {localBookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" && (
                             <button
                                 className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 z-20 cursor-pointer"
                                 onClick={(e) => { e.stopPropagation(); setRevealed(true); }}
@@ -272,7 +298,7 @@ export function BookmarkCard({
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                     <a
-                                        href={bookmark.url}
+                                        href={localBookmark.url}
                                         target={clickAction === "new" ? "_blank" : "_self"}
                                         rel="noopener noreferrer"
                                         className={`text-sm font-medium text-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 w-full ${isGrid ? "text-base leading-tight" : ""}`}
@@ -280,14 +306,14 @@ export function BookmarkCard({
                                             if (selectionMode) {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                onSelect?.(bookmark.id, !isSelected);
+                                                onSelect?.(localBookmark.id, !isSelected);
                                             }
                                         }}
                                     >
                                         {!isGrid && (
                                             <>
                                                 <img
-                                                    src={bookmark.favicon || twentyFavicon}
+                                                    src={localBookmark.favicon || twentyFavicon}
                                                     alt=""
                                                     className="w-3.5 h-3.5 object-contain sm:hidden"
                                                     onError={(e) => {
@@ -304,7 +330,7 @@ export function BookmarkCard({
                                             </>
                                         )}
                                         <span className={cn("truncate", isGrid ? "line-clamp-2 white-space-normal" : "flex-1")}>
-                                            {bookmark.title || bookmark.url}
+                                            {localBookmark.title || localBookmark.url}
                                         </span>
                                         <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
                                     </a>
@@ -314,18 +340,18 @@ export function BookmarkCard({
                                 </div>
                             </div>
 
-                            {bookmark.description && (
+                            {localBookmark.description && (
                                 <p className={cn(
                                     "text-xs text-muted-foreground",
                                     isGrid ? "line-clamp-2" : "truncate"
                                 )}>
-                                    {bookmark.description}
+                                    {localBookmark.description}
                                 </p>
                             )}
 
                             {/* Tags & Date */}
                             <div className="flex items-center gap-2 flex-wrap pt-1 mt-auto">
-                                {tagList.map((tag) => (
+                                {localBookmark.tags.map((tag) => (
                                     <Badge
                                         key={tag.id}
                                         variant="secondary"
@@ -334,7 +360,7 @@ export function BookmarkCard({
                                             if (selectionMode) {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                onSelect?.(bookmark.id, !isSelected);
+                                                onSelect?.(localBookmark.id, !isSelected);
                                             } else {
                                                 router.push(`/?tag=${tag.name}`);
                                             }
@@ -343,7 +369,7 @@ export function BookmarkCard({
                                         #{tag.name}
                                     </Badge>
                                 ))}
-                                {bookmark.collections?.map((col) => (
+                                {localBookmark.collections?.map((col) => (
                                     <Badge
                                         key={col.id}
                                         variant="outline"
@@ -360,7 +386,7 @@ export function BookmarkCard({
                                             if (selectionMode) {
                                                 e.preventDefault();
                                                 e.stopPropagation();
-                                                onSelect?.(bookmark.id, !isSelected);
+                                                onSelect?.(localBookmark.id, !isSelected);
                                             } else {
                                                 router.push(`/?collection=${col.id}`);
                                             }
@@ -370,13 +396,13 @@ export function BookmarkCard({
                                         {col.name}
                                     </Badge>
                                 ))}
-                                {bookmark.isReadLater && (
+                                {localBookmark.isReadLater && (
                                     <Badge variant="outline" className="text-xs px-2 py-0 h-6 border-amber-500/30 text-amber-500">
                                         <Clock className="h-3 w-3 mr-1" />
                                         read later
                                     </Badge>
                                 )}
-                                {bookmark.isNsfw && (
+                                {localBookmark.isNsfw && (
                                     <Badge variant="outline" className="bg-rose-50 dark:bg-rose-800 px-0 w-6 h-6 flex items-center justify-center border-rose-500/30" title="NSFW">
                                         <EyeOff className="h-3.5 w-3.5" />
                                     </Badge>
@@ -397,23 +423,23 @@ export function BookmarkCard({
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-48">
-                                                <DropdownMenuItem onClick={() => onEdit(bookmark)} className="cursor-pointer">
+                                                <DropdownMenuItem onClick={() => onEdit(localBookmark)} className="cursor-pointer">
                                                     <Pencil className="h-4 w-4 mr-2" />
                                                     Edit
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleToggle("isReadLater")} className="cursor-pointer">
                                                     <Clock className="h-4 w-4 mr-2" />
-                                                    {bookmark.isReadLater ? "Remove from Read Later" : "Read Later"}
+                                                    {localBookmark.isReadLater ? "Remove from Read Later" : "Read Later"}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleToggle("isArchived")} className="cursor-pointer">
-                                                    {bookmark.isArchived ? (
+                                                    {localBookmark.isArchived ? (
                                                         <><ArchiveRestore className="h-4 w-4 mr-2" /> Unarchive</>
                                                     ) : (
                                                         <><Archive className="h-4 w-4 mr-2" /> Archive</>
                                                     )}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleToggle("isNsfw")} className="cursor-pointer">
-                                                    {bookmark.isNsfw ? (
+                                                    {localBookmark.isNsfw ? (
                                                         <><Eye className="h-4 w-4 mr-2" /> Remove NSFW Flag</>
                                                     ) : (
                                                         <><EyeOff className="h-4 w-4 mr-2" /> Mark as NSFW</>
@@ -434,7 +460,7 @@ export function BookmarkCard({
                                         className="text-[10px] text-muted-foreground/50 whitespace-nowrap"
                                         suppressHydrationWarning
                                     >
-                                        {new Date(bookmark.createdAt.endsWith("Z") ? bookmark.createdAt : bookmark.createdAt + "Z").toLocaleDateString("en-US", {
+                                        {new Date(localBookmark.createdAt.endsWith("Z") ? localBookmark.createdAt : localBookmark.createdAt + "Z").toLocaleDateString("en-US", {
                                             month: "short",
                                             day: "numeric",
                                             timeZone: process.env.NEXT_PUBLIC_APP_TIMEZONE || undefined
@@ -445,25 +471,25 @@ export function BookmarkCard({
                         </div>
 
                         {/* Thumbnail (List View Only) */}
-                        {!isGrid && bookmark.thumbnail && (
+                        {!isGrid && localBookmark.thumbnail && (
                             <div className="shrink-0 ml-2 w-24 h-16 sm:w-36 sm:h-20 rounded-lg border border-border/30 bg-muted/50 overflow-hidden relative self-center">
                                 <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/20">
                                     <Globe className="h-6 w-6" />
                                 </div>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                    src={bookmark.thumbnail}
+                                    src={localBookmark.thumbnail}
                                     alt=""
                                     className={cn(
                                         "absolute inset-0 w-full h-full object-cover transition-all duration-300",
-                                        bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" ? "blur-lg scale-110" : ""
+                                        localBookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" ? "blur-lg scale-110" : ""
                                     )}
                                     onError={(e) => {
                                         (e.target as HTMLImageElement).style.opacity = "0";
                                     }}
                                     loading="lazy"
                                 />
-                                {bookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" && (
+                                {localBookmark.isNsfw && !revealed && nsfwDisplayMode !== "show" && (
                                     <button
                                         className="absolute inset-0 flex items-center justify-center z-10 cursor-pointer"
                                         onClick={(e) => { e.stopPropagation(); setRevealed(true); }}
@@ -482,7 +508,7 @@ export function BookmarkCard({
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            <span className="font-medium text-foreground">{bookmark.title || bookmark.url}</span>{" "}
+                            <span className="font-medium text-foreground">{localBookmark.title || localBookmark.url}</span>{" "}
                             will be permanently deleted and cannot be recovered.
                         </AlertDialogDescription>
                     </AlertDialogHeader>

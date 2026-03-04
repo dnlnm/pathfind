@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { evaluateRules } from "@/lib/rule-engine";
+import { normalizeUrl } from "@/lib/url-normalizer";
 import { DbBookmark } from "@/types";
 
 export async function GET(request: Request) {
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
     const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
     const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
     const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
-    const checkExisting = db.prepare("SELECT id FROM bookmarks WHERE url = ? AND user_id = ?");
+    const checkExisting = db.prepare("SELECT id FROM bookmarks WHERE canonical_url = ? AND user_id = ?");
 
     if (json) {
         let parsedJson = [];
@@ -106,18 +107,19 @@ export async function POST(request: Request) {
 
         let count = 0;
         const insertFullBookmark = db.prepare(`
-            INSERT INTO bookmarks (id, url, title, description, notes, thumbnail, is_archived, is_read_later, user_id, is_nsfw)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO bookmarks (id, url, canonical_url, title, description, notes, thumbnail, is_archived, is_read_later, user_id, is_nsfw)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const importAllJson = db.transaction(() => {
             for (const bm of parsedJson) {
-                const existing = checkExisting.get(bm.url, session.user!.id!);
+                const canonicalUrl = normalizeUrl(bm.url);
+                const existing = checkExisting.get(canonicalUrl, session.user!.id!);
                 if (existing) continue;
 
                 const bmId = generateId();
                 insertFullBookmark.run(
-                    bmId, bm.url, bm.title || null, bm.description || null, bm.notes || null,
+                    bmId, bm.url, canonicalUrl, bm.title || null, bm.description || null, bm.notes || null,
                     bm.thumbnail || null, bm.is_archived || 0, bm.is_read_later || 0,
                     session.user!.id!, bm.is_nsfw || 0
                 );
@@ -165,15 +167,16 @@ export async function POST(request: Request) {
     }
 
     let count = 0;
-    const insertBookmark = db.prepare("INSERT INTO bookmarks (id, url, title, user_id) VALUES (?, ?, ?, ?)");
+    const insertBookmark = db.prepare("INSERT INTO bookmarks (id, url, canonical_url, title, user_id) VALUES (?, ?, ?, ?, ?)");
 
     const importAll = db.transaction(() => {
         for (const bm of bookmarksToImport) {
-            const existing = checkExisting.get(bm.url, session.user!.id!);
+            const canonicalUrl = normalizeUrl(bm.url);
+            const existing = checkExisting.get(canonicalUrl, session.user!.id!);
             if (existing) continue;
 
             const bmId = generateId();
-            insertBookmark.run(bmId, bm.url, bm.title || null, session.user!.id!);
+            insertBookmark.run(bmId, bm.url, canonicalUrl, bm.title || null, session.user!.id!);
 
             // Create a background job to fetch metadata (description, thumbnail, favicon, etc.)
             db.prepare(`

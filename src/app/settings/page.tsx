@@ -13,9 +13,10 @@ import { DataTab } from "./_components/data-tab";
 import { TasksTab } from "./_components/tasks-tab";
 import { RulesTab } from "./_components/rules-tab";
 import { LinkHealthTab } from "./_components/link-health-tab";
+import { DuplicatesTab } from "./_components/duplicates-tab";
 import { toast } from "sonner";
 
-type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules" | "link-health";
+type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules" | "link-health" | "duplicates";
 
 const TABS: { id: TabType; label: string; description: string }[] = [
     { id: "general", label: "General", description: "Display and behavior settings" },
@@ -25,6 +26,7 @@ const TABS: { id: TabType; label: string; description: string }[] = [
     { id: "data", label: "Data Management", description: "Import and export your data" },
     { id: "tasks", label: "Background Tasks", description: "Monitor active and pending jobs" },
     { id: "link-health", label: "Link Health", description: "Find and clean up broken bookmarks" },
+    { id: "duplicates", label: "Duplicates", description: "Find and merge duplicate bookmarks" },
 ];
 
 function SettingsContent() {
@@ -246,6 +248,10 @@ function SettingsContent() {
                             taskStats={taskStats}
                             onCancelJob={handleCancelJob}
                         />
+                    )}
+
+                    {activeTab === "duplicates" && (
+                        <DuplicatesTab />
                     )}
                 </div>
             </main>

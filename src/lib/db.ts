@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import { normalizeUrl } from "./url-normalizer";
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "pathfind.db");
 
@@ -384,6 +385,31 @@ try {
 try {
   db.exec("ALTER TABLE users ADD COLUMN nsfw_display TEXT DEFAULT 'blur'");
 } catch (e) { /* Column already exists */ }
+
+// Migration: canonical URL for duplicate detection
+try {
+  db.exec("ALTER TABLE bookmarks ADD COLUMN canonical_url TEXT");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("CREATE INDEX IF NOT EXISTS idx_bookmarks_canonical_url ON bookmarks(canonical_url, user_id)");
+} catch (e) { /* Index already exists */ }
+
+// One-time backfill: populate canonical_url for existing bookmarks
+
+{
+  const nullCount = (db.prepare("SELECT COUNT(*) as c FROM bookmarks WHERE canonical_url IS NULL").get() as { c: number }).c;
+  if (nullCount > 0) {
+    const rows = db.prepare("SELECT id, url FROM bookmarks WHERE canonical_url IS NULL").all() as { id: string; url: string }[];
+    const updateStmt = db.prepare("UPDATE bookmarks SET canonical_url = ? WHERE id = ?");
+    db.transaction(() => {
+      for (const row of rows) {
+        updateStmt.run(normalizeUrl(row.url), row.id);
+      }
+    })();
+    console.log(`[Migration] Backfilled canonical_url for ${rows.length} bookmarks`);
+  }
+}
 
 export default db;
 

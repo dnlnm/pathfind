@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload, Tag, FolderOpen, Check, ChevronDown, EyeOff } from "lucide-react";
+import { Loader2, X, Plus, RefreshCw, Sparkles, Globe, Upload, Tag, FolderOpen, Check, ChevronDown, EyeOff, AlertCircle, PencilLine } from "lucide-react";
 import { BookmarkWithTags } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
     const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
     const [availableCollections, setAvailableCollections] = useState<{ id: string; name: string; color?: string | null }[]>([]);
     const [isDuplicate, setIsDuplicate] = useState(false);
+    const [existingTitle, setExistingTitle] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Tag autocomplete state
@@ -78,6 +79,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
         setSelectedCollections([]);
         setCollectionInput("");
         setIsDuplicate(false);
+        setExistingTitle(null);
     };
 
     const fetchMetadata = async (targetUrl: string = url) => {
@@ -153,6 +155,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
     useEffect(() => {
         if (isEditing || !url || !open) {
             setIsDuplicate(false);
+            setExistingTitle(null);
             return;
         }
 
@@ -162,6 +165,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                 if (res.ok) {
                     const data = await res.json();
                     setIsDuplicate(data.bookmarked);
+                    setExistingTitle(data.existingTitle ?? null);
                 }
             } catch {
                 // Silently fail
@@ -379,9 +383,23 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                             )}
                         </div>
                         {isDuplicate && !isEditing && (
-                            <p className="text-xs font-medium text-amber-600 dark:text-amber-500 mt-1.5 flex items-center">
-                                This link is already saved. Submitting will update your existing bookmark.
-                            </p>
+                            <div className="flex items-start gap-2 mt-1.5 rounded-lg border border-amber-500/25 bg-amber-500/8 px-3 py-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <AlertCircle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 leading-snug">
+                                        Already in your library
+                                    </p>
+                                    {existingTitle && (
+                                        <p className="text-[11px] text-amber-600/70 dark:text-amber-400/70 truncate mt-0.5">
+                                            &ldquo;{existingTitle}&rdquo;
+                                        </p>
+                                    )}
+                                    <p className="text-[11px] text-amber-600/60 dark:text-amber-400/60 mt-0.5">
+                                        Saving will update the existing bookmark.
+                                    </p>
+                                </div>
+                                <PencilLine className="h-3.5 w-3.5 text-amber-500/50 mt-0.5 shrink-0" />
+                            </div>
                         )}
                     </div>
 
