@@ -29,7 +29,7 @@ const CONDITION_FIELDS: { value: ConditionField; label: string; group: string }[
     { value: "collection", label: "In Collection", group: "Organization" },
     { value: "is_archived", label: "Is Archived", group: "Status" },
     { value: "is_read_later", label: "Is Read Later", group: "Status" },
-    { value: "is_nsfw", label: "Is NSFW", group: "Status" },
+    { value: "is_nsfw", label: "Is Sensitive", group: "Status" },
 ];
 
 // Fields that don't accept a free-text value (use boolean operators or tag/collection selectors)
@@ -89,8 +89,8 @@ const ACTION_OPTIONS = [
     { value: "unmark_read_later", label: "Unmark Read Later", group: "Status" },
     { value: "mark_archived", label: "Archive", group: "Status" },
     { value: "unmark_archived", label: "Unarchive", group: "Status" },
-    { value: "mark_nsfw", label: "Mark as NSFW", group: "Status" },
-    { value: "unmark_nsfw", label: "Unmark NSFW", group: "Status" },
+    { value: "mark_nsfw", label: "Mark as Sensitive", group: "Status" },
+    { value: "unmark_nsfw", label: "Unmark Sensitive", group: "Status" },
 ];
 
 // ─── Summary helpers ──────────────────────────────────────────────────────────
@@ -116,8 +116,8 @@ function getActionSummary(action: RuleAction): string {
         case "unmark_read_later": return "Unmark Read Later";
         case "mark_archived": return "Archive bookmark";
         case "unmark_archived": return "Unarchive bookmark";
-        case "mark_nsfw": return "Mark as NSFW";
-        case "unmark_nsfw": return "Unmark NSFW";
+        case "mark_nsfw": return "Mark as Sensitive";
+        case "unmark_nsfw": return "Unmark Sensitive";
         default: return (action as any).type;
     }
 }

@@ -9,7 +9,7 @@ import { BookmarkForm } from "@/components/bookmark-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookmarkWithTags } from "@/types";
-import { Compass, LayoutGrid, List, SortAsc, Edit, Trash, CheckSquare, Square, Archive, Clock, Tag, FolderOpen, X, AlertTriangle, Image as ImageIcon, Brain } from "lucide-react";
+import { Compass, LayoutGrid, List, SortAsc, Edit, Trash, CheckSquare, Square, Archive, Clock, Tag, FolderOpen, X, AlertTriangle, Image as ImageIcon, Brain, Loader2 } from "lucide-react";
 import { CollectionForm } from "@/components/collection-form";
 import { toast } from "sonner";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -65,6 +65,10 @@ function BookmarkPageContent() {
   const [bulkTagDialogOpen, setBulkTagDialogOpen] = useState(false);
   const [newBulkTag, setNewBulkTag] = useState("");
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const exitSelectionMode = useCallback(() => {
+    setIsInSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
   const [sharedData, setSharedData] = useState<{ url?: string; title?: string; description?: string } | null>(null);
   const [nsfwDisplayMode, setNsfwDisplayMode] = useState<"blur" | "hide" | "show">("blur");
   const [maintenanceStats, setMaintenanceStats] = useState<{ missingThumbnails: number; missingEmbeddings: number } | null>(null);
@@ -82,6 +86,17 @@ function BookmarkPageContent() {
       setNsfwDisplayMode(saved);
     }
   }, [refreshTrigger]);
+
+  // Escape key exits selection mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isInSelectionMode) {
+        exitSelectionMode();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isInSelectionMode, exitSelectionMode]);
 
   // Maintenance stats polling — re-fetches immediately after any bookmark change
   // (refreshTrigger increments on every save/edit/delete via handleRefresh)
@@ -302,12 +317,22 @@ function BookmarkPageContent() {
       });
 
       if (res.ok) {
-        toast.success(`Bulk action "${action}" completed`);
+        const result = await res.json();
+        const n = result.affected ?? ids.length;
+        const label = n === 1 ? "1 bookmark" : `${n} bookmarks`;
+        if (action === "delete") toast.success(`Deleted ${label}`);
+        else if (action === "archive") toast.success(data?.value ? `Archived ${label}` : `Unarchived ${label}`);
+        else if (action === "readLater") toast.success(data?.value ? `Added ${label} to Read Later` : `Removed ${label} from Read Later`);
+        else if (action === "addTags") toast.success(`Tag "${data?.tags?.[0]}" added to ${label}`);
+        else if (action === "addToCollection") toast.success(`Moved ${label} to collection`);
+        else if (action === "removeFromCollection") toast.success(`Removed ${label} from collection`);
+        else toast.success(`Action completed for ${label}`);
         setSelectedIds(new Set());
         setIsInSelectionMode(false);
         handleRefresh();
       } else {
-        toast.error("Bulk action failed");
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Bulk action failed");
       }
     } catch {
       toast.error("An error occurred during bulk action");
@@ -470,9 +495,11 @@ function BookmarkPageContent() {
                 isInSelectionMode ? "border-primary/50 text-primary" : "text-muted-foreground"
               )}
               onClick={() => {
-                const newValue = !isInSelectionMode;
-                setIsInSelectionMode(newValue);
-                if (!newValue) setSelectedIds(new Set());
+                if (isInSelectionMode) {
+                  exitSelectionMode();
+                } else {
+                  setIsInSelectionMode(true);
+                }
               }}
             >
               <CheckSquare className="h-3.5 w-3.5" />
@@ -612,94 +639,111 @@ function BookmarkPageContent() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 rounded-lg cursor-pointer hover:bg-muted"
-                  onClick={() => {
-                    handleSelectAll(false);
-                    setIsInSelectionMode(false);
-                  }}
+                  onClick={exitSelectionMode}
+                  disabled={bulkActionLoading}
                 >
                   <X className="h-4 w-4" />
                 </Button>
-                <div className="text-sm font-medium">
+                <div className="text-sm font-medium whitespace-nowrap">
                   {selectedIds.size} selected
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                  onClick={() => handleBulkAction("archive", { value: currentFilter !== "archived" })}
-                  disabled={bulkActionLoading || selectedIds.size === 0}
-                >
-                  <Archive className="h-4 w-4" />
-                  <span className="hidden md:inline">
-                    {currentFilter === "archived" ? "Unarchive" : "Archive"}
-                  </span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                  onClick={() => handleBulkAction("readLater", { value: currentFilter !== "readlater" })}
-                  disabled={bulkActionLoading || selectedIds.size === 0}
-                >
-                  <Clock className="h-4 w-4" />
-                  <span className="hidden md:inline">
-                    {currentFilter === "readlater" ? "Remove Read Later" : "Read Later"}
-                  </span>
-                </Button>
+              {bulkActionLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Processing…</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                    onClick={() => handleBulkAction("archive", { value: currentFilter !== "archived" })}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Archive className="h-4 w-4" />
+                    <span className="hidden md:inline">
+                      {currentFilter === "archived" ? "Unarchive" : "Archive"}
+                    </span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                    onClick={() => handleBulkAction("readLater", { value: currentFilter !== "readlater" })}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Clock className="h-4 w-4" />
+                    <span className="hidden md:inline">
+                      {currentFilter === "readlater" ? "Remove Read Later" : "Read Later"}
+                    </span>
+                  </Button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                      disabled={bulkActionLoading || selectedIds.size === 0}
-                    >
-                      <FolderOpen className="h-4 w-4" />
-                      <span className="hidden md:inline">Move to</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    {collections.map(c => (
-                      <DropdownMenuItem
-                        key={c.id}
-                        onClick={() => handleBulkAction("addToCollection", { collectionIds: [c.id] })}
-                        className="cursor-pointer"
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                        disabled={selectedIds.size === 0}
                       >
-                        {c.name}
-                      </DropdownMenuItem>
-                    ))}
-                    {collections.length === 0 && (
-                      <DropdownMenuItem disabled>No collections</DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                        <FolderOpen className="h-4 w-4" />
+                        <span className="hidden md:inline">Move to</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      {currentCollectionId && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => handleBulkAction("removeFromCollection", { collectionIds: [currentCollectionId] })}
+                            className="cursor-pointer text-destructive/80 focus:text-destructive"
+                          >
+                            <X className="h-3.5 w-3.5 mr-2" />
+                            Remove from this collection
+                          </DropdownMenuItem>
+                          {collections.length > 0 && <DropdownMenuSeparator />}
+                        </>
+                      )}
+                      {collections.map(c => (
+                        <DropdownMenuItem
+                          key={c.id}
+                          onClick={() => handleBulkAction("addToCollection", { collectionIds: [c.id] })}
+                          className="cursor-pointer"
+                        >
+                          {c.name}
+                        </DropdownMenuItem>
+                      ))}
+                      {collections.length === 0 && !currentCollectionId && (
+                        <DropdownMenuItem disabled>No collections</DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                  onClick={() => setBulkTagDialogOpen(true)}
-                  disabled={bulkActionLoading || selectedIds.size === 0}
-                >
-                  <Tag className="h-4 w-4" />
-                  <span className="hidden md:inline">Add Tag</span>
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                    onClick={() => setBulkTagDialogOpen(true)}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Tag className="h-4 w-4" />
+                    <span className="hidden md:inline">Add Tag</span>
+                  </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-2 text-destructive/80 hover:text-destructive hover:bg-destructive/10 text-xs cursor-pointer"
-                  onClick={() => setBulkDeleteDialogOpen(true)}
-                  disabled={bulkActionLoading || selectedIds.size === 0}
-                >
-                  <Trash className="h-4 w-4" />
-                  <span className="hidden md:inline">Delete</span>
-                </Button>
-              </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-2 text-destructive/80 hover:text-destructive hover:bg-destructive/10 text-xs cursor-pointer"
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Trash className="h-4 w-4" />
+                    <span className="hidden md:inline">Delete</span>
+                  </Button>
+                </div>
+              )}
 
               <div className="ml-auto pl-2 border-l border-border/20">
                 <Button
@@ -707,12 +751,12 @@ function BookmarkPageContent() {
                   size="sm"
                   className="h-9 gap-2 text-primary hover:bg-primary/10 text-xs cursor-pointer"
                   onClick={() => handleSelectAll(selectedIds.size < bookmarks.length)}
-                  disabled={bookmarks.length === 0}
+                  disabled={bookmarks.length === 0 || bulkActionLoading}
                 >
                   {selectedIds.size < bookmarks.length ? (
                     <>
                       <CheckSquare className="h-4 w-4" />
-                      <span className="hidden md:inline">Select All</span>
+                      <span className="hidden md:inline">Select All ({bookmarks.length})</span>
                     </>
                   ) : (
                     <>
@@ -746,9 +790,9 @@ function BookmarkPageContent() {
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newBulkTag.trim()) {
-                    handleBulkAction("addTags", { tags: [newBulkTag.trim()] });
+                    const tag = newBulkTag.trim();
                     setBulkTagDialogOpen(false);
-                    setNewBulkTag("");
+                    handleBulkAction("addTags", { tags: [tag] }).then(() => setNewBulkTag(""));
                   }
                 }}
               />
@@ -767,9 +811,9 @@ function BookmarkPageContent() {
               type="button"
               onClick={() => {
                 if (newBulkTag.trim()) {
-                  handleBulkAction("addTags", { tags: [newBulkTag.trim()] });
+                  const tag = newBulkTag.trim();
                   setBulkTagDialogOpen(false);
-                  setNewBulkTag("");
+                  handleBulkAction("addTags", { tags: [tag] }).then(() => setNewBulkTag(""));
                 }
               }}
               disabled={!newBulkTag.trim() || bulkActionLoading}

@@ -108,7 +108,7 @@ export function BookmarkCard({
             field === "isReadLater"
                 ? previousValue ? "Removed from Read Later" : "Added to Read Later"
                 : field === "isNsfw"
-                    ? previousValue ? "NSFW flag removed" : "Marked as NSFW"
+                    ? previousValue ? "Sensitive flag removed" : "Marked as Sensitive"
                     : previousValue ? "Unarchived" : "Archived";
 
         try {
@@ -223,7 +223,7 @@ export function BookmarkCard({
                             </button>
                         )}
                         {selectionMode && (
-                            <div className="absolute top-3 left-3 z-30">
+                            <div className="absolute top-3 right-3 z-30">
                                 <Checkbox
                                     checked={isSelected}
                                     onCheckedChange={(checked) => onSelect?.(bookmark.id, !!checked)}
@@ -281,7 +281,7 @@ export function BookmarkCard({
                                 </div>
                             )}
 
-                            {selectionMode && (!isGrid || !bookmark.thumbnail) && (
+                            {selectionMode && !bookmark.thumbnail && (
                                 <div className="flex items-center justify-center py-1">
                                     <Checkbox
                                         checked={isSelected}
@@ -403,7 +403,7 @@ export function BookmarkCard({
                                     </Badge>
                                 )}
                                 {localBookmark.isNsfw && (
-                                    <Badge variant="outline" className="bg-rose-50 dark:bg-rose-800 px-0 w-6 h-6 flex items-center justify-center border-rose-500/30" title="NSFW">
+                                    <Badge variant="outline" className="bg-rose-50 dark:bg-rose-800 px-0 w-6 h-6 flex items-center justify-center border-rose-500/30" title="Sensitive">
                                         <EyeOff className="h-3.5 w-3.5" />
                                     </Badge>
                                 )}
@@ -440,9 +440,9 @@ export function BookmarkCard({
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleToggle("isNsfw")} className="cursor-pointer">
                                                     {localBookmark.isNsfw ? (
-                                                        <><Eye className="h-4 w-4 mr-2" /> Remove NSFW Flag</>
+                                                        <><Eye className="h-4 w-4 mr-2" /> Remove from Sensitive</>
                                                     ) : (
-                                                        <><EyeOff className="h-4 w-4 mr-2" /> Mark as NSFW</>
+                                                        <><EyeOff className="h-4 w-4 mr-2" /> Mark as Sensitive</>
                                                     )}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
@@ -496,6 +496,16 @@ export function BookmarkCard({
                                     >
                                         <EyeOff className="h-4 w-4 text-foreground/60" />
                                     </button>
+                                )}
+                                {selectionMode && (
+                                    <div className="absolute top-1.5 right-1.5 z-20">
+                                        <Checkbox
+                                            checked={isSelected}
+                                            onCheckedChange={(checked) => onSelect?.(bookmark.id, !!checked)}
+                                            className="bg-background/80 shadow-sm border-white/20"
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         )}

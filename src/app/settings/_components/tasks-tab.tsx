@@ -104,7 +104,7 @@ export function TasksTab({ taskStats, onRetryFailed, onClearTasks, onStartBulkJo
                             </div>
                             <div>
                                 <CardTitle className="text-base">Generate Embeddings</CardTitle>
-                                <CardDescription className="text-xs mt-0.5">Generate vector embeddings for semantic search on bookmarks that are missing them. <span className="text-destructive font-medium">NSFW links are excluded.</span></CardDescription>
+                                <CardDescription className="text-xs mt-0.5">Generate vector embeddings for semantic search on bookmarks that are missing them. <span className="text-destructive font-medium">Sensitive links are excluded.</span></CardDescription>
                             </div>
                         </div>
                         {embedIsRunning && <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 shrink-0 animate-pulse">{embedPayload.overwrite ? "Regenerating All" : "Generating Missing"}</Badge>}

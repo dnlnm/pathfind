@@ -29,9 +29,9 @@ export function GeneralTab({ nsfwDisplay, setNsfwDisplay, bookmarkClickAction, s
         setSavingNsfw(true);
         try {
             localStorage.setItem("nsfw-display-mode", value);
-            toast.success("NSFW setting updated");
+            toast.success("Sensitive content setting updated");
         } catch {
-            toast.error("Failed to update NSFW setting");
+            toast.error("Failed to update sensitive content setting");
         }
         setSavingNsfw(false);
     };
@@ -103,7 +103,7 @@ export function GeneralTab({ nsfwDisplay, setNsfwDisplay, bookmarkClickAction, s
                             <div className="space-y-1">
                                 <Label className="text-base font-semibold flex items-center gap-2">
                                     <EyeOff className="h-4 w-4 text-destructive" />
-                                    Sensitive Content (NSFW)
+                                    Sensitive Content
                                 </Label>
                                 <p className="text-sm text-muted-foreground">Control visibility of potentially unsafe content.</p>
                             </div>
