@@ -2,7 +2,9 @@ import db from "../../db";
 import { logDebug, isJobCancelled } from "../logger";
 import { initJobProgress, updateJobProgress } from "../progress";
 
-async function checkUrl(url: string): Promise<{ status: 'ok' | 'broken' | 'redirected'; code: number | null }> {
+type LinkStatus = 'ok' | 'broken' | 'redirected' | 'unreachable';
+
+async function checkUrl(url: string): Promise<{ status: LinkStatus; code: number | null }> {
     const USER_AGENT = "Mozilla/5.0 (compatible; PathFind-LinkChecker/1.0)";
     const TIMEOUT_MS = 10_000;
 
@@ -30,12 +32,17 @@ async function checkUrl(url: string): Promise<{ status: 'ok' | 'broken' | 'redir
         const code = res.status;
         if (code >= 200 && code < 300) return { status: 'ok', code };
         if (code >= 300 && code < 400) return { status: 'redirected', code };
+        // Transient errors: rate-limited or server unavailable — don't permanently mark as broken
+        if (code === 429 || code >= 500) return { status: 'unreachable', code };
         return { status: 'broken', code };
     } catch {
         // Network error, DNS failure, timeout, TLS error, etc.
         return { status: 'broken', code: null };
     }
 }
+
+const CONCURRENCY = 5;
+const BATCH_DELAY_MS = 200;
 
 export async function handleCheckBrokenLinks(job: any, _payload: any) {
     const userId = job.user_id;
@@ -62,25 +69,38 @@ export async function handleCheckBrokenLinks(job: any, _payload: any) {
         WHERE id = ?
     `);
 
-    for (let i = 0; i < bookmarks.length; i++) {
+    let processed = 0;
+
+    for (let i = 0; i < bookmarks.length; i += CONCURRENCY) {
         if (isJobCancelled(job.id)) {
-            logDebug(`[Worker] Link check job ${job.id} cancelled at ${i}/${total}`);
+            logDebug(`[Worker] Link check job ${job.id} cancelled at ${processed}/${total}`);
+            // Update last_link_check_at so the scheduler uses the correct next-due timestamp
+            db.prepare("UPDATE users SET last_link_check_at = datetime('now') WHERE id = ?").run(userId);
             return;
         }
 
-        const bm = bookmarks[i];
-        try {
-            const result = await checkUrl(bm.url);
-            updateBookmark.run(result.status, result.code, bm.id);
-            logDebug(`[Worker] ${bm.url} → ${result.status} (${result.code ?? 'err'})`);
-        } catch (e) {
-            logDebug(`[Worker] Link check failed for ${bm.id}: ` + e);
-            updateBookmark.run('broken', null, bm.id);
+        const batch = bookmarks.slice(i, i + CONCURRENCY);
+
+        await Promise.allSettled(
+            batch.map(async (bm) => {
+                try {
+                    const result = await checkUrl(bm.url);
+                    updateBookmark.run(result.status, result.code, bm.id);
+                    logDebug(`[Worker] ${bm.url} → ${result.status} (${result.code ?? 'err'})`);
+                } catch (e) {
+                    logDebug(`[Worker] Link check failed for ${bm.id}: ` + e);
+                    updateBookmark.run('broken', null, bm.id);
+                }
+            })
+        );
+
+        processed += batch.length;
+        updateJobProgress(job.id, processed, total);
+
+        // Small delay between batches to be polite to external servers
+        if (i + CONCURRENCY < bookmarks.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
         }
-
-        updateJobProgress(job.id, i + 1, total);
-
-        await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     db.prepare("UPDATE users SET last_link_check_at = datetime('now') WHERE id = ?").run(userId);

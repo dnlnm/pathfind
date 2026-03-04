@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -14,11 +14,12 @@ import { TasksTab } from "./_components/tasks-tab";
 import { RulesTab } from "./_components/rules-tab";
 import { LinkHealthTab } from "./_components/link-health-tab";
 import { DuplicatesTab } from "./_components/duplicates-tab";
+import { UsersTab } from "./_components/users-tab";
 import { toast } from "sonner";
 
-type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules" | "link-health" | "duplicates";
+type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules" | "link-health" | "duplicates" | "users";
 
-const TABS: { id: TabType; label: string; description: string }[] = [
+const BASE_TABS: { id: TabType; label: string; description: string }[] = [
     { id: "general", label: "General", description: "Display and behavior settings" },
     { id: "rules", label: "Rules", description: "Automate actions when bookmarks are saved" },
     { id: "integrations", label: "Integrations", description: "Connect external services" },
@@ -28,24 +29,33 @@ const TABS: { id: TabType; label: string; description: string }[] = [
     { id: "link-health", label: "Link Health", description: "Find and clean up broken bookmarks" },
     { id: "duplicates", label: "Duplicates", description: "Find and merge duplicate bookmarks" },
 ];
+const ADMIN_TABS: { id: TabType; label: string; description: string }[] = [
+    { id: "users", label: "Users", description: "Manage user accounts" },
+];
 
 function SettingsContent() {
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabType>("general");
     const { setOpenMobile } = useSidebar();
+    const [currentUser, setCurrentUser] = useState<{ id: string; role: string } | null>(null);
 
-    // Force close the mobile sidebar sheet on mount to prevent the
-    // Radix overlay from getting stuck and blocking all touch events.
+    const TABS = currentUser?.role === "admin" ? [...BASE_TABS, ...ADMIN_TABS] : BASE_TABS;
+
+    // Force close the mobile sidebar sheet on mount
     useEffect(() => {
         setOpenMobile(false);
     }, [setOpenMobile]);
+
+    useEffect(() => {
+        fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => { if (d) setCurrentUser({ id: d.id, role: d.role }); }).catch(() => { });
+    }, []);
 
     useEffect(() => {
         const tab = searchParams.get("tab") as TabType;
         if (tab && TABS.map(t => t.id).includes(tab)) {
             setActiveTab(tab);
         }
-    }, [searchParams]);
+    }, [searchParams, TABS]);
 
     // Shared state across tabs
     const [counts, setCounts] = useState({ all: 0, readLater: 0, archived: 0, nsfw: 0 });
@@ -53,6 +63,7 @@ function SettingsContent() {
     const [nsfwDisplay, setNsfwDisplay] = useState<"blur" | "hide" | "show">("blur");
     const [bookmarkClickAction, setBookmarkClickAction] = useState<"current" | "new">("new");
     const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [apiTokens, setApiTokens] = useState<any[]>([]);
     const [githubConfigured, setGithubConfigured] = useState(false);
     const [githubSyncEnabled, setGithubSyncEnabled] = useState(false);
@@ -73,6 +84,26 @@ function SettingsContent() {
     const [existingTags, setExistingTags] = useState<{ id: string; name: string }[]>([]);
     const [existingCollections, setExistingCollections] = useState<{ id: string; name: string }[]>([]);
 
+    // Stable polling callbacks — [] deps are safe because all closures are stable React state-setters
+    const fetchTasks = useCallback(() => {
+        fetch("/api/tasks").then(r => r.json()).then(d => setTaskStats(d)).catch(() => { });
+    }, []);
+
+    const fetchLinkSettings = useCallback(() => {
+        fetch("/api/settings/link-check").then(r => r.json()).then(d => {
+            setLinkCheckEnabled(d.enabled ?? false);
+            setLinkCheckInterval(d.interval ?? 'weekly');
+            setLinkCheckIntervalDays(d.intervalDays ?? 7);
+            setLastLinkCheckAt(d.lastCheckedAt ?? null);
+        }).catch(() => { });
+    }, []);
+
+    const fetchBrokenBookmarks = useCallback(() => {
+        fetch("/api/bookmarks/broken").then(r => r.json()).then(d => setBrokenBookmarks(Array.isArray(d) ? d : [])).catch(() => { });
+    }, []);
+
+    const prevBulkJobsRef = useRef<any[]>([]);
+
     useEffect(() => {
         // Bookmark counts
         Promise.all([
@@ -89,6 +120,7 @@ function SettingsContent() {
         fetch("/api/settings/telegram").then(r => r.json()).then(d => setTelegramStatus(d));
         fetch("/api/settings/domain-colors").then(r => r.json()).then(d => setDomainColors(d));
         fetch("/api/settings/email").then(r => r.json()).then(d => setEmail(d.email || ""));
+        fetch("/api/me").then(r => r.ok ? r.json() : null).then(d => { if (d?.username) setUsername(d.username); }).catch(() => { });
         fetch("/api/tokens").then(r => r.json()).then(d => setApiTokens(Array.isArray(d) ? d : []));
 
         // NSFW display mode from localStorage (client-side preference)
@@ -105,23 +137,29 @@ function SettingsContent() {
         fetch("/api/tags").then(r => r.json()).then(d => setExistingTags(Array.isArray(d) ? d : []));
 
         // Task polling
-        const fetchTasks = () => fetch("/api/tasks").then(r => r.json()).then(d => setTaskStats(d)).catch(() => { });
         fetchTasks();
         const taskInterval = setInterval(fetchTasks, 3000);
 
-        // Link health polling
-        const fetchLinkHealth = () => {
-            fetch("/api/settings/link-check").then(r => r.json()).then(d => {
-                setLinkCheckEnabled(d.enabled ?? false); setLinkCheckInterval(d.interval ?? 'weekly');
-                setLinkCheckIntervalDays(d.intervalDays ?? 7); setLastLinkCheckAt(d.lastCheckedAt ?? null);
-            }).catch(() => { });
-            fetch("/api/bookmarks/broken").then(r => r.json()).then(d => setBrokenBookmarks(Array.isArray(d) ? d : [])).catch(() => { });
-        };
-        fetchLinkHealth();
-        const linkHealthInterval = setInterval(fetchLinkHealth, 10000);
+        // Link health — settings fetched once on mount only; only broken bookmarks are polled
+        fetchLinkSettings();
+        fetchBrokenBookmarks();
+        const linkHealthInterval = setInterval(fetchBrokenBookmarks, 10000);
 
         return () => { clearInterval(taskInterval); clearInterval(linkHealthInterval); };
-    }, []);
+    }, [fetchTasks, fetchLinkSettings, fetchBrokenBookmarks]);
+
+    // Reactively refresh the broken bookmarks list the moment a link check job finishes
+    useEffect(() => {
+        if (!taskStats?.bulkJobs) return;
+        const prev = prevBulkJobsRef.current;
+        const wasRunning = prev.some((j: any) => j.type === 'check_broken_links');
+        const isRunning = taskStats.bulkJobs.some((j: any) => j.type === 'check_broken_links');
+        if (wasRunning && !isRunning) {
+            fetchBrokenBookmarks();
+            fetchLinkSettings(); // also refresh lastCheckedAt after the scan finishes
+        }
+        prevBulkJobsRef.current = taskStats.bulkJobs;
+    }, [taskStats?.bulkJobs, fetchBrokenBookmarks, fetchLinkSettings]);
 
     // Shared task action handlers lifted here so they can be passed to TasksTab and LinkHealthTab
     const handleRetryFailed = async () => {
@@ -204,6 +242,8 @@ function SettingsContent() {
                         <SecurityTab
                             email={email}
                             setEmail={setEmail}
+                            username={username}
+                            setUsername={setUsername}
                             apiTokens={apiTokens}
                             setApiTokens={setApiTokens}
                         />
@@ -247,11 +287,16 @@ function SettingsContent() {
                             setBrokenBookmarks={setBrokenBookmarks}
                             taskStats={taskStats}
                             onCancelJob={handleCancelJob}
+                            onRefreshTasks={fetchTasks}
                         />
                     )}
 
                     {activeTab === "duplicates" && (
                         <DuplicatesTab />
+                    )}
+
+                    {activeTab === "users" && currentUser?.role === "admin" && (
+                        <UsersTab currentUserId={currentUser.id} />
                     )}
                 </div>
             </main>

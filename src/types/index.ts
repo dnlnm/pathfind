@@ -1,8 +1,12 @@
+export type UserRole = 'admin' | 'user';
+
 export interface DbUser {
     id: string;
     email: string;
     name: string | null;
+    username: string | null;
     password: string;
+    role: UserRole;
     created_at: string;
     updated_at: string;
 }

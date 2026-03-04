@@ -11,16 +11,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         Credentials({
             name: "credentials",
             credentials: {
-                email: { label: "Email", type: "email" },
+                username: { label: "Username", type: "text" },
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
+                if (!credentials?.username || !credentials?.password) {
                     return null;
                 }
 
-                const user = db.prepare("SELECT * FROM users WHERE email = ?").get(
-                    credentials.email as string
+                const login = (credentials.username as string).trim();
+
+                // Try username first (case-insensitive), then fall back to email
+                const user = (
+                    db.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE").get(login) ??
+                    db.prepare("SELECT * FROM users WHERE email = ?").get(login)
                 ) as DbUser | undefined;
 
                 if (!user) {

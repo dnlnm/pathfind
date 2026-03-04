@@ -39,8 +39,27 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: "Tag ID required" }, { status: 400 });
     }
 
-    db.prepare("DELETE FROM bookmark_tags WHERE tag_id = ?").run(tagId);
-    db.prepare("DELETE FROM tags WHERE id = ?").run(tagId);
+    // Verify the tag is used by this user's bookmarks before deleting
+    const usedByUser = db.prepare(`
+        SELECT 1 FROM bookmark_tags bt
+        JOIN bookmarks b ON b.id = bt.bookmark_id
+        WHERE bt.tag_id = ? AND b.user_id = ?
+    `).get(tagId, userAuth.id);
+
+    if (!usedByUser) {
+        return NextResponse.json({ error: "Not found or not yours" }, { status: 404 });
+    }
+
+    // Only remove bookmark_tag rows for this user's bookmarks; delete tag itself only if no other users use it
+    db.prepare(`
+        DELETE FROM bookmark_tags WHERE tag_id = ?
+        AND bookmark_id IN (SELECT id FROM bookmarks WHERE user_id = ?)
+    `).run(tagId, userAuth.id);
+
+    const stillUsed = db.prepare("SELECT 1 FROM bookmark_tags WHERE tag_id = ?").get(tagId);
+    if (!stillUsed) {
+        db.prepare("DELETE FROM tags WHERE id = ?").run(tagId);
+    }
 
     return NextResponse.json({ success: true });
 }

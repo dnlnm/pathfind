@@ -419,6 +419,43 @@ try {
   }
 }
 
+// Migration: add role column to users
+try {
+  db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+  // Promote all existing users to admin (they were created before multi-user)
+  db.exec("UPDATE users SET role = 'admin' WHERE role = 'user' OR role IS NULL");
+  console.log("[Migration] Added role column and promoted existing users to admin");
+} catch (e) { /* Column already exists */ }
+
+
+// Migration: add username column to users
+try {
+  db.exec("ALTER TABLE users ADD COLUMN username TEXT");
+  // Backfill username from name (lower+strip spaces) or email prefix
+  const existingUsers = db.prepare("SELECT id, name, email FROM users WHERE username IS NULL").all() as { id: string; name: string | null; email: string }[];
+  const updateUsername = db.prepare("UPDATE users SET username = ? WHERE id = ?");
+  const takenUsernames = new Set<string>();
+  db.transaction(() => {
+    for (const u of existingUsers) {
+      const base = (u.name || u.email.split("@")[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_|_$/g, "")
+        .slice(0, 28) || "user";
+      let candidate = base;
+      let suffix = 2;
+      while (takenUsernames.has(candidate)) {
+        candidate = `${base.slice(0, 25)}_${suffix++}`;
+      }
+      takenUsernames.add(candidate);
+      updateUsername.run(candidate, u.id);
+    }
+  })();
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE)");
+  console.log("[Migration] Added username column and backfilled existing users");
+} catch (e) { /* Column already exists */ }
+
 export default db;
 
 // Helper to generate IDs

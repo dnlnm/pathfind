@@ -8,10 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Link as LinkIcon, Play, ShieldX, Trash2, Check, X, Calendar, Activity } from "lucide-react";
+import { Loader2, Play, ShieldX, Trash2, Check, X, Calendar, Activity, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+
+function safeHostname(url: string): string {
+    try { return new URL(url).hostname; } catch { return url; }
+}
 
 interface LinkHealthTabProps {
     linkCheckEnabled: boolean;
@@ -25,6 +29,7 @@ interface LinkHealthTabProps {
     setBrokenBookmarks: React.Dispatch<React.SetStateAction<any[]>>;
     taskStats: any;
     onCancelJob: (jobId: string) => Promise<void>;
+    onRefreshTasks: () => void;
 }
 
 export function LinkHealthTab({
@@ -33,7 +38,7 @@ export function LinkHealthTab({
     linkCheckIntervalDays, setLinkCheckIntervalDays,
     lastLinkCheckAt,
     brokenBookmarks, setBrokenBookmarks,
-    taskStats, onCancelJob,
+    taskStats, onCancelJob, onRefreshTasks,
 }: LinkHealthTabProps) {
     const [savingLinkSchedule, setSavingLinkSchedule] = useState(false);
     const [isRunningLinkCheck, setIsRunningLinkCheck] = useState(false);
@@ -64,8 +69,14 @@ export function LinkHealthTab({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: 'check_broken_links' }),
             });
-            if (res.ok) toast.success("Link check started");
-            else { const d = await res.json(); toast.error(d.error || "Failed to start job"); }
+            if (res.ok) {
+                toast.success("Link check started");
+                // Immediately re-poll tasks so the Running badge appears without waiting for the next poll cycle
+                onRefreshTasks();
+            } else {
+                const d = await res.json();
+                toast.error(d.error || "Failed to start job");
+            }
         } catch { toast.error("Failed to start job"); }
         setIsRunningLinkCheck(false);
     };
@@ -214,7 +225,7 @@ export function LinkHealthTab({
                                 Broken Links
                                 {brokenBookmarks.length > 0 && <Badge variant="destructive" className="ml-1.5 h-4.5 px-1.5 text-[10px]">{brokenBookmarks.length}</Badge>}
                             </CardTitle>
-                            <CardDescription className="text-xs">Unreachable bookmarks identified in the last scan.</CardDescription>
+                            <CardDescription className="text-xs">Broken and redirected bookmarks identified in the last scan.</CardDescription>
                         </div>
                         {selectedBrokenIds.size > 0 && (
                             <Button variant="destructive" size="sm" disabled={isDeletingBroken} className="h-8 text-xs cursor-pointer px-3" onClick={handleDeleteSelected}>
@@ -250,33 +261,47 @@ export function LinkHealthTab({
                                     <span className="text-right">Last Verified</span>
                                 </div>
                                 <div className="divide-y divide-border/10 max-h-[400px] overflow-y-auto">
-                                    {brokenBookmarks.map(bm => (
-                                        <div key={bm.id} className={cn("grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-6 py-3 transition-colors", selectedBrokenIds.has(bm.id) ? "bg-destructive/5" : "hover:bg-muted/10")}>
-                                            <Checkbox
-                                                className="h-3.5 w-3.5 cursor-pointer"
-                                                checked={selectedBrokenIds.has(bm.id)}
-                                                onCheckedChange={(checked) => {
-                                                    setSelectedBrokenIds(prev => {
-                                                        const next = new Set(prev);
-                                                        if (checked) next.add(bm.id); else next.delete(bm.id);
-                                                        return next;
-                                                    });
-                                                }}
-                                            />
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-medium truncate leading-none mb-1.5">{bm.title || '(No title)'}</p>
-                                                <p className="text-[11px] text-muted-foreground truncate leading-none uppercase tracking-tight">{new URL(bm.url).hostname}</p>
+                                    {brokenBookmarks.map(bm => {
+                                        const isRedirected = bm.link_status === 'redirected';
+                                        return (
+                                            <div key={bm.id} className={cn("grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-6 py-3 transition-colors",
+                                                selectedBrokenIds.has(bm.id)
+                                                    ? (isRedirected ? "bg-amber-500/5" : "bg-destructive/5")
+                                                    : "hover:bg-muted/10"
+                                            )}>
+                                                <Checkbox
+                                                    className="h-3.5 w-3.5 cursor-pointer"
+                                                    checked={selectedBrokenIds.has(bm.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedBrokenIds(prev => {
+                                                            const next = new Set(prev);
+                                                            if (checked) next.add(bm.id); else next.delete(bm.id);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                />
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-medium truncate leading-none mb-1.5">{bm.title || '(No title)'}</p>
+                                                    <p className="text-[11px] text-muted-foreground truncate leading-none uppercase tracking-tight">{safeHostname(bm.url)}</p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    {isRedirected ? (
+                                                        <Badge variant="outline" className="h-5 px-1.5 rounded-md text-[10px] font-mono border-amber-500/30 text-amber-500 bg-amber-500/5">
+                                                            <AlertTriangle className="h-2.5 w-2.5 mr-1 inline" />
+                                                            {bm.link_status_code ?? 'redirect'}
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="h-5 px-1.5 rounded-md text-[10px] font-mono border-destructive/30 text-destructive bg-destructive/5">
+                                                            {bm.link_status_code ?? bm.link_status}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">{bm.link_checked_at ? new Date(bm.link_checked_at).toLocaleDateString() : '—'}</span>
+                                                </div>
                                             </div>
-                                            <div className="text-right shrink-0">
-                                                <Badge variant="outline" className="h-5 px-1.5 rounded-md text-[10px] font-mono border-destructive/30 text-destructive bg-destructive/5">
-                                                    {bm.link_status_code ?? bm.link_status}
-                                                </Badge>
-                                            </div>
-                                            <div className="text-right shrink-0">
-                                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">{bm.link_checked_at ? new Date(bm.link_checked_at).toLocaleDateString() : '—'}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

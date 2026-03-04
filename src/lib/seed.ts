@@ -10,8 +10,8 @@ export function ensureAdminUser() {
     if (!existing) {
         const hashedPassword = hashSync(adminPassword, 12);
         db.prepare(
-            "INSERT INTO users (id, email, name, password) VALUES (?, ?, ?, ?)"
-        ).run(generateId(), adminEmail, "Admin", hashedPassword);
+            "INSERT INTO users (id, email, name, username, password, role) VALUES (?, ?, ?, ?, ?, ?)"
+        ).run(generateId(), adminEmail, "Admin", "admin", hashedPassword, "admin");
         console.log(`✅ Admin user created: ${adminEmail}`);
     }
 }

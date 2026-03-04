@@ -22,7 +22,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff, Copy } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff, Copy, Users } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
     const [collectionFormOpen, setCollectionFormOpen] = useState(false);
     const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
     const [maintenanceStats, setMaintenanceStats] = useState<{ missingThumbnails: number; missingEmbeddings: number } | null>(null);
+    const [userInfo, setUserInfo] = useState<{ username: string | null; role: string } | null>(null);
 
     const settingsTabs = [
         { id: "general", label: "General", icon: Settings2 },
@@ -76,6 +77,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         { id: "tasks", label: "Background Tasks", icon: RefreshCw },
         { id: "link-health", label: "Link Health", icon: LinkIcon },
         { id: "duplicates", label: "Duplicates", icon: Copy },
+        ...(userInfo?.role === "admin" ? [{ id: "users", label: "Users", icon: Users }] : []),
     ];
 
     const fetchTags = useCallback(async () => {
@@ -137,6 +139,14 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         fetchMaintenance();
         const interval = setInterval(fetchMaintenance, 5 * 60 * 1000);
         return () => clearInterval(interval);
+    }, []);
+
+    // Fetch current user role + username (needed for admin-only tabs)
+    useEffect(() => {
+        fetch("/api/me")
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setUserInfo({ username: d.username, role: d.role }); })
+            .catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -442,11 +452,16 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                                 className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0"
                                 suppressHydrationWarning
                             >
-                                {(userName || "A")[0].toUpperCase()}
+                                {(userInfo?.username || userName || "A")[0].toUpperCase()}
                             </div>
-                            <span className="text-xs font-medium truncate" suppressHydrationWarning>
-                                {userName || "Admin"}
-                            </span>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-medium truncate" suppressHydrationWarning>
+                                    @{userInfo?.username || userName || "user"}
+                                </span>
+                                {userInfo?.role === "admin" && (
+                                    <span className="text-[10px] text-muted-foreground/60">Admin</span>
+                                )}
+                            </div>
                         </div>
                     </SidebarMenuItem>
                 </SidebarMenu>
