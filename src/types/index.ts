@@ -86,9 +86,24 @@ export interface CollectionWithCount {
 
 // Rule Engine types
 export type RuleEvent = 'bookmark.created' | 'bookmark.updated';
-export type ConditionField = 'url' | 'title' | 'description' | 'domain';
-export type ConditionOperator = 'contains' | 'starts_with' | 'equals' | 'matches_regex';
-export type ActionType = 'add_tags' | 'add_to_collection' | 'mark_read_later' | 'mark_archived' | 'mark_nsfw';
+export type ConditionField =
+    | 'url' | 'title' | 'description' | 'domain'
+    | 'tags' | 'collection'
+    | 'is_archived' | 'is_read_later' | 'is_nsfw'
+    | 'always_true';
+export type ConditionOperator =
+    | 'contains' | 'not_contains'
+    | 'starts_with' | 'ends_with'
+    | 'equals' | 'not_equals'
+    | 'matches_regex'
+    | 'is_true' | 'is_false'
+    | 'is_empty' | 'is_not_empty';
+export type ActionType =
+    | 'add_tags' | 'remove_tags'
+    | 'add_to_collection' | 'remove_from_collection'
+    | 'mark_read_later' | 'unmark_read_later'
+    | 'mark_archived' | 'unmark_archived'
+    | 'mark_nsfw' | 'unmark_nsfw';
 
 // User NSFW display preference
 export type NsfwDisplay = 'blur' | 'hide' | 'show';
@@ -96,7 +111,7 @@ export type NsfwDisplay = 'blur' | 'hide' | 'show';
 export interface RuleCondition {
     field: ConditionField;
     operator: ConditionOperator;
-    value: string;
+    value: string; // May be empty string for always_true / boolean conditions
 }
 
 export interface RuleAction {

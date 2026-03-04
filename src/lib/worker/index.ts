@@ -1,6 +1,6 @@
 import { logDebug } from "./logger";
 import { runWorkerLane } from "./lane-runner";
-import { runSchedulerLoop } from "./scheduler";
+import { runSchedulerLoop, runMaintenanceScanLoop } from "./scheduler";
 
 let isWorkerRunning = false;
 
@@ -16,4 +16,5 @@ export async function startWorker() {
     runWorkerLane("sync", ["reddit_rss_sync", "github_starred_sync"]);
     runWorkerLane("bulk", ["backfill_thumbnails", "backfill_embeddings", "check_broken_links"]);
     runSchedulerLoop();
+    runMaintenanceScanLoop();
 }

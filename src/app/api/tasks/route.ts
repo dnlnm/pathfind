@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const missingEmbeddings = (db.prepare(`
         SELECT COUNT(*) as count FROM bookmarks b
         LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
-        WHERE b.user_id = ? AND v.rowid IS NULL
+        WHERE b.user_id = ? AND IFNULL(b.is_nsfw, 0) = 0 AND v.rowid IS NULL
     `).get(userId) as { count: number }).count;
 
     // Active bulk jobs with their progress

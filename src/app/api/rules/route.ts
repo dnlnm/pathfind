@@ -4,9 +4,11 @@ import { getAuthenticatedUser } from "@/lib/api-auth";
 import { DbRule, Rule, RuleCondition, RuleAction, RuleEvent } from "@/types";
 
 const VALID_EVENTS: RuleEvent[] = ["bookmark.created", "bookmark.updated"];
-const VALID_FIELDS = ["url", "title", "description", "domain"];
-const VALID_OPERATORS = ["contains", "starts_with", "equals", "matches_regex"];
-const VALID_ACTION_TYPES = ["add_tags", "add_to_collection", "mark_read_later", "mark_archived"];
+const VALID_FIELDS = ["url", "title", "description", "domain", "tags", "collection", "is_archived", "is_read_later", "is_nsfw", "always_true"];
+const VALID_OPERATORS = ["contains", "not_contains", "starts_with", "ends_with", "equals", "not_equals", "matches_regex", "is_true", "is_false", "is_empty", "is_not_empty"];
+const VALID_ACTION_TYPES = ["add_tags", "remove_tags", "add_to_collection", "remove_from_collection", "mark_read_later", "unmark_read_later", "mark_archived", "unmark_archived", "mark_nsfw", "unmark_nsfw"];
+// These fields do not require a value string
+const NO_VALUE_FIELDS = ["always_true", "is_archived", "is_read_later", "is_nsfw"];
 
 function toRule(row: DbRule): Rule {
     return {
@@ -30,7 +32,10 @@ function validateConditions(conditions: any[]): string | null {
     for (const c of conditions) {
         if (!VALID_FIELDS.includes(c.field)) return `Invalid condition field: ${c.field}`;
         if (!VALID_OPERATORS.includes(c.operator)) return `Invalid operator: ${c.operator}`;
-        if (typeof c.value !== "string" || !c.value.trim()) return "Condition value is required";
+        // Only require a value for fields that need one
+        if (!NO_VALUE_FIELDS.includes(c.field) && (typeof c.value !== "string" || !c.value.trim())) {
+            return "Condition value is required";
+        }
     }
     return null;
 }
@@ -41,14 +46,14 @@ function validateActions(actions: any[]): string | null {
     }
     for (const a of actions) {
         if (!VALID_ACTION_TYPES.includes(a.type)) return `Invalid action type: ${a.type}`;
-        if (a.type === "add_tags") {
+        if (a.type === "add_tags" || a.type === "remove_tags") {
             if (!Array.isArray(a.params?.tags) || a.params.tags.length === 0) {
-                return "add_tags requires a non-empty tags array";
+                return `${a.type} requires a non-empty tags array`;
             }
         }
-        if (a.type === "add_to_collection") {
+        if (a.type === "add_to_collection" || a.type === "remove_from_collection") {
             if (!a.params?.collectionName?.trim()) {
-                return "add_to_collection requires a collectionName";
+                return `${a.type} requires a collectionName`;
             }
         }
     }

@@ -119,3 +119,44 @@ export async function runSchedulerLoop() {
         await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Maintenance scan loop — counts missing thumbnails / embeddings every 30 min
+// ---------------------------------------------------------------------------
+
+export async function runMaintenanceScanLoop() {
+    logDebug("[Worker] Maintenance scan loop started");
+    while (true) {
+        try {
+            const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
+            for (const user of users) {
+                const { count: missingThumbnails } = db.prepare(`
+                    SELECT COUNT(*) as count FROM bookmarks
+                    WHERE user_id = ? AND (thumbnail IS NULL OR thumbnail = '')
+                `).get(user.id) as { count: number };
+
+                const { count: missingEmbeddings } = db.prepare(`
+                    SELECT COUNT(*) as count FROM bookmarks b
+                    LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
+                    WHERE b.user_id = ? AND IFNULL(b.is_nsfw, 0) = 0 AND v.rowid IS NULL
+                `).get(user.id) as { count: number };
+
+                db.prepare(`
+                    INSERT INTO maintenance_stats (user_id, missing_thumbnails, missing_embeddings, scanned_at)
+                    VALUES (?, ?, ?, datetime('now'))
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        missing_thumbnails = excluded.missing_thumbnails,
+                        missing_embeddings = excluded.missing_embeddings,
+                        scanned_at = excluded.scanned_at
+                `).run(user.id, missingThumbnails, missingEmbeddings);
+
+                logDebug(`[Worker] Maintenance scan: user=${user.id} missing_thumbs=${missingThumbnails} missing_embeds=${missingEmbeddings}`);
+            }
+        } catch (e) {
+            logDebug("[Worker] Error in maintenance scan loop: " + e);
+        }
+
+        // Wait 30 minutes before scanning again
+        await new Promise(resolve => setTimeout(resolve, 30 * 60 * 1000));
+    }
+}

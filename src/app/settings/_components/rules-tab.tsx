@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HexColorPicker } from "react-colorful";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,11 +10,173 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Plus, Trash2, Pencil, Zap, ChevronDown, ChevronUp, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Rule, RuleCondition, RuleAction, RuleEvent } from "@/types";
+import { Rule, RuleCondition, RuleAction, RuleEvent, ConditionField, ConditionOperator } from "@/types";
+
+// ─── Field / Operator Metadata ───────────────────────────────────────────────
+
+const CONDITION_FIELDS: { value: ConditionField; label: string; group: string }[] = [
+    { value: "always_true", label: "Always (match all)", group: "Special" },
+    { value: "url", label: "URL", group: "Content" },
+    { value: "title", label: "Title", group: "Content" },
+    { value: "description", label: "Description", group: "Content" },
+    { value: "domain", label: "Domain", group: "Content" },
+    { value: "tags", label: "Has Tag", group: "Organization" },
+    { value: "collection", label: "In Collection", group: "Organization" },
+    { value: "is_archived", label: "Is Archived", group: "Status" },
+    { value: "is_read_later", label: "Is Read Later", group: "Status" },
+    { value: "is_nsfw", label: "Is NSFW", group: "Status" },
+];
+
+// Fields that don't accept a free-text value (use boolean operators or tag/collection selectors)
+const NO_VALUE_FIELDS: ConditionField[] = ["always_true", "is_archived", "is_read_later", "is_nsfw"];
+const BOOL_FIELDS: ConditionField[] = ["is_archived", "is_read_later", "is_nsfw"];
+const RELATIONAL_FIELDS: ConditionField[] = ["tags", "collection"];
+
+type OperatorOption = { value: ConditionOperator; label: string };
+
+function getOperatorsForField(field: ConditionField): OperatorOption[] {
+    if (field === "always_true") return [{ value: "is_true", label: "matches all" }];
+    if (BOOL_FIELDS.includes(field)) return [
+        { value: "is_true", label: "is true" },
+        { value: "is_false", label: "is false" },
+    ];
+    if (RELATIONAL_FIELDS.includes(field)) return [
+        { value: "equals", label: "is (exact)" },
+        { value: "contains", label: "contains" },
+        { value: "not_equals", label: "is not" },
+        { value: "not_contains", label: "does not contain" },
+    ];
+    // String fields
+    return [
+        { value: "contains", label: "contains" },
+        { value: "not_contains", label: "does not contain" },
+        { value: "starts_with", label: "starts with" },
+        { value: "ends_with", label: "ends with" },
+        { value: "equals", label: "equals" },
+        { value: "not_equals", label: "does not equal" },
+        { value: "matches_regex", label: "matches regex" },
+        { value: "is_empty", label: "is empty" },
+        { value: "is_not_empty", label: "is not empty" },
+    ];
+}
+
+function defaultOperatorForField(field: ConditionField): ConditionOperator {
+    if (field === "always_true") return "is_true";
+    if (BOOL_FIELDS.includes(field)) return "is_true";
+    return "contains";
+}
+
+// Whether the value input is needed for this field+operator combo
+function needsValue(field: ConditionField, operator: ConditionOperator): boolean {
+    if (NO_VALUE_FIELDS.includes(field)) return false;
+    if (operator === "is_empty" || operator === "is_not_empty") return false;
+    return true;
+}
+
+// ─── Action Metadata ──────────────────────────────────────────────────────────
+
+const ACTION_OPTIONS = [
+    { value: "add_tags", label: "Add Tags", group: "Tags" },
+    { value: "remove_tags", label: "Remove Tags", group: "Tags" },
+    { value: "add_to_collection", label: "Add to Collection", group: "Collections" },
+    { value: "remove_from_collection", label: "Remove from Collection", group: "Collections" },
+    { value: "mark_read_later", label: "Mark as Read Later", group: "Status" },
+    { value: "unmark_read_later", label: "Unmark Read Later", group: "Status" },
+    { value: "mark_archived", label: "Archive", group: "Status" },
+    { value: "unmark_archived", label: "Unarchive", group: "Status" },
+    { value: "mark_nsfw", label: "Mark as NSFW", group: "Status" },
+    { value: "unmark_nsfw", label: "Unmark NSFW", group: "Status" },
+];
+
+// ─── Summary helpers ──────────────────────────────────────────────────────────
+
+function getConditionSummary(c: RuleCondition): string {
+    const fieldLabel = CONDITION_FIELDS.find(f => f.value === c.field)?.label ?? c.field;
+    if (c.field === "always_true") return "Always applies";
+    if (BOOL_FIELDS.includes(c.field as ConditionField)) {
+        return `${fieldLabel} ${c.operator === "is_true" ? "is true" : "is false"}`;
+    }
+    const opLabel = getOperatorsForField(c.field as ConditionField).find(o => o.value === c.operator)?.label ?? c.operator;
+    if (c.operator === "is_empty" || c.operator === "is_not_empty") return `${fieldLabel} ${opLabel}`;
+    return `${fieldLabel} ${opLabel} "${c.value}"`;
+}
+
+function getActionSummary(action: RuleAction): string {
+    switch (action.type) {
+        case "add_tags": return `Add tags: ${(action.params?.tags || []).join(", ")}`;
+        case "remove_tags": return `Remove tags: ${(action.params?.tags || []).join(", ")}`;
+        case "add_to_collection": return `Add to collection: ${action.params?.collectionName || ""}`;
+        case "remove_from_collection": return `Remove from collection: ${action.params?.collectionName || ""}`;
+        case "mark_read_later": return "Mark as Read Later";
+        case "unmark_read_later": return "Unmark Read Later";
+        case "mark_archived": return "Archive bookmark";
+        case "unmark_archived": return "Unarchive bookmark";
+        case "mark_nsfw": return "Mark as NSFW";
+        case "unmark_nsfw": return "Unmark NSFW";
+        default: return (action as any).type;
+    }
+}
+
+// ─── Color Picker Popover ────────────────────────────────────────────────────
+
+function ColorPickerPopover({
+    color,
+    onChange,
+    open,
+    onOpenChange,
+}: {
+    color: string;
+    onChange: (c: string) => void;
+    open: boolean;
+    onOpenChange: (o: boolean) => void;
+}) {
+    return (
+        <Popover open={open} onOpenChange={onOpenChange}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="flex items-center gap-2.5 h-10 px-3 rounded-md border border-border/50 bg-background/50 hover:bg-background/80 hover:border-border transition-colors cursor-pointer shrink-0"
+                >
+                    <span
+                        className="w-5 h-5 rounded-full border border-white/10 shadow-sm shrink-0 transition-colors"
+                        style={{ backgroundColor: color }}
+                    />
+                    <code className="text-[11px] font-mono uppercase text-muted-foreground">{color}</code>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-3 space-y-3" align="start">
+                {/* react-colorful canvas picker */}
+                <HexColorPicker color={color} onChange={onChange} style={{ width: "100%" }} />
+                <Separator className="bg-border/30" />
+                {/* Hex input */}
+                <div className="flex items-center gap-2">
+                    <span
+                        className="w-7 h-7 rounded-md shrink-0 border border-white/10"
+                        style={{ backgroundColor: color }}
+                    />
+                    <Input
+                        value={color}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            const cleaned = val.startsWith("#") ? val : `#${val}`;
+                            onChange(cleaned);
+                        }}
+                        className="h-7 text-xs font-mono bg-background/50 flex-1"
+                        placeholder="#6366f1"
+                        maxLength={7}
+                    />
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface RulesTabProps {
     rules: Rule[];
@@ -23,6 +186,8 @@ interface RulesTabProps {
     domainColors: { domain: string; color: string }[];
     setDomainColors: React.Dispatch<React.SetStateAction<{ domain: string; color: string }[]>>;
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function RulesTab({ rules, setRules, existingTags, existingCollections, domainColors, setDomainColors }: RulesTabProps) {
     const [showRuleForm, setShowRuleForm] = useState(false);
@@ -40,6 +205,7 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
     const [newDomain, setNewDomain] = useState("");
     const [newColor, setNewColor] = useState("#6366f1");
     const [addingColor, setAddingColor] = useState(false);
+    const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
     const handleAddDomainColor = async () => {
         if (!newDomain) return;
@@ -75,34 +241,38 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
     };
 
     const resetForm = () => {
-        setRuleName(""); setRuleConditions([{ field: "url", operator: "contains", value: "" }]);
+        setRuleName("");
+        setRuleConditions([{ field: "url", operator: "contains", value: "" }]);
         setRuleActions([{ type: "add_tags", params: { tags: [""] } }]);
-        setEditingRuleId(null); setShowRuleForm(false);
+        setEditingRuleId(null);
+        setShowRuleForm(false);
     };
 
     const updateCondition = (idx: number, patch: Partial<RuleCondition>) => {
-        setRuleConditions(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
+        setRuleConditions(prev => prev.map((c, i) => {
+            if (i !== idx) return c;
+            const next = { ...c, ...patch };
+            // When field changes, reset operator to a valid one for the new field
+            if (patch.field !== undefined && patch.field !== c.field) {
+                next.operator = defaultOperatorForField(patch.field as ConditionField);
+                next.value = "";
+            }
+            return next;
+        }));
     };
 
     const updateAction = (idx: number, patch: Partial<RuleAction>) => {
         setRuleActions(prev => prev.map((a, i) => i === idx ? { ...a, ...patch } : a));
     };
 
-    const getActionSummary = (action: RuleAction) => {
-        switch (action.type) {
-            case "add_tags": return `Add tags: ${(action.params?.tags || []).join(", ")}`;
-            case "add_to_collection": return `Add to collection: ${action.params?.collectionName || ""}`;
-            case "mark_read_later": return "Mark as Read Later";
-            case "mark_archived": return "Mark as Archived";
-            default: return action.type;
-        }
-    };
-
     const handleOpenEditRule = (rule: Rule) => {
-        setRuleName(rule.name); setRuleEvent(rule.event);
+        setRuleName(rule.name);
+        setRuleEvent(rule.event);
         setRuleConditionLogic(rule.conditionLogic);
-        setRuleConditions([...rule.conditions]); setRuleActions([...rule.actions]);
-        setEditingRuleId(rule.id); setShowRuleForm(true);
+        setRuleConditions([...rule.conditions]);
+        setRuleActions([...rule.actions]);
+        setEditingRuleId(rule.id);
+        setShowRuleForm(true);
     };
 
     const handleToggleRule = async (ruleId: string, enabled: boolean) => {
@@ -122,9 +292,26 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
 
     const handleSaveRule = async () => {
         if (!ruleName.trim()) { toast.error("Rule name is required"); return; }
-        if (ruleConditions.some(c => !c.value.trim())) { toast.error("All condition values are required"); return; }
-        if (ruleActions.some(a => a.type === "add_tags" && (!a.params?.tags?.length || a.params.tags.some((t: string) => !t.trim())))) { toast.error("All tag values are required"); return; }
-        if (ruleActions.some(a => a.type === "add_to_collection" && !a.params?.collectionName?.trim())) { toast.error("Collection name is required"); return; }
+
+        // Validate conditions
+        for (const c of ruleConditions) {
+            if (needsValue(c.field as ConditionField, c.operator as ConditionOperator) && !c.value.trim()) {
+                toast.error("All condition values are required");
+                return;
+            }
+        }
+        // Validate actions
+        for (const a of ruleActions) {
+            if ((a.type === "add_tags" || a.type === "remove_tags") && (!a.params?.tags?.length || a.params.tags.some((t: string) => !t.trim()))) {
+                toast.error("All tag values are required");
+                return;
+            }
+            if ((a.type === "add_to_collection" || a.type === "remove_from_collection") && !a.params?.collectionName?.trim()) {
+                toast.error("Collection name is required");
+                return;
+            }
+        }
+
         setSavingRule(true);
         try {
             const url = editingRuleId ? `/api/rules/${editingRuleId}` : "/api/rules";
@@ -161,17 +348,14 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                                 placeholder="example.com"
                                 value={newDomain}
                                 onChange={(e) => setNewDomain(e.target.value)}
-                                className="bg-background/50 text-sm"
+                                className="bg-background/50 text-sm flex-1"
                             />
-                            <div className="flex items-center gap-2 px-3 bg-background/50 border border-border/50 rounded-md h-10 w-full sm:w-auto">
-                                <input
-                                    type="color"
-                                    value={newColor}
-                                    onChange={(e) => setNewColor(e.target.value)}
-                                    className="w-6 h-6 border-0 bg-transparent cursor-pointer"
-                                />
-                                <code className="text-[10px] font-mono uppercase truncate w-14">{newColor}</code>
-                            </div>
+                            <ColorPickerPopover
+                                color={newColor}
+                                onChange={setNewColor}
+                                open={colorPickerOpen}
+                                onOpenChange={setColorPickerOpen}
+                            />
                             <Button
                                 onClick={handleAddDomainColor}
                                 disabled={addingColor || !newDomain}
@@ -260,7 +444,7 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Conditions ({rule.conditionLogic})</p>
                                                 {rule.conditions.map((c, i) => (
                                                     <div key={i} className="text-xs text-muted-foreground bg-muted/20 rounded-lg px-3 py-1.5">
-                                                        <span className="font-medium text-foreground">{c.field}</span> <span className="italic">{c.operator.replace("_", " ")}</span> <code className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{c.value}</code>
+                                                        {getConditionSummary(c)}
                                                     </div>
                                                 ))}
                                             </div>
@@ -301,10 +485,13 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                         <DialogDescription>{editingRuleId ? "Update your rule configuration." : "Define when and what should happen automatically."}</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-6 py-4">
+                        {/* Name */}
                         <div className="space-y-2">
                             <Label>Rule Name</Label>
                             <Input placeholder="e.g. GitHub Auto-Tag" value={ruleName} onChange={(e) => setRuleName(e.target.value)} className="bg-background/50" />
                         </div>
+
+                        {/* Trigger Event */}
                         <div className="space-y-2">
                             <Label>Trigger Event</Label>
                             <Select value={ruleEvent} onValueChange={(v) => setRuleEvent(v as RuleEvent)}>
@@ -315,7 +502,10 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                                 </SelectContent>
                             </Select>
                         </div>
+
                         <Separator className="bg-border/30" />
+
+                        {/* Conditions */}
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <Label>Conditions</Label>
@@ -325,37 +515,80 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                                     <Button variant={ruleConditionLogic === "OR" ? "default" : "outline"} size="sm" className="h-6 text-[10px] px-2 cursor-pointer" onClick={() => setRuleConditionLogic("OR")}>ANY</Button>
                                 </div>
                             </div>
-                            {ruleConditions.map((cond, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                    <Select value={cond.field} onValueChange={(v) => updateCondition(idx, { field: v as any })}>
-                                        <SelectTrigger className="w-[110px] bg-background/50 h-9 text-xs"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="url">URL</SelectItem>
-                                            <SelectItem value="title">Title</SelectItem>
-                                            <SelectItem value="description">Description</SelectItem>
-                                            <SelectItem value="domain">Domain</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={cond.operator} onValueChange={(v) => updateCondition(idx, { operator: v as any })}>
-                                        <SelectTrigger className="w-[120px] bg-background/50 h-9 text-xs"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="contains">contains</SelectItem>
-                                            <SelectItem value="starts_with">starts with</SelectItem>
-                                            <SelectItem value="equals">equals</SelectItem>
-                                            <SelectItem value="matches_regex">matches regex</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Input placeholder="Value..." value={cond.value} onChange={(e) => updateCondition(idx, { value: e.target.value })} className="flex-1 bg-background/50 h-9 text-xs" />
-                                    {ruleConditions.length > 1 && (
-                                        <Button variant="ghost" size="sm" onClick={() => setRuleConditions(prev => prev.filter((_, i) => i !== idx))} className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive cursor-pointer shrink-0"><X className="h-3.5 w-3.5" /></Button>
-                                    )}
-                                </div>
-                            ))}
+
+                            {ruleConditions.map((cond, idx) => {
+                                const ops = getOperatorsForField(cond.field as ConditionField);
+                                const showValue = needsValue(cond.field as ConditionField, cond.operator as ConditionOperator);
+                                const isTagField = cond.field === "tags";
+                                const isCollField = cond.field === "collection";
+
+                                return (
+                                    <div key={idx} className="flex items-center gap-2 flex-wrap">
+                                        {/* Field */}
+                                        <Select value={cond.field} onValueChange={(v) => updateCondition(idx, { field: v as any })}>
+                                            <SelectTrigger className="w-[150px] bg-background/50 h-9 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {CONDITION_FIELDS.map(f => (
+                                                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        {/* Operator — hidden for always_true */}
+                                        {cond.field !== "always_true" && (
+                                            <Select value={cond.operator} onValueChange={(v) => updateCondition(idx, { operator: v as any })}>
+                                                <SelectTrigger className="w-[145px] bg-background/50 h-9 text-xs"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    {ops.map(op => (
+                                                        <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+
+                                        {/* Value input — context-aware */}
+                                        {showValue && (
+                                            isTagField ? (
+                                                <Input
+                                                    placeholder="tag name..."
+                                                    value={cond.value}
+                                                    onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                                                    list="existing-tags"
+                                                    className="flex-1 bg-background/50 h-9 text-xs"
+                                                />
+                                            ) : isCollField ? (
+                                                <Input
+                                                    placeholder="collection name..."
+                                                    value={cond.value}
+                                                    onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                                                    list="existing-collections"
+                                                    className="flex-1 bg-background/50 h-9 text-xs"
+                                                />
+                                            ) : (
+                                                <Input
+                                                    placeholder="Value..."
+                                                    value={cond.value}
+                                                    onChange={(e) => updateCondition(idx, { value: e.target.value })}
+                                                    className="flex-1 bg-background/50 h-9 text-xs"
+                                                />
+                                            )
+                                        )}
+
+                                        {ruleConditions.length > 1 && (
+                                            <Button variant="ghost" size="sm" onClick={() => setRuleConditions(prev => prev.filter((_, i) => i !== idx))} className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive cursor-pointer shrink-0"><X className="h-3.5 w-3.5" /></Button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
                             <Button variant="outline" size="sm" onClick={() => setRuleConditions(prev => [...prev, { field: "url", operator: "contains", value: "" }])} className="text-xs cursor-pointer gap-1">
                                 <Plus className="h-3 w-3" /> Add Condition
                             </Button>
                         </div>
+
                         <Separator className="bg-border/30" />
+
+                        {/* Actions */}
                         <div className="space-y-3">
                             <Label>Actions</Label>
                             {ruleActions.map((action, idx) => (
@@ -363,29 +596,34 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                                     <div className="flex items-center gap-2">
                                         <Select value={action.type} onValueChange={(v) => {
                                             const newAction: RuleAction = { type: v as any, params: {} };
-                                            if (v === "add_tags") newAction.params = { tags: [""] };
-                                            if (v === "add_to_collection") newAction.params = { collectionName: "" };
+                                            if (v === "add_tags" || v === "remove_tags") newAction.params = { tags: [""] };
+                                            if (v === "add_to_collection" || v === "remove_from_collection") newAction.params = { collectionName: "" };
                                             updateAction(idx, newAction);
                                         }}>
-                                            <SelectTrigger className="w-[180px] bg-background/50 h-9 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectTrigger className="w-[210px] bg-background/50 h-9 text-xs"><SelectValue /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="add_tags">Add Tags</SelectItem>
-                                                <SelectItem value="add_to_collection">Add to Collection</SelectItem>
-                                                <SelectItem value="mark_read_later">Mark Read Later</SelectItem>
-                                                <SelectItem value="mark_archived">Mark Archived</SelectItem>
+                                                {ACTION_OPTIONS.map(a => (
+                                                    <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                         {ruleActions.length > 1 && (
                                             <Button variant="ghost" size="sm" onClick={() => setRuleActions(prev => prev.filter((_, i) => i !== idx))} className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive cursor-pointer shrink-0 ml-auto"><X className="h-3.5 w-3.5" /></Button>
                                         )}
                                     </div>
-                                    {action.type === "add_tags" && (
+
+                                    {/* Tag list input */}
+                                    {(action.type === "add_tags" || action.type === "remove_tags") && (
                                         <div className="space-y-2">
                                             {(action.params?.tags || [""]).map((tag: string, tIdx: number) => (
                                                 <div key={tIdx} className="flex items-center gap-2">
-                                                    <Input placeholder="Tag name..." value={tag} list="existing-tags"
+                                                    <Input
+                                                        placeholder="Tag name..."
+                                                        value={tag}
+                                                        list="existing-tags"
                                                         onChange={(e) => { const newTags = [...(action.params?.tags || [""])]; newTags[tIdx] = e.target.value; updateAction(idx, { params: { tags: newTags } }); }}
-                                                        className="flex-1 bg-background/50 h-8 text-xs" />
+                                                        className="flex-1 bg-background/50 h-8 text-xs"
+                                                    />
                                                     {(action.params?.tags || []).length > 1 && (
                                                         <Button variant="ghost" size="sm" onClick={() => { const newTags = (action.params?.tags || []).filter((_: string, i: number) => i !== tIdx); updateAction(idx, { params: { tags: newTags } }); }} className="h-8 w-8 p-0 text-muted-foreground cursor-pointer"><X className="h-3 w-3" /></Button>
                                                     )}
@@ -396,9 +634,16 @@ export function RulesTab({ rules, setRules, existingTags, existingCollections, d
                                             </Button>
                                         </div>
                                     )}
-                                    {action.type === "add_to_collection" && (
-                                        <Input placeholder="Collection name..." value={action.params?.collectionName || ""} list="existing-collections"
-                                            onChange={(e) => updateAction(idx, { params: { collectionName: e.target.value } })} className="bg-background/50 h-8 text-xs" />
+
+                                    {/* Collection name input */}
+                                    {(action.type === "add_to_collection" || action.type === "remove_from_collection") && (
+                                        <Input
+                                            placeholder="Collection name..."
+                                            value={action.params?.collectionName || ""}
+                                            list="existing-collections"
+                                            onChange={(e) => updateAction(idx, { params: { collectionName: e.target.value } })}
+                                            className="bg-background/50 h-8 text-xs"
+                                        />
                                     )}
                                 </div>
                             ))}

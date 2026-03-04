@@ -65,6 +65,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
     const [counts, setCounts] = useState(initialCounts || { all: 0, readLater: 0, archived: 0, nsfw: 0 });
     const [collectionFormOpen, setCollectionFormOpen] = useState(false);
     const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+    const [maintenanceStats, setMaintenanceStats] = useState<{ missingThumbnails: number; missingEmbeddings: number } | null>(null);
 
     const settingsTabs = [
         { id: "general", label: "General", icon: Settings2 },
@@ -125,6 +126,18 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         fetchCollections();
         fetchCounts();
     }, [fetchTags, fetchCollections, fetchCounts, refreshTrigger]);
+
+    // Maintenance stats polling — check for missing thumbnails/embeddings every 5 min
+    useEffect(() => {
+        const fetchMaintenance = () =>
+            fetch("/api/maintenance")
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) setMaintenanceStats(d); })
+                .catch(() => { });
+        fetchMaintenance();
+        const interval = setInterval(fetchMaintenance, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         const handleGlobalRefresh = () => {
@@ -210,21 +223,30 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                                         <span>Back to Library</span>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
-                                {settingsTabs.map((tab) => (
-                                    <SidebarMenuItem key={tab.id}>
-                                        <SidebarMenuButton
-                                            onClick={() => {
-                                                setOpenMobile(false);
-                                                router.push(`/settings?tab=${tab.id}`);
-                                            }}
-                                            isActive={currentTab === tab.id}
-                                            className="cursor-pointer"
-                                        >
-                                            <tab.icon className="h-4 w-4" />
-                                            <span>{tab.label}</span>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
+                                {settingsTabs.map((tab) => {
+                                    const isTasksTab = tab.id === 'tasks';
+                                    const maintenanceTotal = isTasksTab ? ((maintenanceStats?.missingThumbnails ?? 0) + (maintenanceStats?.missingEmbeddings ?? 0)) : 0;
+                                    return (
+                                        <SidebarMenuItem key={tab.id}>
+                                            <SidebarMenuButton
+                                                onClick={() => {
+                                                    setOpenMobile(false);
+                                                    router.push(`/settings?tab=${tab.id}`);
+                                                }}
+                                                isActive={currentTab === tab.id}
+                                                className="cursor-pointer"
+                                            >
+                                                <tab.icon className="h-4 w-4" />
+                                                <span>{tab.label}</span>
+                                            </SidebarMenuButton>
+                                            {isTasksTab && maintenanceTotal > 0 && (
+                                                <SidebarMenuBadge className="text-[10px] bg-amber-500/15 text-amber-500 border border-amber-500/20 rounded-full px-1.5">
+                                                    {maintenanceTotal}
+                                                </SidebarMenuBadge>
+                                            )}
+                                        </SidebarMenuItem>
+                                    );
+                                })}
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>

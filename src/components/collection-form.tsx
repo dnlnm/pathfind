@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { HexColorPicker } from "react-colorful";
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +28,7 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [color, setColor] = useState("#3b82f6");
+    const [colorPickerOpen, setColorPickerOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const isEditing = !!collectionId;
@@ -81,17 +85,6 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
         setLoading(false);
     };
 
-    const colors = [
-        "#3b82f6", // blue
-        "#ef4444", // red
-        "#10b981", // emerald
-        "#f59e0b", // amber
-        "#8b5cf6", // violet
-        "#ec4899", // pink
-        "#6b7280", // gray
-        "#06b6d4", // cyan
-    ];
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md bg-card border-border/50">
@@ -126,18 +119,40 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
 
                     <div className="space-y-2">
                         <Label>Color</Label>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {colors.map((c) => (
+                        <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+                            <PopoverTrigger asChild>
                                 <button
-                                    key={c}
                                     type="button"
-                                    className={`w-6 h-6 rounded-full border-2 transition-all ${color === c ? "border-primary scale-110" : "border-transparent"
-                                        }`}
-                                    style={{ backgroundColor: c }}
-                                    onClick={() => setColor(c)}
-                                />
-                            ))}
-                        </div>
+                                    className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-border/50 bg-background/50 hover:bg-background/80 hover:border-border transition-colors cursor-pointer w-full"
+                                >
+                                    <span
+                                        className="w-4 h-4 rounded-full border border-white/10 shadow-sm shrink-0"
+                                        style={{ backgroundColor: color }}
+                                    />
+                                    <code className="text-[11px] font-mono uppercase text-muted-foreground">{color}</code>
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-3 space-y-3" align="start">
+                                <HexColorPicker color={color} onChange={setColor} style={{ width: "100%" }} />
+                                <Separator className="bg-border/30" />
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className="w-7 h-7 rounded-md shrink-0 border border-white/10"
+                                        style={{ backgroundColor: color }}
+                                    />
+                                    <Input
+                                        value={color}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setColor(val.startsWith("#") ? val : `#${val}`);
+                                        }}
+                                        className="h-7 text-xs font-mono bg-background/50 flex-1"
+                                        placeholder="#3b82f6"
+                                        maxLength={7}
+                                    />
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <div className="flex gap-2 justify-end pt-2">

@@ -4,9 +4,10 @@ import { getAuthenticatedUser } from "@/lib/api-auth";
 import { DbRule, RuleEvent } from "@/types";
 
 const VALID_EVENTS: RuleEvent[] = ["bookmark.created", "bookmark.updated"];
-const VALID_FIELDS = ["url", "title", "description", "domain"];
-const VALID_OPERATORS = ["contains", "starts_with", "equals", "matches_regex"];
-const VALID_ACTION_TYPES = ["add_tags", "add_to_collection", "mark_read_later", "mark_archived"];
+const VALID_FIELDS = ["url", "title", "description", "domain", "tags", "collection", "is_archived", "is_read_later", "is_nsfw", "always_true"];
+const VALID_OPERATORS = ["contains", "not_contains", "starts_with", "ends_with", "equals", "not_equals", "matches_regex", "is_true", "is_false", "is_empty", "is_not_empty"];
+const VALID_ACTION_TYPES = ["add_tags", "remove_tags", "add_to_collection", "remove_from_collection", "mark_read_later", "unmark_read_later", "mark_archived", "unmark_archived", "mark_nsfw", "unmark_nsfw"];
+const NO_VALUE_FIELDS = ["always_true", "is_archived", "is_read_later", "is_nsfw"];
 
 function toRule(row: DbRule) {
     return {
@@ -56,6 +57,9 @@ export async function PUT(
         for (const c of conditions) {
             if (!VALID_FIELDS.includes(c.field)) return NextResponse.json({ error: `Invalid field: ${c.field}` }, { status: 400 });
             if (!VALID_OPERATORS.includes(c.operator)) return NextResponse.json({ error: `Invalid operator: ${c.operator}` }, { status: 400 });
+            if (!NO_VALUE_FIELDS.includes(c.field) && (typeof c.value !== "string" || !c.value.trim())) {
+                return NextResponse.json({ error: "Condition value is required" }, { status: 400 });
+            }
         }
     }
     if (actions !== undefined) {

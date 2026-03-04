@@ -9,7 +9,7 @@ import { BookmarkForm } from "@/components/bookmark-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookmarkWithTags } from "@/types";
-import { Compass, LayoutGrid, List, SortAsc, Edit, Trash, CheckSquare, Square, Archive, Clock, Tag, FolderOpen, X } from "lucide-react";
+import { Compass, LayoutGrid, List, SortAsc, Edit, Trash, CheckSquare, Square, Archive, Clock, Tag, FolderOpen, X, AlertTriangle, Image as ImageIcon, Brain } from "lucide-react";
 import { CollectionForm } from "@/components/collection-form";
 import { toast } from "sonner";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -67,6 +67,8 @@ function BookmarkPageContent() {
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [sharedData, setSharedData] = useState<{ url?: string; title?: string; description?: string } | null>(null);
   const [nsfwDisplayMode, setNsfwDisplayMode] = useState<"blur" | "hide" | "show">("blur");
+  const [maintenanceStats, setMaintenanceStats] = useState<{ missingThumbnails: number; missingEmbeddings: number } | null>(null);
+  const [maintenanceDismissed, setMaintenanceDismissed] = useState(false);
 
   useEffect(() => {
     fetch("/api/collections")
@@ -79,6 +81,19 @@ function BookmarkPageContent() {
     if (saved && ["blur", "hide", "show"].includes(saved)) {
       setNsfwDisplayMode(saved);
     }
+  }, [refreshTrigger]);
+
+  // Maintenance stats polling — re-fetches immediately after any bookmark change
+  // (refreshTrigger increments on every save/edit/delete via handleRefresh)
+  useEffect(() => {
+    const fetchMaintenance = () =>
+      fetch("/api/maintenance")
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setMaintenanceStats(d); })
+        .catch(() => { });
+    fetchMaintenance();
+    const interval = setInterval(fetchMaintenance, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [refreshTrigger]);
 
   const [columns, setColumns] = useState(1);
@@ -370,6 +385,43 @@ function BookmarkPageContent() {
   return (
     <AppLayout bookmarkCounts={counts} refreshTrigger={refreshTrigger}>
       <Header onAddBookmark={() => setFormOpen(true)} />
+
+      {/* Maintenance notification banner */}
+      {!maintenanceDismissed && maintenanceStats && (maintenanceStats.missingThumbnails > 0 || maintenanceStats.missingEmbeddings > 0) && (
+        <div className="mx-4 md:mx-6 mt-4 flex items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-2.5 text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+          <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
+            <span className="font-medium text-foreground">Some bookmarks are missing data:</span>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              {maintenanceStats.missingThumbnails > 0 && (
+                <span className="flex items-center gap-1">
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  <span><strong className="text-foreground">{maintenanceStats.missingThumbnails}</strong> thumbnails</span>
+                </span>
+              )}
+              {maintenanceStats.missingEmbeddings > 0 && (
+                <span className="flex items-center gap-1">
+                  <Brain className="h-3.5 w-3.5" />
+                  <span><strong className="text-foreground">{maintenanceStats.missingEmbeddings}</strong> embeddings</span>
+                </span>
+              )}
+            </div>
+          </div>
+          <a
+            href="/settings?tab=tasks"
+            className="shrink-0 text-xs font-medium text-amber-500 hover:text-amber-400 underline-offset-2 hover:underline transition-colors"
+          >
+            Fix in Settings →
+          </a>
+          <button
+            onClick={() => setMaintenanceDismissed(true)}
+            className="shrink-0 p-1 rounded-md text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+            aria-label="Dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       <main className="flex-1 p-4 md:p-6 max-w-5xl mx-auto w-full">
         {/* Page title */}

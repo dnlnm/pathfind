@@ -12,6 +12,7 @@ import {
     PopoverContent,
     PopoverTrigger
 } from "@/components/ui/popover";
+import { useRef } from "react";
 import { Search, Plus, X, RefreshCw, ChevronRight, Loader2, CheckCircle2, AlertCircle, Sparkles, HelpCircle, Archive, Tag, FolderOpen, Clock, Globe, Info, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,16 @@ export function Header({ onAddBookmark }: HeaderProps) {
     const searchParams = useSearchParams();
     const [query, setQuery] = useState(searchParams.get("q") || "");
     const [taskStats, setTaskStats] = useState<any>(null);
+
+    // Autocomplete state
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const [triggerInfo, setTriggerInfo] = useState<{ type: string; start: number; length: number; prefix: string } | null>(null);
+    const [allTags, setAllTags] = useState<string[]>([]);
+    const [allCollections, setAllCollections] = useState<string[]>([]);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const suggestionsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchTasks = async () => {
@@ -41,8 +52,115 @@ export function Header({ onAddBookmark }: HeaderProps) {
 
         fetchTasks();
         const interval = setInterval(fetchTasks, 3000);
+
+        // Fetch tags and collections for autocomplete
+        fetch("/api/tags")
+            .then(res => res.json())
+            .then(data => setAllTags(data.map((t: any) => t.name)))
+            .catch(() => { });
+
+        fetch("/api/collections")
+            .then(res => res.json())
+            .then(data => setAllCollections(data.map((c: any) => c.name)))
+            .catch(() => { });
+
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        const input = inputRef.current;
+        if (!input) return;
+
+        const cursor = input.selectionStart || 0;
+        const beforeCursor = query.slice(0, cursor);
+
+        // Detect triggers: is:, has:, tag:, collection:, #tag
+        const isMatch = beforeCursor.match(/(?:^|\s)(-|!)?is:(\w*)$/i);
+        const hasMatch = beforeCursor.match(/(?:^|\s)(-|!)?has:(\w*)$/i);
+        const tagMatch = beforeCursor.match(/(?:^|\s)(-|!)?tag:(\w*)$/i);
+        const hashMatch = beforeCursor.match(/(?:^|\s)(-|!)?#(\w*)$/i);
+        const colMatch = beforeCursor.match(/(?:^|\s)(-|!)?collection:(\w*)$/i);
+
+        let type = "";
+        let prefix = "";
+        let start = 0;
+
+        if (isMatch) {
+            type = "is";
+            prefix = isMatch[2];
+            start = isMatch.index! + isMatch[0].length - prefix.length;
+        } else if (hasMatch) {
+            type = "has";
+            prefix = hasMatch[2];
+            start = hasMatch.index! + hasMatch[0].length - prefix.length;
+        } else if (tagMatch) {
+            type = "tag";
+            prefix = tagMatch[2];
+            start = tagMatch.index! + tagMatch[0].length - prefix.length;
+        } else if (hashMatch) {
+            type = "hash";
+            prefix = hashMatch[2];
+            start = hashMatch.index! + hashMatch[0].length - prefix.length;
+        } else if (colMatch) {
+            type = "collection";
+            prefix = colMatch[2];
+            start = colMatch.index! + colMatch[0].length - prefix.length;
+        }
+
+        if (type) {
+            let options: string[] = [];
+            if (type === "is") options = ["archived", "readlater", "nsfw", "broken", "tagged", "incollection"];
+            else if (type === "has") options = ["notes", "description", "thumbnail"];
+            else if (type === "tag" || type === "hash") options = allTags;
+            else if (type === "collection") options = allCollections;
+
+            const filtered = options.filter(opt => opt.toLowerCase().startsWith(prefix.toLowerCase())).slice(0, 8);
+            setSuggestions(filtered);
+            setTriggerInfo({ type, start, length: prefix.length, prefix });
+            setShowSuggestions(filtered.length > 0);
+            setSelectedIndex(0);
+        } else {
+            setShowSuggestions(false);
+            setTriggerInfo(null);
+        }
+    }, [query, allTags, allCollections]);
+
+    const selectSuggestion = (suggestion: string) => {
+        if (!triggerInfo) return;
+
+        const before = query.slice(0, triggerInfo.start);
+        const after = query.slice(triggerInfo.start + triggerInfo.length);
+
+        // For collections/tags with spaces, we might need quotes. For now keep simple.
+        const value = suggestion.includes(" ") ? `"${suggestion}"` : suggestion;
+        const newQuery = before + value + after;
+        setQuery(newQuery);
+        setShowSuggestions(false);
+
+        // Put cursor after the completion
+        setTimeout(() => {
+            const pos = triggerInfo.start + value.length;
+            inputRef.current?.setSelectionRange(pos, pos);
+            inputRef.current?.focus();
+        }, 0);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (showSuggestions) {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setSelectedIndex(prev => (prev + 1) % suggestions.length);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+            } else if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                selectSuggestion(suggestions[selectedIndex]);
+            } else if (e.key === "Escape") {
+                setShowSuggestions(false);
+            }
+        }
+    };
 
     const taskCount = (taskStats?.pending || 0) + (taskStats?.processing || 0);
 
@@ -79,11 +197,42 @@ export function Header({ onAddBookmark }: HeaderProps) {
                     <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
+                            ref={inputRef}
                             placeholder={searchParams.get("ai") === "true" ? "Semantic search..." : "Search bookmarks..."}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                             className="pl-9 pr-9 bg-muted/40 border-border/40 focus:bg-background transition-colors"
                         />
+                        {showSuggestions && (
+                            <div
+                                ref={suggestionsRef}
+                                className="absolute left-0 right-0 top-full mt-1 z-50 bg-card border border-border/50 rounded-lg shadow-2xl overflow-hidden py-1"
+                            >
+                                {suggestions.map((suggestion, index) => (
+                                    <button
+                                        key={suggestion}
+                                        type="button"
+                                        className={cn(
+                                            "w-full text-left px-4 py-2 text-sm transition-colors flex items-center gap-2",
+                                            index === selectedIndex ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                                        )}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            selectSuggestion(suggestion);
+                                        }}
+                                        onMouseEnter={() => setSelectedIndex(index)}
+                                    >
+                                        {triggerInfo?.type === "is" && <Archive className="h-3.5 w-3.5 opacity-50" />}
+                                        {triggerInfo?.type === "has" && <Info className="h-3.5 w-3.5 opacity-50" />}
+                                        {(triggerInfo?.type === "tag" || triggerInfo?.type === "hash") && <Tag className="h-3.5 w-3.5 opacity-50" />}
+                                        {triggerInfo?.type === "collection" && <FolderOpen className="h-3.5 w-3.5 opacity-50" />}
+                                        <span>{suggestion}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {query && (
                             <button
                                 type="button"

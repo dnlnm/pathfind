@@ -151,6 +151,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_rules_user_id ON rules(user_id);
   CREATE INDEX IF NOT EXISTS idx_rules_event ON rules(event);
 
+  CREATE TABLE IF NOT EXISTS maintenance_stats (
+    user_id TEXT PRIMARY KEY,
+    missing_thumbnails INTEGER DEFAULT 0,
+    missing_embeddings INTEGER DEFAULT 0,
+    scanned_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   -- Full Text Search Table
   CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
     id UNINDEXED,
