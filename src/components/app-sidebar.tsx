@@ -22,7 +22,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff, Copy, Users } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff, Copy, Users, Sparkles } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,8 @@ interface SidebarCollection {
     name: string;
     icon?: string;
     color?: string;
+    is_smart?: number;
+    query?: string | null;
     _count: { bookmarks: number };
 }
 
@@ -322,13 +324,17 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                                                 <SidebarMenuButton
                                                     onClick={() => navigate("all", undefined, collection.id)}
                                                     isActive={currentCollectionId === collection.id}
-                                                    className="cursor-pointer pr-14"
+                                                    className={cn("cursor-pointer pr-14", collection.is_smart && "text-primary/90 font-medium")}
                                                 >
-                                                    <div
-                                                        className="w-2 h-2 rounded-full mr-2"
-                                                        style={{ backgroundColor: collection.color || "var(--primary)" }}
-                                                    />
-                                                    <span>{collection.name}</span>
+                                                    {collection.is_smart ? (
+                                                        <Sparkles className="w-3.5 h-3.5 mr-2 text-primary shrink-0" />
+                                                    ) : (
+                                                        <div
+                                                            className="w-2 h-2 rounded-full mr-2"
+                                                            style={{ backgroundColor: collection.color || "var(--primary)" }}
+                                                        />
+                                                    )}
+                                                    <span className="truncate">{collection.name}</span>
                                                 </SidebarMenuButton>
 
                                                 <SidebarMenuBadge className="text-xs text-muted-foreground group-hover/menu-item:hidden">

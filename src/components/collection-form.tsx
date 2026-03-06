@@ -14,8 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 interface CollectionFormProps {
     open: boolean;
@@ -29,6 +30,8 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
     const [description, setDescription] = useState("");
     const [color, setColor] = useState("#3b82f6");
     const [colorPickerOpen, setColorPickerOpen] = useState(false);
+    const [isSmart, setIsSmart] = useState(false);
+    const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(false);
 
     const isEditing = !!collectionId;
@@ -41,11 +44,15 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
                     setName(data.name);
                     setDescription(data.description || "");
                     setColor(data.color || "#3b82f6");
+                    setIsSmart(!!data.is_smart);
+                    setQuery(data.query || "");
                 });
         } else if (!isEditing) {
             setName("");
             setDescription("");
             setColor("#3b82f6");
+            setIsSmart(false);
+            setQuery("");
         }
     }, [collectionId, open, isEditing]);
 
@@ -67,6 +74,8 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
                     name,
                     description: description || undefined,
                     color,
+                    is_smart: isSmart,
+                    query: isSmart ? query : undefined,
                 }),
             });
 
@@ -115,6 +124,38 @@ export function CollectionForm({ open, onOpenChange, collectionId, onSuccess }: 
                             rows={2}
                             className="bg-background/50 resize-none"
                         />
+                    </div>
+
+                    <div className="space-y-3 p-3 rounded-lg border border-primary/10 bg-primary/5">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                                <Label className="text-sm font-medium flex items-center gap-2">
+                                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                                    Smart Collection
+                                </Label>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Dynamic collection based on search query
+                                </p>
+                            </div>
+                            <Switch
+                                checked={isSmart}
+                                onCheckedChange={setIsSmart}
+                            />
+                        </div>
+
+                        {isSmart && (
+                            <div className="space-y-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <Label htmlFor="collection-query" className="text-xs">Search Query</Label>
+                                <Input
+                                    id="collection-query"
+                                    placeholder="e.g. has:notes is:readlater"
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    required={isSmart}
+                                    className="bg-background/50 h-8 text-sm"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-2">

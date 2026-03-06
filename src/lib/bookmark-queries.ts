@@ -25,12 +25,12 @@ export function getTagsForBookmark(bookmarkId: string): { id: string; name: stri
   `).all(bookmarkId) as { id: string; name: string }[];
 }
 
-export function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string; color?: string | null }[] {
+export function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string; color?: string | null; is_smart?: number; query?: string | null }[] {
   return db.prepare(`
-    SELECT c.id, c.name, c.color FROM collections c
+    SELECT c.id, c.name, c.color, c.is_smart, c.query FROM collections c
     JOIN bookmark_collections bc ON bc.collection_id = c.id
     WHERE bc.bookmark_id = ?
-  `).all(bookmarkId) as { id: string; name: string; color?: string | null }[];
+  `).all(bookmarkId) as { id: string; name: string; color?: string | null; is_smart?: number; query?: string | null }[];
 }
 
 function batchGetTagsForBookmarks(bookmarkIds: string[]): Map<string, { id: string; name: string }[]> {
@@ -51,20 +51,20 @@ function batchGetTagsForBookmarks(bookmarkIds: string[]): Map<string, { id: stri
   return result;
 }
 
-function batchGetCollectionsForBookmarks(bookmarkIds: string[]): Map<string, { id: string; name: string; color?: string | null }[]> {
-  const result = new Map<string, { id: string; name: string; color?: string | null }[]>();
+function batchGetCollectionsForBookmarks(bookmarkIds: string[]): Map<string, { id: string; name: string; color?: string | null; is_smart?: number; query?: string | null }[]> {
+  const result = new Map<string, { id: string; name: string; color?: string | null; is_smart?: number; query?: string | null }[]>();
   if (bookmarkIds.length === 0) return result;
   for (const id of bookmarkIds) result.set(id, []);
 
   const placeholders = bookmarkIds.map(() => "?").join(",");
   const rows = db.prepare(`
-    SELECT bc.bookmark_id, c.id, c.name, c.color FROM collections c
+    SELECT bc.bookmark_id, c.id, c.name, c.color, c.is_smart, c.query FROM collections c
     JOIN bookmark_collections bc ON bc.collection_id = c.id
     WHERE bc.bookmark_id IN (${placeholders})
-  `).all(...bookmarkIds) as { bookmark_id: string; id: string; name: string; color?: string | null }[];
+  `).all(...bookmarkIds) as { bookmark_id: string; id: string; name: string; color?: string | null; is_smart?: number; query?: string | null }[];
 
   for (const row of rows) {
-    result.get(row.bookmark_id)!.push({ id: row.id, name: row.name, color: row.color });
+    result.get(row.bookmark_id)!.push({ id: row.id, name: row.name, color: row.color, is_smart: row.is_smart, query: row.query });
   }
   return result;
 }

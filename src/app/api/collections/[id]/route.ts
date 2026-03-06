@@ -35,7 +35,7 @@ export async function PATCH(
 
     try {
         const body = await request.json();
-        const { name, description, icon, color } = body;
+        const { name, description, icon, color, is_smart, query } = body;
 
         const collection = db.prepare("SELECT id FROM collections WHERE id = ? AND user_id = ?").get(id, userAuth.id);
         if (!collection) {
@@ -55,9 +55,11 @@ export async function PATCH(
                 description = COALESCE(?, description),
                 icon = COALESCE(?, icon),
                 color = COALESCE(?, color),
+                is_smart = COALESCE(?, is_smart),
+                query = COALESCE(?, query),
                 updated_at = datetime('now')
             WHERE id = ?
-        `).run(name, description, icon, color, id);
+        `).run(name, description, icon, color, is_smart !== undefined ? (is_smart ? 1 : 0) : null, query, id);
 
         const updated = db.prepare("SELECT * FROM collections WHERE id = ?").get(id);
         return NextResponse.json(updated);

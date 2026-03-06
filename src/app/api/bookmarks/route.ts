@@ -127,8 +127,82 @@ export async function GET(request: NextRequest) {
     }
 
     if (collectionId) {
-        whereClauses.push("b.id IN (SELECT bc.bookmark_id FROM bookmark_collections bc WHERE bc.collection_id = ?)");
-        params.push(collectionId);
+        const collection = db.prepare("SELECT * FROM collections WHERE id = ? AND user_id = ?").get(collectionId, userAuth.id) as any;
+        if (collection) {
+            if (collection.is_smart && collection.query) {
+                const smartParsed = parseSearchQuery(collection.query);
+
+                // Merge text terms (simplified)
+                const smartFtsQuery = smartParsed.textTerms.filter(t => t.length > 0).map(t => `${t}*`).join(' ');
+                if (smartFtsQuery) {
+                    whereClauses.push("b.id IN (SELECT id FROM bookmarks_fts WHERE bookmarks_fts MATCH ?)");
+                    params.push(smartFtsQuery);
+                }
+
+                // Merge qualifiers
+                for (const q of smartParsed.qualifiers) {
+                    const negated = q.negated;
+                    const op = negated ? "!=" : "=";
+                    const notIn = negated ? "NOT IN" : "IN";
+
+                    switch (q.type) {
+                        case "is":
+                            if (q.value === "archived") {
+                                whereClauses.push(`b.is_archived ${op} 1`);
+                                explicitArchived = true;
+                            } else if (q.value === "readlater") {
+                                whereClauses.push(`b.is_read_later ${op} 1`);
+                                explicitReadLater = true;
+                            } else if (q.value === "nsfw") {
+                                whereClauses.push(`b.is_nsfw ${op} 1`);
+                            } else if (q.value === "broken") {
+                                whereClauses.push(`b.link_status ${op} 'broken'`);
+                            } else if (q.value === "tagged") {
+                                whereClauses.push(`b.id ${notIn} (SELECT bookmark_id FROM bookmark_tags)`);
+                            } else if (q.value === "incollection") {
+                                whereClauses.push(`b.id ${notIn} (SELECT bookmark_id FROM bookmark_collections)`);
+                            }
+                            break;
+                        case "has":
+                            if (q.value === "notes") {
+                                whereClauses.push(`(b.notes IS ${negated ? "" : "NOT"} NULL AND b.notes ${negated ? "=" : "!="} '')`);
+                            } else if (q.value === "description") {
+                                whereClauses.push(`(b.description IS ${negated ? "" : "NOT"} NULL AND b.description ${negated ? "=" : "!="} '')`);
+                            } else if (q.value === "thumbnail") {
+                                whereClauses.push(`(b.thumbnail IS ${negated ? "" : "NOT"} NULL AND b.thumbnail ${negated ? "=" : "!="} '')`);
+                            }
+                            break;
+                        case "url":
+                            whereClauses.push(`b.url ${negated ? "NOT" : ""} LIKE ?`);
+                            params.push(`%${q.value}%`);
+                            break;
+                        case "title":
+                            whereClauses.push(`b.title ${negated ? "NOT" : ""} LIKE ?`);
+                            params.push(`%${q.value}%`);
+                            break;
+                        case "tag":
+                            whereClauses.push(`b.id ${notIn} (SELECT bt.bookmark_id FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id WHERE t.name = ?)`);
+                            params.push(q.value);
+                            break;
+                        case "collection":
+                            whereClauses.push(`b.id ${notIn} (SELECT bc.bookmark_id FROM bookmark_collections bc JOIN collections c ON c.id = bc.collection_id WHERE c.name = ?)`);
+                            params.push(q.value);
+                            break;
+                        case "after":
+                            whereClauses.push(`b.created_at ${negated ? "<" : ">="} ?`);
+                            params.push(q.value);
+                            break;
+                        case "before":
+                            whereClauses.push(`b.created_at ${negated ? ">" : "<="} ?`);
+                            params.push(`${q.value} 23:59:59`);
+                            break;
+                    }
+                }
+            } else {
+                whereClauses.push("b.id IN (SELECT bc.bookmark_id FROM bookmark_collections bc WHERE bc.collection_id = ?)");
+                params.push(collectionId);
+            }
+        }
     }
 
     const nsfwFilter = searchParams.get("nsfw") || "";

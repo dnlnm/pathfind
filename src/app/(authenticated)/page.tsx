@@ -8,8 +8,8 @@ import { BookmarkCard } from "@/components/bookmark-card";
 import { BookmarkForm } from "@/components/bookmark-form";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookmarkWithTags } from "@/types";
-import { Compass, LayoutGrid, List, SortAsc, Edit, Trash, CheckSquare, Square, Archive, Clock, Tag, FolderOpen, X, AlertTriangle, Image as ImageIcon, Brain, Loader2 } from "lucide-react";
+import { BookmarkWithTags, DbCollection } from "@/types";
+import { Compass, LayoutGrid, List, SortAsc, Edit, Trash, CheckSquare, Square, Archive, Clock, Tag, FolderOpen, X, AlertTriangle, Image as ImageIcon, Brain, Loader2, MoreVertical } from "lucide-react";
 import { CollectionForm } from "@/components/collection-form";
 import { toast } from "sonner";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
@@ -361,16 +361,16 @@ function BookmarkPageContent() {
   const currentCollectionId = searchParams.get("collection") || "";
   const currentQuery = searchParams.get("q") || "";
 
-  const [currentCollectionName, setCurrentCollectionName] = useState("");
+  const [currentCollection, setCurrentCollection] = useState<DbCollection | null>(null);
 
   useEffect(() => {
     if (currentCollectionId) {
       fetch(`/api/collections/${currentCollectionId}`)
         .then(res => res.json())
-        .then(data => setCurrentCollectionName(data.name))
-        .catch(() => setCurrentCollectionName("Collection"));
+        .then(data => setCurrentCollection(data))
+        .catch(() => setCurrentCollection(null));
     } else {
-      setCurrentCollectionName("");
+      setCurrentCollection(null);
     }
   }, [currentCollectionId, refreshTrigger]);
 
@@ -378,8 +378,8 @@ function BookmarkPageContent() {
 
   const currentNsfw = searchParams.get("nsfw") || "";
 
-  const pageTitle = currentCollectionId
-    ? `Collection: ${currentCollectionName || "..."}`
+  const pageTitle = currentCollection
+    ? `Collection: ${currentCollection.name || "..."}`
     : currentTag
       ? `Tag: #${currentTag}`
       : currentQuery
@@ -464,38 +464,65 @@ function BookmarkPageContent() {
       )}
 
       <main className="flex-1 p-4 md:p-6 max-w-5xl mx-auto w-full">
-        {/* Page title */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">{pageTitle}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {total} bookmark{total !== 1 ? "s" : ""}
-              </p>
-            </div>
-            {currentCollectionId && (
-              <div className="flex items-center gap-1 ml-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
-                  onClick={() => {
-                    setEditingCollectionId(currentCollectionId);
-                    setCollectionFormOpen(true);
-                  }}
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            {currentCollection ? (
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ring-1 ring-black/10 dark:ring-white/10"
+                  style={{ backgroundColor: currentCollection.color || "hsl(var(--primary))" }}
                 >
-                  <Edit className="h-4 w-4" />
-                  <span className="sr-only">Edit collection</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash className="h-4 w-4" />
-                  <span className="sr-only">Delete collection</span>
-                </Button>
+                  <FolderOpen className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight">{currentCollection.name}</h2>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 rounded-full transition-colors">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-52 border-border/50 shadow-xl">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditingCollectionId(currentCollection.id);
+                            setCollectionFormOpen(true);
+                          }}
+                          className="cursor-pointer py-2"
+                        >
+                          <Edit className="h-4 w-4 mr-2.5 opacity-60" />
+                          Edit Collection
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="opacity-50" />
+                        <DropdownMenuItem
+                          onClick={() => setDeleteDialogOpen(true)}
+                          className="text-destructive focus:text-destructive focus:bg-destructive/5 cursor-pointer py-2"
+                        >
+                          <Trash className="h-4 w-4 mr-2.5 opacity-60" />
+                          Delete Collection
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-2">
+                    <span className="font-medium">{total} bookmark{total !== 1 ? "s" : ""}</span>
+                    {currentCollection.description && (
+                      <>
+                        <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                        <span className="truncate max-w-[200px] sm:max-w-md italic opacity-80">{currentCollection.description}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">{pageTitle}</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {total} bookmark{total !== 1 ? "s" : ""}
+                </p>
               </div>
             )}
           </div>
@@ -506,8 +533,10 @@ function BookmarkPageContent() {
               variant={isInSelectionMode ? "secondary" : "outline"}
               size="sm"
               className={cn(
-                "h-9 gap-2 text-xs cursor-pointer",
-                isInSelectionMode ? "border-primary/50 text-primary" : "text-muted-foreground"
+                "h-9 gap-2 text-xs cursor-pointer shadow-sm transition-all",
+                isInSelectionMode
+                  ? "border-primary/50 text-primary bg-primary/5"
+                  : "text-muted-foreground bg-background/50 border-border/40 hover:bg-background/80"
               )}
               onClick={() => {
                 if (isInSelectionMode) {
@@ -522,11 +551,13 @@ function BookmarkPageContent() {
             </Button>
 
             {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-9 w-[140px] bg-background/50 border-border/40 text-xs cursor-pointer">
-                  <SortAsc className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Sort by" />
+                <SelectTrigger className="h-9 w-[160px] bg-background/50 border-border/40 text-xs cursor-pointer transition-all hover:bg-background/80 shadow-sm">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <SortAsc className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <SelectValue placeholder="Sort by" />
+                  </div>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="newest" className="text-xs cursor-pointer">Newest First</SelectItem>
@@ -538,252 +569,258 @@ function BookmarkPageContent() {
             </div>
 
             {/* View Toggle */}
-            <div className="flex items-center border border-border/40 rounded-lg p-0.5 bg-muted/30">
+            <div className="flex items-center border border-border/40 rounded-lg p-0.5 bg-background/50 shadow-sm">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="icon"
-                className="h-7 w-7 cursor-pointer"
+                className="h-7 w-7 cursor-pointer transition-all"
                 onClick={() => toggleViewMode("list")}
               >
-                <List className="h-4 w-4" />
+                <List className="h-3.5 w-3.5" />
+                <span className="sr-only">List view</span>
               </Button>
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
-                className="h-7 w-7 cursor-pointer"
+                className="h-7 w-7 cursor-pointer transition-all"
                 onClick={() => toggleViewMode("grid")}
               >
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="sr-only">Grid view</span>
               </Button>
             </div>
           </div>
         </div>
 
         {/* Bookmark list */}
-        {loading && bookmarks.length === 0 ? (
-          <div className={cn(
-            "w-full",
-            viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              : "space-y-3"
-          )}>
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className={cn(
-                "rounded-xl",
-                viewMode === "grid" ? "h-[400px]" : "h-[110px] w-full"
-              )} />
-            ))}
-          </div>
-        ) : bookmarks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-              <Compass className="h-8 w-8 text-muted-foreground/50" />
+        {
+          loading && bookmarks.length === 0 ? (
+            <div className={cn(
+              "w-full",
+              viewMode === "grid"
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                : "space-y-3"
+            )}>
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className={cn(
+                  "rounded-xl",
+                  viewMode === "grid" ? "h-[400px]" : "h-[110px] w-full"
+                )} />
+              ))}
             </div>
-            <h3 className="text-lg font-medium text-muted-foreground">
-              {currentQuery ? "No bookmarks found" : "No bookmarks yet"}
-            </h3>
-            <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
-              {currentQuery
-                ? isAiSearch ? "Try a different semantic search term" : "Try a different search term"
-                : "Click the \"Add Bookmark\" button to save your first link"
-              }
-            </p>
-          </div>
-        ) : (
-          <>
-            <div
-              className="w-full relative transition-opacity duration-300"
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                opacity: loading && page === 1 ? 0.5 : 1,
-                pointerEvents: loading && page === 1 ? "none" : "auto",
-              }}
-            >
-              {virtualItems.map((virtualRow) => {
-                const startIdx = virtualRow.index * itemsPerRow;
-                const rowItems = visibleBookmarks.slice(startIdx, startIdx + itemsPerRow);
-
-                return (
-                  <div
-                    key={virtualRow.index}
-                    data-index={virtualRow.index}
-                    ref={virtualizer.measureElement}
-                    className={cn(
-                      "absolute top-0 left-0 w-full",
-                      viewMode === "grid"
-                        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4"
-                        : "flex flex-col pb-2"
-                    )}
-                    style={{
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
-                    {rowItems.map((bookmark) => (
-                      <BookmarkCard
-                        key={bookmark.id}
-                        bookmark={bookmark}
-                        onEdit={handleEdit}
-                        onRefresh={handleRefresh}
-                        layout={viewMode}
-                        isSelected={selectedIds.has(bookmark.id)}
-                        onSelect={handleSelect}
-                        selectionMode={isInSelectionMode || selectedIds.size > 0}
-                        nsfwDisplayMode={nsfwDisplayMode}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
+          ) : bookmarks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                <Compass className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+              <h3 className="text-lg font-medium text-muted-foreground">
+                {currentQuery ? "No bookmarks found" : "No bookmarks yet"}
+              </h3>
+              <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
+                {currentQuery
+                  ? isAiSearch ? "Try a different semantic search term" : "Try a different search term"
+                  : "Click the \"Add Bookmark\" button to save your first link"
+                }
+              </p>
             </div>
+          ) : (
+            <>
+              <div
+                className="w-full relative transition-opacity duration-300"
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  opacity: loading && page === 1 ? 0.5 : 1,
+                  pointerEvents: loading && page === 1 ? "none" : "auto",
+                }}
+              >
+                {virtualItems.map((virtualRow) => {
+                  const startIdx = virtualRow.index * itemsPerRow;
+                  const rowItems = visibleBookmarks.slice(startIdx, startIdx + itemsPerRow);
 
-            {/* Infinite loading indicator */}
-            {isFetchingNextPage && (
-              <div className="w-full flex items-center justify-center py-6 mt-4">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Bulk Actions Toolbar */}
-        {(isInSelectionMode || selectedIds.size > 0) && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="bg-card/95 backdrop-blur-md border border-border/50 shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-4 min-w-[320px] md:min-w-[450px]">
-              <div className="flex items-center gap-2 pr-4 border-r border-border/20">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg cursor-pointer hover:bg-muted"
-                  onClick={exitSelectionMode}
-                  disabled={bulkActionLoading}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="text-sm font-medium whitespace-nowrap">
-                  {selectedIds.size} selected
-                </div>
-              </div>
-
-              {bulkActionLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Processing…</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                    onClick={() => handleBulkAction("archive", { value: currentFilter !== "archived" })}
-                    disabled={selectedIds.size === 0}
-                  >
-                    <Archive className="h-4 w-4" />
-                    <span className="hidden md:inline">
-                      {currentFilter === "archived" ? "Unarchive" : "Archive"}
-                    </span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                    onClick={() => handleBulkAction("readLater", { value: currentFilter !== "readlater" })}
-                    disabled={selectedIds.size === 0}
-                  >
-                    <Clock className="h-4 w-4" />
-                    <span className="hidden md:inline">
-                      {currentFilter === "readlater" ? "Remove Read Later" : "Read Later"}
-                    </span>
-                  </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                        disabled={selectedIds.size === 0}
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                        <span className="hidden md:inline">Move to</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
-                      {currentCollectionId && (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() => handleBulkAction("removeFromCollection", { collectionIds: [currentCollectionId] })}
-                            className="cursor-pointer text-destructive/80 focus:text-destructive"
-                          >
-                            <X className="h-3.5 w-3.5 mr-2" />
-                            Remove from this collection
-                          </DropdownMenuItem>
-                          {collections.length > 0 && <DropdownMenuSeparator />}
-                        </>
+                  return (
+                    <div
+                      key={virtualRow.index}
+                      data-index={virtualRow.index}
+                      ref={virtualizer.measureElement}
+                      className={cn(
+                        "absolute top-0 left-0 w-full",
+                        viewMode === "grid"
+                          ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4"
+                          : "flex flex-col pb-2"
                       )}
-                      {collections.map(c => (
-                        <DropdownMenuItem
-                          key={c.id}
-                          onClick={() => handleBulkAction("addToCollection", { collectionIds: [c.id] })}
-                          className="cursor-pointer"
-                        >
-                          {c.name}
-                        </DropdownMenuItem>
+                      style={{
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      {rowItems.map((bookmark) => (
+                        <BookmarkCard
+                          key={bookmark.id}
+                          bookmark={bookmark}
+                          onEdit={handleEdit}
+                          onRefresh={handleRefresh}
+                          layout={viewMode}
+                          isSelected={selectedIds.has(bookmark.id)}
+                          onSelect={handleSelect}
+                          selectionMode={isInSelectionMode || selectedIds.size > 0}
+                          nsfwDisplayMode={nsfwDisplayMode}
+                        />
                       ))}
-                      {collections.length === 0 && !currentCollectionId && (
-                        <DropdownMenuItem disabled>No collections</DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </div>
+                  );
+                })}
+              </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
-                    onClick={() => setBulkTagDialogOpen(true)}
-                    disabled={selectedIds.size === 0}
-                  >
-                    <Tag className="h-4 w-4" />
-                    <span className="hidden md:inline">Add Tag</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 gap-2 text-destructive/80 hover:text-destructive hover:bg-destructive/10 text-xs cursor-pointer"
-                    onClick={() => setBulkDeleteDialogOpen(true)}
-                    disabled={selectedIds.size === 0}
-                  >
-                    <Trash className="h-4 w-4" />
-                    <span className="hidden md:inline">Delete</span>
-                  </Button>
+              {/* Infinite loading indicator */}
+              {isFetchingNextPage && (
+                <div className="w-full flex items-center justify-center py-6 mt-4">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
               )}
+            </>
+          )
+        }
 
-              <div className="ml-auto pl-2 border-l border-border/20">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-2 text-primary hover:bg-primary/10 text-xs cursor-pointer"
-                  onClick={() => handleSelectAll(selectedIds.size < bookmarks.length)}
-                  disabled={bookmarks.length === 0 || bulkActionLoading}
-                >
-                  {selectedIds.size < bookmarks.length ? (
-                    <>
-                      <CheckSquare className="h-4 w-4" />
-                      <span className="hidden md:inline">Select All ({bookmarks.length})</span>
-                    </>
-                  ) : (
-                    <>
-                      <Square className="h-4 w-4" />
-                      <span className="hidden md:inline">Deselect All</span>
-                    </>
-                  )}
-                </Button>
+        {/* Bulk Actions Toolbar */}
+        {
+          (isInSelectionMode || selectedIds.size > 0) && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="bg-card/95 backdrop-blur-md border border-border/50 shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-4 min-w-[320px] md:min-w-[450px]">
+                <div className="flex items-center gap-2 pr-4 border-r border-border/20">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg cursor-pointer hover:bg-muted"
+                    onClick={exitSelectionMode}
+                    disabled={bulkActionLoading}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm font-medium whitespace-nowrap">
+                    {selectedIds.size} selected
+                  </div>
+                </div>
+
+                {bulkActionLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processing…</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                      onClick={() => handleBulkAction("archive", { value: currentFilter !== "archived" })}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Archive className="h-4 w-4" />
+                      <span className="hidden md:inline">
+                        {currentFilter === "archived" ? "Unarchive" : "Archive"}
+                      </span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                      onClick={() => handleBulkAction("readLater", { value: currentFilter !== "readlater" })}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Clock className="h-4 w-4" />
+                      <span className="hidden md:inline">
+                        {currentFilter === "readlater" ? "Remove Read Later" : "Read Later"}
+                      </span>
+                    </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                          disabled={selectedIds.size === 0}
+                        >
+                          <FolderOpen className="h-4 w-4" />
+                          <span className="hidden md:inline">Move to</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        {currentCollectionId && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handleBulkAction("removeFromCollection", { collectionIds: [currentCollectionId] })}
+                              className="cursor-pointer text-destructive/80 focus:text-destructive"
+                            >
+                              <X className="h-3.5 w-3.5 mr-2" />
+                              Remove from this collection
+                            </DropdownMenuItem>
+                            {collections.length > 0 && <DropdownMenuSeparator />}
+                          </>
+                        )}
+                        {collections.map(c => (
+                          <DropdownMenuItem
+                            key={c.id}
+                            onClick={() => handleBulkAction("addToCollection", { collectionIds: [c.id] })}
+                            className="cursor-pointer"
+                          >
+                            {c.name}
+                          </DropdownMenuItem>
+                        ))}
+                        {collections.length === 0 && !currentCollectionId && (
+                          <DropdownMenuItem disabled>No collections</DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 gap-2 text-xs cursor-pointer hover:bg-muted"
+                      onClick={() => setBulkTagDialogOpen(true)}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Tag className="h-4 w-4" />
+                      <span className="hidden md:inline">Add Tag</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 gap-2 text-destructive/80 hover:text-destructive hover:bg-destructive/10 text-xs cursor-pointer"
+                      onClick={() => setBulkDeleteDialogOpen(true)}
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Trash className="h-4 w-4" />
+                      <span className="hidden md:inline">Delete</span>
+                    </Button>
+                  </div>
+                )}
+
+                <div className="ml-auto pl-2 border-l border-border/20">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-2 text-primary hover:bg-primary/10 text-xs cursor-pointer"
+                    onClick={() => handleSelectAll(selectedIds.size < bookmarks.length)}
+                    disabled={bookmarks.length === 0 || bulkActionLoading}
+                  >
+                    {selectedIds.size < bookmarks.length ? (
+                      <>
+                        <CheckSquare className="h-4 w-4" />
+                        <span className="hidden md:inline">Select All ({bookmarks.length})</span>
+                      </>
+                    ) : (
+                      <>
+                        <Square className="h-4 w-4" />
+                        <span className="hidden md:inline">Deselect All</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
       </main>
 
       <Dialog open={bulkTagDialogOpen} onOpenChange={setBulkTagDialogOpen}>
@@ -894,7 +931,7 @@ function BookmarkPageContent() {
           <DialogHeader>
             <DialogTitle>Delete Collection</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the collection <span className="font-semibold text-foreground">"{currentCollectionName}"</span>?
+              Are you sure you want to delete the collection <span className="font-semibold text-foreground">"{currentCollection?.name || "this collection"}"</span>?
               This will not delete the bookmarks within it, but they will no longer be part of this collection.
             </DialogDescription>
           </DialogHeader>

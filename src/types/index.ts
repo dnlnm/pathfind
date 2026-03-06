@@ -43,6 +43,8 @@ export interface DbCollection {
     description: string | null;
     icon: string | null;
     color: string | null;
+    is_smart?: number;
+    query?: string | null;
     user_id: string;
     created_at: string;
     updated_at: string;
@@ -69,7 +71,7 @@ export interface BookmarkWithTags {
     updatedAt: string;
     userId: string;
     tags: { id: string; name: string }[];
-    collections?: { id: string; name: string; color?: string | null }[];
+    collections?: { id: string; name: string; color?: string | null; is_smart?: number; query?: string | null }[];
 }
 
 export interface TagWithCount {
@@ -85,6 +87,8 @@ export interface CollectionWithCount {
     description: string | null;
     icon: string | null;
     color: string | null;
+    is_smart?: number;
+    query?: string | null;
     count: number;
 }
 

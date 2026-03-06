@@ -87,6 +87,8 @@ db.exec(`
     description TEXT,
     icon TEXT,
     color TEXT,
+    is_smart INTEGER DEFAULT 0,
+    query TEXT,
     user_id TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -454,6 +456,15 @@ try {
   })();
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE)");
   console.log("[Migration] Added username column and backfilled existing users");
+} catch (e) { /* Column already exists */ }
+
+// Migration: add is_smart and query to collections
+try {
+  db.exec("ALTER TABLE collections ADD COLUMN is_smart INTEGER DEFAULT 0");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE collections ADD COLUMN query TEXT");
 } catch (e) { /* Column already exists */ }
 
 export default db;

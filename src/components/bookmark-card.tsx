@@ -36,6 +36,7 @@ import {
     ArchiveRestore,
     EyeOff,
     Eye,
+    Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -240,17 +241,19 @@ export function BookmarkCard({
                         {/* Left Column: Favicon & Checkbox */}
                         <div className={cn(
                             "flex flex-col items-center gap-2.5 shrink-0",
-                            (!isGrid && !selectionMode) ? "hidden sm:flex" : "flex"
+                            (!isGrid && (!selectionMode || localBookmark.thumbnail)) ? "hidden sm:flex" : "flex",
+                            (isGrid && localBookmark.thumbnail) && "hidden"
                         )}>
-                            {(!isGrid || !bookmark.thumbnail) && (
+                            {(!isGrid || !localBookmark.thumbnail) && (
                                 <div className={cn(
                                     "mt-0.5 w-8 h-8 rounded-lg bg-muted/50 border border-border/30 flex items-center justify-center shrink-0 overflow-hidden",
+                                    !isGrid && "hidden sm:flex",
                                     isGrid ? "w-10 h-10 mt-0" : ""
                                 )}>
-                                    {bookmark.favicon ? (
+                                    {localBookmark.favicon ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
-                                            src={bookmark.favicon}
+                                            src={localBookmark.favicon!}
                                             alt=""
                                             className="w-5 h-5 object-contain"
                                             onError={(e) => {
@@ -279,11 +282,11 @@ export function BookmarkCard({
                                 </div>
                             )}
 
-                            {selectionMode && !bookmark.thumbnail && (
+                            {selectionMode && !localBookmark.thumbnail && (
                                 <div className="flex items-center justify-center py-1">
                                     <Checkbox
                                         checked={isSelected}
-                                        onCheckedChange={(checked) => onSelect?.(bookmark.id, !!checked)}
+                                        onCheckedChange={(checked) => onSelect?.(localBookmark.id, !!checked)}
                                         className="bg-background/80 shadow-sm"
                                         onClick={(e) => e.stopPropagation()}
                                     />
@@ -390,8 +393,14 @@ export function BookmarkCard({
                                             }
                                         }}
                                     >
-                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: col.color || "hsl(var(--primary))" }} />
-                                        {col.name}
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            {col.is_smart ? (
+                                                <Sparkles className="w-3 h-3 text-primary shrink-0" />
+                                            ) : (
+                                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: col.color || "hsl(var(--primary))" }} />
+                                            )}
+                                            <span className="truncate max-w-[120px]">{col.name}</span>
+                                        </div>
                                     </Badge>
                                 ))}
                                 {localBookmark.isReadLater && (
