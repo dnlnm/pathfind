@@ -1,5 +1,6 @@
 import db from "../../db";
 import { fetchUrlMetadata } from "../../metadata-fetcher";
+import { saveThumbnailFromUrl } from "../../thumbnail-store";
 import { generateEmbedding } from "../../gemini";
 import { evaluateRules } from "../../rule-engine";
 import { logDebug } from "../logger";
@@ -22,6 +23,16 @@ export async function handleMetadataFetch(job: any, payload: any) {
         upsertDomainFavicon(bookmark.url, metadata.favicon);
     }
 
+    // Try to save thumbnail from OG image URL as a WebP file
+    let thumbnailValue: string | null = null;
+    if (metadata.thumbnailUrl) {
+        thumbnailValue = await saveThumbnailFromUrl(bookmarkId, metadata.thumbnailUrl);
+    }
+    // Fall back to dynamic SVG path if no image could be saved
+    if (!thumbnailValue) {
+        thumbnailValue = metadata.fallbackThumbnail;
+    }
+
     db.prepare(`
         UPDATE bookmarks 
         SET 
@@ -34,7 +45,7 @@ export async function handleMetadataFetch(job: any, payload: any) {
     `).run(
         metadata.title || '',
         metadata.description || '',
-        metadata.thumbnail || '',
+        thumbnailValue || '',
         metadata.isNsfw ? 1 : 0,
         bookmarkId
     );

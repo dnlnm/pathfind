@@ -1,5 +1,6 @@
 import db from "@/lib/db";
 import { DbBookmark, BookmarkWithTags } from "@/types";
+import { resolveThumbnailUrl } from "@/lib/thumbnail-store";
 
 export function getDomainFavicon(url: string): string | null {
   try {
@@ -71,7 +72,7 @@ export function toBookmarkWithTags(row: DbBookmark): BookmarkWithTags {
     description: row.description,
     notes: row.notes,
     favicon: getDomainFavicon(row.url),
-    thumbnail: row.thumbnail,
+    thumbnail: resolveThumbnailUrl(row.thumbnail),
     isArchived: !!row.is_archived,
     isReadLater: !!row.is_read_later,
     isNsfw: !!row.is_nsfw,
@@ -97,7 +98,7 @@ export function toBookmarksWithTagsBatch(rows: DbBookmark[]): BookmarkWithTags[]
     description: row.description,
     notes: row.notes,
     favicon: getDomainFavicon(row.url),
-    thumbnail: row.thumbnail,
+    thumbnail: resolveThumbnailUrl(row.thumbnail),
     isArchived: !!row.is_archived,
     isReadLater: !!row.is_read_later,
     isNsfw: !!row.is_nsfw,

@@ -14,5 +14,17 @@ export async function POST(request: Request) {
     }
 
     const metadata = await fetchUrlMetadata(url);
-    return NextResponse.json(metadata);
+
+    // Return a format the frontend expects.
+    // The thumbnail is either the raw URL (for preview) or the SVG fallback. 
+    // The actual file saving happens when the bookmark is created/updated.
+    return NextResponse.json({
+        title: metadata.title,
+        description: metadata.description,
+        favicon: metadata.favicon,
+        thumbnail: metadata.thumbnailUrl || metadata.fallbackThumbnail,
+        // Keep the raw URL so the bookmark creation can save it as a file
+        thumbnailUrl: metadata.thumbnailUrl,
+        isNsfw: metadata.isNsfw,
+    });
 }

@@ -1,4 +1,4 @@
-import db from "../db";
+import db, { migrateBase64Thumbnails } from "../db";
 import { logDebug } from "./logger";
 import { runWorkerLane } from "./lane-runner";
 import { runSchedulerLoop, runMaintenanceScanLoop } from "./scheduler";
@@ -23,6 +23,11 @@ export async function startWorker() {
     logDebug("[Worker] Background worker started");
 
     recoverStaleJobs();
+
+    // Run async migration in background (non-blocking)
+    migrateBase64Thumbnails().catch(e => {
+        console.error("[Worker] Base64 thumbnail migration failed:", e);
+    });
 
     // Parallel lanes — each one processes its own job types independently
     for (let i = 0; i < 5; i++) {

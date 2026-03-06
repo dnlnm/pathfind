@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
+import { saveThumbnailFromUrl, saveThumbnailFromBase64, deleteThumbnail } from "@/lib/thumbnail-store";
 import { DbBookmark } from "@/types";
 import { toBookmarkWithTags as toBookmarkResponse } from "@/lib/bookmark-queries";
 
@@ -53,19 +54,36 @@ export async function PUT(
 
     // Fetch missing metadata if any are null or URL changed
     // But don't overwrite finalThumbnail if it was explicitly provided in the body
+    let thumbnailUrl: string | null = null;
     if ((url && url !== existing.url) || (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) || (isRedditURL && isNsfw === false)) {
         const fetched = await fetchUrlMetadata(resolvedUrl);
         if (fetched.favicon) {
             upsertDomainFavicon(resolvedUrl, fetched.favicon);
         }
         if (finalThumbnail === null && !body.hasOwnProperty('thumbnail')) {
-            finalThumbnail = fetched.thumbnail;
+            thumbnailUrl = fetched.thumbnailUrl;
+            finalThumbnail = fetched.fallbackThumbnail;
         }
         if (!finalTitle) finalTitle = fetched.title;
         if (!finalDescription) finalDescription = fetched.description;
         if ((isNsfw === undefined || isNsfw === false) && fetched.isNsfw === true) {
             finalIsNsfw = true;
         }
+    }
+
+    // Handle thumbnail file saving before DB update
+    if (thumbnail && thumbnail.startsWith('data:image')) {
+        // User uploaded a new base64 thumbnail
+        const savedPath = await saveThumbnailFromBase64(id, thumbnail);
+        if (savedPath) finalThumbnail = savedPath;
+    } else if (thumbnail && thumbnail.startsWith('http')) {
+        // Raw HTTP URL from form's metadata preview
+        const savedPath = await saveThumbnailFromUrl(id, thumbnail);
+        if (savedPath) finalThumbnail = savedPath;
+    } else if (thumbnailUrl) {
+        // We got a new OG image URL from metadata
+        const savedPath = await saveThumbnailFromUrl(id, thumbnailUrl);
+        if (savedPath) finalThumbnail = savedPath;
     }
 
     const updateBookmark = db.transaction(() => {
@@ -134,5 +152,6 @@ export async function DELETE(
     }
 
     db.prepare("DELETE FROM bookmarks WHERE id = ?").run(id);
+    deleteThumbnail(id);
     return NextResponse.json({ success: true });
 }

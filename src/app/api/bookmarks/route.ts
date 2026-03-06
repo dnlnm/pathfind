@@ -5,6 +5,7 @@ import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { generateEmbedding } from "@/lib/gemini";
 import { evaluateRules } from "@/lib/rule-engine";
 import { normalizeUrl } from "@/lib/url-normalizer";
+import { saveThumbnailFromUrl, saveThumbnailFromBase64 } from "@/lib/thumbnail-store";
 import { DbBookmark } from "@/types";
 import { toBookmarkWithTags, toBookmarksWithTagsBatch } from "@/lib/bookmark-queries";
 
@@ -188,6 +189,7 @@ export async function POST(request: NextRequest) {
 
     // We fetch metadata if anything is missing, OR if it's a Reddit link and the client didn't explicitly send isNsfw as true.
     // This allows us to "promote" a default `false` from the UI to `true` if Reddit says it's 18+.
+    let thumbnailUrl: string | null = null;
     if (!finalTitle || !finalDescription || !finalThumbnail || (isReddit && isNsfw === false)) {
         const fetched = await fetchUrlMetadata(url);
         finalTitle = finalTitle || fetched.title;
@@ -196,14 +198,16 @@ export async function POST(request: NextRequest) {
             upsertDomainFavicon(url, fetched.favicon);
         }
         if (!finalThumbnail) {
-            finalThumbnail = fetched.thumbnail;
+            // Save the raw thumbnail URL; we'll persist it as a file after we have the bookmark ID
+            thumbnailUrl = fetched.thumbnailUrl;
+            finalThumbnail = fetched.fallbackThumbnail; // SVG fallback for now
         }
         if ((isNsfw === undefined || isNsfw === false) && fetched.isNsfw === true) {
             finalIsNsfw = true;
         }
     }
 
-    let id: string;
+    let id: string = '';
     let isUpdate = false;
 
     const createOrUpdate = db.transaction(() => {
@@ -255,6 +259,40 @@ export async function POST(request: NextRequest) {
     });
 
     createOrUpdate();
+
+    // Save thumbnail to disk after transaction (we need the bookmark ID)
+    if (!isUpdate) {
+        // Handle thumbnail input: base64 from user, URL from metadata, or SVG path
+        if (thumbnail && thumbnail.startsWith('data:image')) {
+            const savedPath = await saveThumbnailFromBase64(id, thumbnail);
+            if (savedPath) {
+                db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
+            }
+        } else if (thumbnail && thumbnail.startsWith('http')) {
+            // Raw HTTP URL from the form's metadata preview
+            const savedPath = await saveThumbnailFromUrl(id, thumbnail);
+            if (savedPath) {
+                db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
+            }
+        } else if (thumbnailUrl) {
+            const savedPath = await saveThumbnailFromUrl(id, thumbnailUrl);
+            if (savedPath) {
+                db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
+            }
+        }
+    } else if (thumbnail && thumbnail.startsWith('data:image')) {
+        // Update case: user uploaded a new base64 thumbnail
+        const savedPath = await saveThumbnailFromBase64(id, thumbnail);
+        if (savedPath) {
+            db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
+        }
+    } else if (thumbnail && thumbnail.startsWith('http')) {
+        // Update case: raw HTTP URL from form
+        const savedPath = await saveThumbnailFromUrl(id, thumbnail);
+        if (savedPath) {
+            db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
+        }
+    }
 
     // Evaluate rule engine
     const bookmarkForRules = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;

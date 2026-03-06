@@ -4,10 +4,10 @@ async function parseHtmlMetadata(html: string, url: string) {
 
     const getMeta = (prop: string) => {
         const patterns = [
-            new RegExp(`<meta[^>]*property=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i"),
-            new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*property=["']${prop}["']`, "i"),
-            new RegExp(`<meta[^>]*name=["']${prop}["'][^>]*content=["']([^"']*)["']`, "i"),
-            new RegExp(`<meta[^>]*content=["']([^"']*)["'][^>]*name=["']${prop}["']`, "i")
+            new RegExp(`<meta[^>]*property=["']${prop}["'][^>]*content=["']([^"']*?)["']`, "i"),
+            new RegExp(`<meta[^>]*content=["']([^"']*?)["'][^>]*property=["']${prop}["']`, "i"),
+            new RegExp(`<meta[^>]*name=["']${prop}["'][^>]*content=["']([^"']*?)["']`, "i"),
+            new RegExp(`<meta[^>]*content=["']([^"']*?)["'][^>]*name=["']${prop}["']`, "i")
         ];
 
         for (const pattern of patterns) {
@@ -29,10 +29,15 @@ async function parseHtmlMetadata(html: string, url: string) {
     }
 
     const description = getMeta("og:description") || getMeta("description") || getMeta("twitter:description");
-    let thumbnail = getMeta("og:image") || getMeta("twitter:image");
+    // Return raw thumbnail URL instead of converting to base64
+    let thumbnailUrl = getMeta("og:image") || getMeta("twitter:image");
+    // Ensure it's an absolute URL
+    if (thumbnailUrl && !thumbnailUrl.startsWith("http")) {
+        try { thumbnailUrl = new URL(thumbnailUrl, url).href; } catch { thumbnailUrl = null; }
+    }
 
-    const faviconMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']*)["']/i) ||
-        html.match(/<link[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut )?icon["']/i);
+    const faviconMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']*?)["']/i) ||
+        html.match(/<link[^>]*href=["']([^"']*?)["'][^>]*rel=["'](?:shortcut )?icon["']/i);
 
     let favicon: string | null = null;
     if (faviconMatch) {
@@ -55,18 +60,19 @@ async function parseHtmlMetadata(html: string, url: string) {
         }
     }
 
-    let finalThumbnail = thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail;
     const hostname = isReddit ? "reddit.com" : urlObj.hostname;
 
-    if (!finalThumbnail && title) {
-        finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`;
-    }
+    // Determine fallback: dynamic SVG if no OG image
+    const fallbackThumbnail = title
+        ? `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`
+        : null;
 
     return {
         title,
         description,
         favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
-        thumbnail: finalThumbnail,
+        thumbnailUrl: thumbnailUrl || null,  // raw HTTP URL for the caller to save as file
+        fallbackThumbnail,                   // SVG fallback path if thumbnailUrl is null
         isNsfw: undefined
     };
 }
@@ -94,14 +100,23 @@ function isPrivateHostname(hostname: string): boolean {
     return false;
 }
 
-export async function fetchUrlMetadata(url: string) {
+export interface FetchedMetadata {
+    title: string | null;
+    description: string | null;
+    favicon: string | null;
+    thumbnailUrl: string | null;
+    fallbackThumbnail: string | null;
+    isNsfw: boolean | undefined;
+}
+
+export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
     console.log(`[Metadata] Fetching: ${url}`);
     try {
         const urlObj = new URL(url);
 
         if (isPrivateHostname(urlObj.hostname)) {
             console.warn(`[Metadata] Blocked request to private/internal address: ${urlObj.hostname}`);
-            return { title: null, description: null, favicon: null, thumbnail: null, isNsfw: undefined };
+            return { title: null, description: null, favicon: null, thumbnailUrl: null, fallbackThumbnail: null, isNsfw: undefined };
         }
         const isReddit = urlObj.hostname.includes("reddit.com");
 
@@ -156,43 +171,42 @@ export async function fetchUrlMetadata(url: string) {
                         const title = postData.title || postData.display_name_prefixed || postData.name || null;
 
                         // Extract thumbnail with gallery support
-                        let thumbnail = null;
+                        let thumbnailUrl = null;
 
                         if (postData.is_gallery && postData.media_metadata) {
                             // Focus on the first item in media_metadata
                             const firstMediaId = Object.keys(postData.media_metadata)[0];
                             const firstMedia = postData.media_metadata[firstMediaId];
                             if (firstMedia?.s?.u) {
-                                thumbnail = firstMedia.s.u.replace(/&amp;/g, "&");
+                                thumbnailUrl = firstMedia.s.u.replace(/&amp;/g, "&");
                             }
                         }
 
                         // Try Video/Oembed thumbnails (YouTube, native Video, etc.)
-                        if (!thumbnail) {
+                        if (!thumbnailUrl) {
                             const media = postData.secure_media || postData.media;
                             if (media?.oembed?.thumbnail_url) {
-                                thumbnail = media.oembed.thumbnail_url;
+                                thumbnailUrl = media.oembed.thumbnail_url;
                             }
                         }
 
-                        if (!thumbnail) {
-                            thumbnail = postData.preview?.images[0]?.source?.url?.replace(/&amp;/g, "&") ||
+                        if (!thumbnailUrl) {
+                            thumbnailUrl = postData.preview?.images[0]?.source?.url?.replace(/&amp;/g, "&") ||
                                 (postData.thumbnail?.startsWith("http") ? postData.thumbnail : null);
                         }
 
-                        let finalThumbnail = thumbnail && thumbnail.startsWith('http') ? await imageUrlToBase64(thumbnail) : thumbnail;
-
-                        if (!finalThumbnail && title) {
-                            finalThumbnail = `/api/thumbnail?title=${encodeURIComponent(title)}&domain=reddit.com`;
-                        }
+                        const fallbackThumbnail = title
+                            ? `/api/thumbnail?title=${encodeURIComponent(title)}&domain=reddit.com`
+                            : null;
 
                         const isNsfw = !!postData.over_18;
 
-                        const result = {
+                        const result: FetchedMetadata = {
                             title,
                             description: postData.selftext?.substring(0, 200) || postData.public_description || postData.description?.substring(0, 200) || null,
                             favicon: await imageUrlToBase64("https://www.reddit.com/favicon.ico", 50 * 1024),
-                            thumbnail: finalThumbnail,
+                            thumbnailUrl,
+                            fallbackThumbnail,
                             isNsfw
                         };
                         console.log(`[Metadata] Reddit JSON Success:`, result.title);
@@ -243,22 +257,25 @@ export async function fetchUrlMetadata(url: string) {
             clearTimeout(timeout);
         }
 
-        const result = await parseHtmlMetadata(html || "", url);
+        const parsed = await parseHtmlMetadata(html || "", url);
 
-        console.log(`[Metadata] Final result:`, result.title);
-        return result;
+        console.log(`[Metadata] Final result:`, parsed.title);
+        return parsed;
     } catch (e) {
         console.error(`[Metadata] Error fetching ${url}:`, e);
-        return { title: null, description: null, favicon: null, thumbnail: null, isNsfw: undefined };
+        return { title: null, description: null, favicon: null, thumbnailUrl: null, fallbackThumbnail: null, isNsfw: undefined };
     }
 }
 
+/**
+ * Convert an image URL to a base64 data URI.
+ * Still used for favicons (small images stored in DB).
+ */
 async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise<string | null> {
     try {
         if (!url || !url.startsWith('http')) return url;
 
         // Clean up Reddit preview URLs which are often blocked or blurred
-        // Example: https://preview.redd.it/xyz.jpg?width=640&blur=40... -> https://i.redd.it/xyz.jpg
         let targetUrl = url;
         if (url.includes("preview.redd.it") || url.includes("external-preview.redd.it")) {
             const match = url.match(/(?:preview|external-preview)\.redd\.it\/([^?]+)/);

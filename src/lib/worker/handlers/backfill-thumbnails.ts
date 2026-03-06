@@ -1,5 +1,6 @@
 import db, { upsertDomainFavicon } from "../../db";
 import { fetchUrlMetadata } from "../../metadata-fetcher";
+import { saveThumbnailFromUrl } from "../../thumbnail-store";
 import { logDebug, isJobCancelled } from "../logger";
 import { initJobProgress, updateJobProgress } from "../progress";
 
@@ -39,21 +40,31 @@ export async function handleBackfillThumbnails(job: any, payload: any) {
             if (metadata.favicon) {
                 upsertDomainFavicon(bm.url, metadata.favicon);
             }
-            if (metadata.thumbnail) {
+
+            // Try to save thumbnail from the OG image URL
+            let savedPath: string | null = null;
+            if (metadata.thumbnailUrl) {
+                savedPath = await saveThumbnailFromUrl(bm.id, metadata.thumbnailUrl);
+            }
+
+            // Use saved file path, or fall back to dynamic SVG path
+            const thumbnailValue = savedPath || metadata.fallbackThumbnail;
+
+            if (thumbnailValue) {
                 if (overwrite) {
                     db.prepare(`
                         UPDATE bookmarks SET
                             thumbnail = ?,
                             updated_at = datetime('now')
                         WHERE id = ?
-                    `).run(metadata.thumbnail, bm.id);
+                    `).run(thumbnailValue, bm.id);
                 } else {
                     db.prepare(`
                         UPDATE bookmarks SET
                             thumbnail = ?,
                             updated_at = datetime('now')
                         WHERE id = ? AND (thumbnail IS NULL OR thumbnail = '')
-                    `).run(metadata.thumbnail, bm.id);
+                    `).run(thumbnailValue, bm.id);
                 }
             }
         } catch (e) {

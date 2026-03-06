@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
+import { saveThumbnailFromUrl } from "@/lib/thumbnail-store";
 import { normalizeUrl } from "@/lib/url-normalizer";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -76,11 +77,21 @@ export async function POST(req: NextRequest) {
                     if (metadata.favicon) {
                         upsertDomainFavicon(url, metadata.favicon);
                     }
+
+                    // Save thumbnail as WebP file, or use SVG fallback
+                    let thumbnailValue: string | null = null;
+                    if (metadata.thumbnailUrl) {
+                        thumbnailValue = await saveThumbnailFromUrl(id, metadata.thumbnailUrl);
+                    }
+                    if (!thumbnailValue) {
+                        thumbnailValue = metadata.fallbackThumbnail;
+                    }
+
                     const canonicalUrl = normalizeUrl(url);
                     db.prepare(`
                         INSERT INTO bookmarks (id, url, canonical_url, title, description, thumbnail, user_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
-                    `).run(id, url, canonicalUrl, metadata.title || url, metadata.description, metadata.thumbnail, user.id);
+                    `).run(id, url, canonicalUrl, metadata.title || url, metadata.description, thumbnailValue, user.id);
 
                     await sendMessage(chatId, `🔖 Saved: ${metadata.title || url}`);
                 } catch (error) {
