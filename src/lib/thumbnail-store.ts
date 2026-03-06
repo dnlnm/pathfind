@@ -103,28 +103,6 @@ export async function saveThumbnailFromUrl(
 }
 
 /**
- * Decode a data:image/...;base64,... URI and save as a WebP thumbnail.
- * Returns the relative path, or null on failure.
- */
-export async function saveThumbnailFromBase64(
-    id: string,
-    dataUri: string
-): Promise<string | null> {
-    try {
-        if (!dataUri || !dataUri.startsWith("data:image")) return null;
-
-        const base64Data = dataUri.split(",")[1];
-        if (!base64Data) return null;
-
-        const buffer = Buffer.from(base64Data, "base64");
-        return await saveThumbnail(id, buffer);
-    } catch (e) {
-        console.error(`[Thumbnails] Failed to save thumbnail from base64 for ${id}`, e);
-        return null;
-    }
-}
-
-/**
  * Delete a thumbnail file from disk.
  */
 export function deleteThumbnail(id: string): void {
@@ -142,22 +120,20 @@ export function deleteThumbnail(id: string): void {
  * Get the absolute file path for a thumbnail.
  */
 export function getThumbnailAbsolutePath(relativePath: string): string | null {
-    // relativePath = "thumbnails/abc.webp"
     const filename = path.basename(relativePath);
     const filePath = path.join(THUMBNAILS_DIR, filename);
     return fs.existsSync(filePath) ? filePath : null;
 }
 
 /**
- * Resolve a thumbnail value for display.
+ * Resolve a thumbnail value stored in DB to a displayable URL.
  * - "thumbnails/..." → "/api/thumbnails/..."
- * - "data:image/..." → passthrough (legacy, pre-migration)
- * - "/api/thumbnail?..." → passthrough (dynamic SVG)
+ * - "/api/thumbnail?..." → passthrough (dynamic SVG fallback)
  * - "http..." → passthrough
  */
 export function resolveThumbnailUrl(thumbnail: string | null): string | null {
     if (!thumbnail) return null;
-    if (thumbnail.startsWith("data:") || thumbnail.startsWith("http") || thumbnail.startsWith("/api/")) {
+    if (thumbnail.startsWith("http") || thumbnail.startsWith("/api/")) {
         return thumbnail;
     }
     if (thumbnail.startsWith("thumbnails/")) {

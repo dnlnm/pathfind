@@ -18,6 +18,13 @@ import { BookmarkWithTags } from "@/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+/** Resolve a thumbnail value to a displayable URL for <img> */
+function resolveThumbnailSrc(thumbnail: string): string {
+    if (thumbnail.startsWith("http") || thumbnail.startsWith("/api/")) return thumbnail;
+    if (thumbnail.startsWith("thumbnails/")) return `/api/${thumbnail}`;
+    return thumbnail;
+}
+
 interface BookmarkFormProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -193,7 +200,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
         setGenerating(false);
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -202,18 +209,30 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
             return;
         }
 
-        if (file.size > 2 * 1024 * 1024) {
-            toast.error("File size should be less than 2MB");
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("File size should be less than 5MB");
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const result = event.target?.result as string;
-            setThumbnail(result);
-            toast.success("Image uploaded successfully");
-        };
-        reader.readAsDataURL(file);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch("/api/thumbnails/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setThumbnail(data.path); // e.g. "thumbnails/upload-xxxxx.webp"
+                toast.success("Image uploaded successfully");
+            } else {
+                toast.error("Failed to upload image");
+            }
+        } catch {
+            toast.error("Failed to upload image");
+        }
     };
 
     const handleUrlBlur = () => {
@@ -662,7 +681,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                                     <>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
-                                            src={thumbnail}
+                                            src={resolveThumbnailSrc(thumbnail)}
                                             alt="Thumbnail preview"
                                             className="w-full h-full object-cover"
                                             onError={(e) => {

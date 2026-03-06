@@ -463,53 +463,17 @@ export function generateId(): string {
   return crypto.randomUUID();
 }
 
-export function upsertDomainFavicon(url: string, faviconBase64: string | null) {
-  if (!faviconBase64) return;
+export function upsertDomainFavicon(url: string, faviconUrl: string | null) {
+  if (!faviconUrl) return;
   try {
     const domain = new URL(url).hostname;
     if (domain) {
       db.prepare(`
         INSERT OR REPLACE INTO domain_favicons (domain, favicon, fetched_at) 
         VALUES (?, ?, datetime('now'))
-      `).run(domain, faviconBase64);
+      `).run(domain, faviconUrl);
     }
   } catch {
     // invalid URL
   }
 }
-
-/**
- * Async migration: convert existing base64 thumbnails to WebP files on disk.
- * Safe to call multiple times — only processes rows that still have data: URIs.
- */
-export async function migrateBase64Thumbnails() {
-  const { saveThumbnailFromBase64 } = await import("./thumbnail-store");
-
-  const rows = db.prepare(
-    "SELECT id, thumbnail FROM bookmarks WHERE thumbnail LIKE 'data:image%'"
-  ).all() as { id: string; thumbnail: string }[];
-
-  if (rows.length === 0) return;
-
-  console.log(`[Migration] Converting ${rows.length} base64 thumbnails to WebP files...`);
-  let converted = 0;
-  let failed = 0;
-
-  for (const row of rows) {
-    try {
-      const savedPath = await saveThumbnailFromBase64(row.id, row.thumbnail);
-      if (savedPath) {
-        db.prepare("UPDATE bookmarks SET thumbnail = ? WHERE id = ?").run(savedPath, row.id);
-        converted++;
-      } else {
-        failed++;
-      }
-    } catch (e) {
-      console.error(`[Migration] Failed to convert thumbnail for bookmark ${row.id}:`, e);
-      failed++;
-    }
-  }
-
-  console.log(`[Migration] Thumbnail conversion complete: ${converted} converted, ${failed} failed`);
-}
-

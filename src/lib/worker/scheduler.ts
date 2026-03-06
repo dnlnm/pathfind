@@ -1,5 +1,6 @@
 import db, { generateId } from "../db";
 import { logDebug } from "./logger";
+import { getThumbnailAbsolutePath } from "../thumbnail-store";
 
 // ---------------------------------------------------------------------------
 // Scheduler loop — creates periodic sync jobs
@@ -130,15 +131,32 @@ export async function runMaintenanceScanLoop() {
         try {
             const users = db.prepare("SELECT id FROM users").all() as { id: string }[];
             for (const user of users) {
-                const { count: missingThumbnails } = db.prepare(`
+                // Count bookmarks with no thumbnail value at all
+                const { count: nullThumbnails } = db.prepare(`
                     SELECT COUNT(*) as count FROM bookmarks
                     WHERE user_id = ? AND (thumbnail IS NULL OR thumbnail = '')
                 `).get(user.id) as { count: number };
+
+                // Also count bookmarks whose thumbnail file is missing from disk
+                const fileRefs = db.prepare(`
+                    SELECT thumbnail FROM bookmarks
+                    WHERE user_id = ? AND thumbnail IS NOT NULL AND thumbnail != '' AND thumbnail LIKE 'thumbnails/%'
+                `).all(user.id) as { thumbnail: string }[];
+
+                let orphanedFiles = 0;
+                for (const row of fileRefs) {
+                    if (!getThumbnailAbsolutePath(row.thumbnail)) {
+                        orphanedFiles++;
+                    }
+                }
+
+                const missingThumbnails = nullThumbnails + orphanedFiles;
 
                 const { count: missingEmbeddings } = db.prepare(`
                     SELECT COUNT(*) as count FROM bookmarks b
                     LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
                     WHERE b.user_id = ? AND IFNULL(b.is_nsfw, 0) = 0 AND v.rowid IS NULL
+                    AND b.created_at < datetime('now', '-15 minutes')
                 `).get(user.id) as { count: number };
 
                 db.prepare(`
@@ -150,7 +168,7 @@ export async function runMaintenanceScanLoop() {
                         scanned_at = excluded.scanned_at
                 `).run(user.id, missingThumbnails, missingEmbeddings);
 
-                logDebug(`[Worker] Maintenance scan: user=${user.id} missing_thumbs=${missingThumbnails} missing_embeds=${missingEmbeddings}`);
+                logDebug(`[Worker] Maintenance scan: user=${user.id} missing_thumbs=${missingThumbnails} (null=${nullThumbnails}, orphaned=${orphanedFiles}) missing_embeds=${missingEmbeddings}`);
             }
         } catch (e) {
             logDebug("[Worker] Error in maintenance scan loop: " + e);
@@ -160,3 +178,4 @@ export async function runMaintenanceScanLoop() {
         await new Promise(resolve => setTimeout(resolve, 30 * 60 * 1000));
     }
 }
+

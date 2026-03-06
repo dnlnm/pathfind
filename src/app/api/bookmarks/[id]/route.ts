@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
-import { saveThumbnailFromUrl, saveThumbnailFromBase64, deleteThumbnail } from "@/lib/thumbnail-store";
+import { saveThumbnailFromUrl, deleteThumbnail } from "@/lib/thumbnail-store";
 import { DbBookmark } from "@/types";
 import { toBookmarkWithTags as toBookmarkResponse } from "@/lib/bookmark-queries";
 
@@ -72,11 +72,7 @@ export async function PUT(
     }
 
     // Handle thumbnail file saving before DB update
-    if (thumbnail && thumbnail.startsWith('data:image')) {
-        // User uploaded a new base64 thumbnail
-        const savedPath = await saveThumbnailFromBase64(id, thumbnail);
-        if (savedPath) finalThumbnail = savedPath;
-    } else if (thumbnail && thumbnail.startsWith('http')) {
+    if (thumbnail && thumbnail.startsWith('http')) {
         // Raw HTTP URL from form's metadata preview
         const savedPath = await saveThumbnailFromUrl(id, thumbnail);
         if (savedPath) finalThumbnail = savedPath;

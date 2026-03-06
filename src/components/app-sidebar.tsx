@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
     Sidebar,
     SidebarContent,
@@ -49,6 +49,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTrigger }: AppSidebarProps) {
+    const { data: session } = useSession();
     const router = useRouter();
     const pathname = usePathname();
     const { setOpenMobile } = useSidebar();
@@ -77,7 +78,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         { id: "tasks", label: "Background Tasks", icon: RefreshCw },
         { id: "link-health", label: "Link Health", icon: LinkIcon },
         { id: "duplicates", label: "Duplicates", icon: Copy },
-        ...(userInfo?.role === "admin" ? [{ id: "users", label: "Users", icon: Users }] : []),
+        ...(((session?.user as any)?.role === "admin" || userInfo?.role === "admin") ? [{ id: "users", label: "Users", icon: Users }] : []),
     ];
 
     const fetchTags = useCallback(async () => {
@@ -456,9 +457,9 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                             </div>
                             <div className="flex flex-col min-w-0">
                                 <span className="text-xs font-medium truncate" suppressHydrationWarning>
-                                    @{userInfo?.username || userName || "user"}
+                                    @{(session?.user as any)?.username || userInfo?.username || userName || "user"}
                                 </span>
-                                {userInfo?.role === "admin" && (
+                                {((session?.user as any)?.role === "admin" || userInfo?.role === "admin") && (
                                     <span className="text-[10px] text-muted-foreground/60">Admin</span>
                                 )}
                             </div>

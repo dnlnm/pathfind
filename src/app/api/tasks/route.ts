@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { getThumbnailAbsolutePath } from "@/lib/thumbnail-store";
 
 export async function GET(request: NextRequest) {
     const session = await auth();
@@ -28,15 +29,34 @@ export async function GET(request: NextRequest) {
     `).all(userId);
 
     // Maintenance stats: how many bookmarks are missing thumbnails / embeddings
-    const missingThumbnails = (db.prepare(`
+    // Count bookmarks with no thumbnail value
+    const nullThumbnails = (db.prepare(`
         SELECT COUNT(*) as count FROM bookmarks 
         WHERE user_id = ? AND (thumbnail IS NULL OR thumbnail = '')
     `).get(userId) as { count: number }).count;
 
+    // Also count bookmarks whose thumbnail file no longer exists on disk
+    const fileRefs = db.prepare(`
+        SELECT id, thumbnail FROM bookmarks
+        WHERE user_id = ? AND thumbnail IS NOT NULL AND thumbnail != '' AND thumbnail LIKE 'thumbnails/%'
+    `).all(userId) as { id: string; thumbnail: string }[];
+
+    let orphanedFiles = 0;
+    for (const row of fileRefs) {
+        if (!getThumbnailAbsolutePath(row.thumbnail)) {
+            orphanedFiles++;
+        }
+    }
+
+    const missingThumbnails = nullThumbnails + orphanedFiles;
+
+    // Exclude bookmarks created in the last 15 minutes — the worker may not have
+    // had time to generate their embedding yet, so we avoid a spurious alert.
     const missingEmbeddings = (db.prepare(`
         SELECT COUNT(*) as count FROM bookmarks b
         LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
         WHERE b.user_id = ? AND IFNULL(b.is_nsfw, 0) = 0 AND v.rowid IS NULL
+        AND b.created_at < datetime('now', '-15 minutes')
     `).get(userId) as { count: number }).count;
 
     // Active bulk jobs with their progress

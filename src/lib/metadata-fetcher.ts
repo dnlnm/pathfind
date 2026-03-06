@@ -29,13 +29,14 @@ async function parseHtmlMetadata(html: string, url: string) {
     }
 
     const description = getMeta("og:description") || getMeta("description") || getMeta("twitter:description");
-    // Return raw thumbnail URL instead of converting to base64
+
+    // Return raw thumbnail URL — caller saves it as a WebP file
     let thumbnailUrl = getMeta("og:image") || getMeta("twitter:image");
-    // Ensure it's an absolute URL
     if (thumbnailUrl && !thumbnailUrl.startsWith("http")) {
         try { thumbnailUrl = new URL(thumbnailUrl, url).href; } catch { thumbnailUrl = null; }
     }
 
+    // Resolve favicon URL (stored as plain URL in domain_favicons)
     const faviconMatch = html.match(/<link[^>]*rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']*?)["']/i) ||
         html.match(/<link[^>]*href=["']([^"']*?)["'][^>]*rel=["'](?:shortcut )?icon["']/i);
 
@@ -49,20 +50,15 @@ async function parseHtmlMetadata(html: string, url: string) {
     }
 
     if (!favicon) {
-        try {
-            if (isReddit) {
-                favicon = "https://www.reddit.com/favicon.ico";
-            } else {
-                favicon = `https://twenty-icons.com/${urlObj.hostname}`;
-            }
-        } catch {
-            favicon = null;
+        if (isReddit) {
+            favicon = "https://www.reddit.com/favicon.ico";
+        } else {
+            favicon = `https://twenty-icons.com/${urlObj.hostname}`;
         }
     }
 
     const hostname = isReddit ? "reddit.com" : urlObj.hostname;
 
-    // Determine fallback: dynamic SVG if no OG image
     const fallbackThumbnail = title
         ? `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`
         : null;
@@ -70,9 +66,9 @@ async function parseHtmlMetadata(html: string, url: string) {
     return {
         title,
         description,
-        favicon: favicon ? await imageUrlToBase64(favicon, 50 * 1024) : null,
-        thumbnailUrl: thumbnailUrl || null,  // raw HTTP URL for the caller to save as file
-        fallbackThumbnail,                   // SVG fallback path if thumbnailUrl is null
+        favicon,
+        thumbnailUrl: thumbnailUrl || null,
+        fallbackThumbnail,
         isNsfw: undefined
     };
 }
@@ -125,8 +121,6 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
             try {
                 let resolvedUrl = url;
 
-                // Reddit share links like /r/sub/s/XXXXX are redirect URLs.
-                // Appending .json to them won't work — we must follow the redirect first.
                 const isShareLink = /\/s\/[a-zA-Z0-9]+\/?$/.test(urlObj.pathname);
                 if (isShareLink) {
                     console.log(`[Metadata] Reddit share link detected, resolving redirect...`);
@@ -137,13 +131,11 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                         },
                     });
-                    // After following the redirect, the final URL is the canonical post URL
                     resolvedUrl = headRes.url;
                     console.log(`[Metadata] Resolved Reddit URL: ${resolvedUrl}`);
                 }
 
-                // Ensure we handle various reddit URL formats correctly
-                let redditJsonUrl = resolvedUrl.replace(/\?.*$/, ""); // Remove query params for the JSON fetch
+                let redditJsonUrl = resolvedUrl.replace(/\?.*$/, "");
                 redditJsonUrl = redditJsonUrl.replace(/\/$/, "") + ".json";
 
                 console.log(`[Metadata] Reddit JSON URL: ${redditJsonUrl}`);
@@ -163,18 +155,16 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                         postData = data[0]?.data?.children[0]?.data;
                     } else if (data?.data?.children && data.data.children.length > 0) {
                         postData = data.data.children[0].data;
-                    } else if (data?.kind === "t5") { // Subreddit metadata
+                    } else if (data?.kind === "t5") {
                         postData = data.data;
                     }
 
                     if (postData) {
                         const title = postData.title || postData.display_name_prefixed || postData.name || null;
 
-                        // Extract thumbnail with gallery support
                         let thumbnailUrl = null;
 
                         if (postData.is_gallery && postData.media_metadata) {
-                            // Focus on the first item in media_metadata
                             const firstMediaId = Object.keys(postData.media_metadata)[0];
                             const firstMedia = postData.media_metadata[firstMediaId];
                             if (firstMedia?.s?.u) {
@@ -182,7 +172,6 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                             }
                         }
 
-                        // Try Video/Oembed thumbnails (YouTube, native Video, etc.)
                         if (!thumbnailUrl) {
                             const media = postData.secure_media || postData.media;
                             if (media?.oembed?.thumbnail_url) {
@@ -204,7 +193,7 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                         const result: FetchedMetadata = {
                             title,
                             description: postData.selftext?.substring(0, 200) || postData.public_description || postData.description?.substring(0, 200) || null,
-                            favicon: await imageUrlToBase64("https://www.reddit.com/favicon.ico", 50 * 1024),
+                            favicon: "https://www.reddit.com/favicon.ico",
                             thumbnailUrl,
                             fallbackThumbnail,
                             isNsfw
@@ -252,7 +241,6 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
             } else {
                 console.error(`[Metadata] Fetch error for ${url}:`, e);
             }
-            // Do not return here, try parsing what we have
         } finally {
             clearTimeout(timeout);
         }
@@ -264,72 +252,6 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
     } catch (e) {
         console.error(`[Metadata] Error fetching ${url}:`, e);
         return { title: null, description: null, favicon: null, thumbnailUrl: null, fallbackThumbnail: null, isNsfw: undefined };
-    }
-}
-
-/**
- * Convert an image URL to a base64 data URI.
- * Still used for favicons (small images stored in DB).
- */
-async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise<string | null> {
-    try {
-        if (!url || !url.startsWith('http')) return url;
-
-        // Clean up Reddit preview URLs which are often blocked or blurred
-        let targetUrl = url;
-        if (url.includes("preview.redd.it") || url.includes("external-preview.redd.it")) {
-            const match = url.match(/(?:preview|external-preview)\.redd\.it\/([^?]+)/);
-            if (match) {
-                targetUrl = `https://i.redd.it/${match[1]}`;
-            }
-        }
-
-        const fetchWithTimeout = async (imgUrl: string) => {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10000);
-            try {
-                const res = await fetch(imgUrl, {
-                    signal: controller.signal,
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
-                    },
-                });
-                const buffer = await res.arrayBuffer();
-                return { ok: res.ok, status: res.status, contentType: res.headers.get('content-type'), buffer };
-            } finally {
-                clearTimeout(timeout);
-            }
-        };
-
-        let result = await fetchWithTimeout(targetUrl).catch(() => null);
-
-        if ((!result || !result.ok) && targetUrl !== url) {
-            // Fall back to the original signed preview URL if the bare i.redd.it fails (usually 403/404)
-            result = await fetchWithTimeout(url).catch(() => null);
-        }
-
-        if (!result || !result.ok) {
-            console.warn(`[Metadata] Failed to fetch image: ${result?.status || 'error'} ${url}`);
-            return null;
-        }
-
-        const contentType = result.contentType;
-        if (!contentType || !contentType.startsWith('image/')) {
-            console.warn(`[Metadata] Invalid image content type: ${contentType} ${targetUrl}`);
-            return null;
-        }
-
-        if (result.buffer.byteLength > maxSize) {
-            console.warn(`[Metadata] Image too large: ${result.buffer.byteLength} bytes`);
-            return null;
-        }
-
-        const base64 = Buffer.from(result.buffer).toString('base64');
-        return `data:${contentType};base64,${base64}`;
-    } catch (e) {
-        console.error(`[Metadata] Failed to convert image to base64: ${url}`, e);
-        return null;
     }
 }
 

@@ -1,6 +1,6 @@
 import db, { upsertDomainFavicon } from "../../db";
 import { fetchUrlMetadata } from "../../metadata-fetcher";
-import { saveThumbnailFromUrl } from "../../thumbnail-store";
+import { saveThumbnailFromUrl, getThumbnailAbsolutePath } from "../../thumbnail-store";
 import { logDebug, isJobCancelled } from "../logger";
 import { initJobProgress, updateJobProgress } from "../progress";
 
@@ -8,18 +8,42 @@ export async function handleBackfillThumbnails(job: any, payload: any) {
     const userId = job.user_id;
     const overwrite = payload.overwrite === true;
 
-    const bookmarks = overwrite
-        ? (db.prepare(`
+    let bookmarks: { id: string; url: string; title: string | null }[];
+
+    if (overwrite) {
+        bookmarks = db.prepare(`
             SELECT id, url, title FROM bookmarks
             WHERE user_id = ?
             ORDER BY created_at ASC
-          `).all(userId) as { id: string; url: string; title: string | null }[])
-        : (db.prepare(`
+        `).all(userId) as { id: string; url: string; title: string | null }[];
+    } else {
+        // Get bookmarks with no thumbnail value at all
+        const nullRows = db.prepare(`
             SELECT id, url, title FROM bookmarks
             WHERE user_id = ?
             AND (thumbnail IS NULL OR thumbnail = '')
             ORDER BY created_at ASC
-          `).all(userId) as { id: string; url: string; title: string | null }[]);
+        `).all(userId) as { id: string; url: string; title: string | null }[];
+
+        // Also get bookmarks whose thumbnail file is missing from disk
+        const fileRefRows = db.prepare(`
+            SELECT id, url, title, thumbnail FROM bookmarks
+            WHERE user_id = ?
+            AND thumbnail IS NOT NULL AND thumbnail != '' AND thumbnail LIKE 'thumbnails/%'
+            ORDER BY created_at ASC
+        `).all(userId) as { id: string; url: string; title: string | null; thumbnail: string }[];
+
+        const orphanedRows = fileRefRows.filter(row => !getThumbnailAbsolutePath(row.thumbnail));
+
+        // Merge both sets, dedup by id
+        const seen = new Set(nullRows.map(r => r.id));
+        bookmarks = [...nullRows];
+        for (const row of orphanedRows) {
+            if (!seen.has(row.id)) {
+                bookmarks.push({ id: row.id, url: row.url, title: row.title });
+            }
+        }
+    }
 
     const total = bookmarks.length;
     logDebug(`[Worker] Fetch thumbnails (overwrite=${overwrite}): ${total} bookmarks for user ${userId}`);
@@ -51,21 +75,13 @@ export async function handleBackfillThumbnails(job: any, payload: any) {
             const thumbnailValue = savedPath || metadata.fallbackThumbnail;
 
             if (thumbnailValue) {
-                if (overwrite) {
-                    db.prepare(`
-                        UPDATE bookmarks SET
-                            thumbnail = ?,
-                            updated_at = datetime('now')
-                        WHERE id = ?
-                    `).run(thumbnailValue, bm.id);
-                } else {
-                    db.prepare(`
-                        UPDATE bookmarks SET
-                            thumbnail = ?,
-                            updated_at = datetime('now')
-                        WHERE id = ? AND (thumbnail IS NULL OR thumbnail = '')
-                    `).run(thumbnailValue, bm.id);
-                }
+                // In non-overwrite mode, still allow updating orphaned/missing thumbnails
+                db.prepare(`
+                    UPDATE bookmarks SET
+                        thumbnail = ?,
+                        updated_at = datetime('now')
+                    WHERE id = ?
+                `).run(thumbnailValue, bm.id);
             }
         } catch (e) {
             logDebug(`[Worker] Fetch thumbnail failed for ${bm.id}: ` + e);
@@ -78,3 +94,4 @@ export async function handleBackfillThumbnails(job: any, payload: any) {
 
     logDebug(`[Worker] Fetch thumbnails complete: ${total} processed`);
 }
+

@@ -5,7 +5,7 @@ import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
 import { generateEmbedding } from "@/lib/gemini";
 import { evaluateRules } from "@/lib/rule-engine";
 import { normalizeUrl } from "@/lib/url-normalizer";
-import { saveThumbnailFromUrl, saveThumbnailFromBase64 } from "@/lib/thumbnail-store";
+import { saveThumbnailFromUrl } from "@/lib/thumbnail-store";
 import { DbBookmark } from "@/types";
 import { toBookmarkWithTags, toBookmarksWithTagsBatch } from "@/lib/bookmark-queries";
 
@@ -261,34 +261,15 @@ export async function POST(request: NextRequest) {
     createOrUpdate();
 
     // Save thumbnail to disk after transaction (we need the bookmark ID)
-    if (!isUpdate) {
-        // Handle thumbnail input: base64 from user, URL from metadata, or SVG path
-        if (thumbnail && thumbnail.startsWith('data:image')) {
-            const savedPath = await saveThumbnailFromBase64(id, thumbnail);
-            if (savedPath) {
-                db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
-            }
-        } else if (thumbnail && thumbnail.startsWith('http')) {
-            // Raw HTTP URL from the form's metadata preview
-            const savedPath = await saveThumbnailFromUrl(id, thumbnail);
-            if (savedPath) {
-                db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
-            }
-        } else if (thumbnailUrl) {
-            const savedPath = await saveThumbnailFromUrl(id, thumbnailUrl);
-            if (savedPath) {
-                db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
-            }
-        }
-    } else if (thumbnail && thumbnail.startsWith('data:image')) {
-        // Update case: user uploaded a new base64 thumbnail
-        const savedPath = await saveThumbnailFromBase64(id, thumbnail);
+    // Thumbnail can be: a file path from upload endpoint ("thumbnails/..."),
+    // an HTTP URL from metadata preview, or fetched from metadata
+    if (thumbnail && thumbnail.startsWith('http')) {
+        const savedPath = await saveThumbnailFromUrl(id, thumbnail);
         if (savedPath) {
             db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
         }
-    } else if (thumbnail && thumbnail.startsWith('http')) {
-        // Update case: raw HTTP URL from form
-        const savedPath = await saveThumbnailFromUrl(id, thumbnail);
+    } else if (thumbnailUrl) {
+        const savedPath = await saveThumbnailFromUrl(id, thumbnailUrl);
         if (savedPath) {
             db.prepare('UPDATE bookmarks SET thumbnail = ? WHERE id = ?').run(savedPath, id);
         }

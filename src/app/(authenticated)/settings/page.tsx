@@ -198,7 +198,7 @@ function SettingsContent() {
     const activeTabMeta = TABS.find(t => t.id === activeTab);
 
     return (
-        <AppLayout bookmarkCounts={counts}>
+        <>
             <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/50 bg-background/80 backdrop-blur-xl px-4 py-3">
                 <SidebarTrigger className="text-muted-foreground hover:text-foreground cursor-pointer" />
                 <h1 className="text-lg font-semibold flex items-center gap-2">Settings</h1>
@@ -300,7 +300,7 @@ function SettingsContent() {
                     )}
                 </div>
             </main>
-        </AppLayout>
+        </>
     );
 }
 

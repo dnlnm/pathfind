@@ -6,7 +6,12 @@ export function getDomainFavicon(url: string): string | null {
   try {
     const domain = new URL(url).hostname;
     const row = db.prepare('SELECT favicon FROM domain_favicons WHERE domain = ?').get(domain) as { favicon: string } | undefined;
-    return row?.favicon || null;
+    if (!row?.favicon) return null;
+    // Legacy base64 favicons → return twenty-icons URL instead
+    if (row.favicon.startsWith('data:')) {
+      return `https://twenty-icons.com/${domain}`;
+    }
+    return row.favicon;
   } catch {
     return null;
   }

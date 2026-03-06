@@ -26,9 +26,7 @@ export const metadata: Metadata = {
     },
 };
 
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "@/components/providers";
 
 export default function RootLayout({
     children,
@@ -38,17 +36,9 @@ export default function RootLayout({
     return (
         <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
             <body className="antialiased">
-                <ThemeProvider
-                    attribute="class"
-                    defaultTheme="dark"
-                    enableSystem
-                    disableTransitionOnChange
-                >
-                    <SidebarProvider>
-                        {children}
-                    </SidebarProvider>
-                    <Toaster position="bottom-right" />
-                </ThemeProvider>
+                <Providers>
+                    {children}
+                </Providers>
             </body>
         </html>
     );

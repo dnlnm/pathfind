@@ -99,8 +99,10 @@ function BookmarkPageContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isInSelectionMode, exitSelectionMode]);
 
-  // Maintenance stats polling — re-fetches immediately after any bookmark change
-  // (refreshTrigger increments on every save/edit/delete via handleRefresh)
+  // Maintenance stats polling — runs on its own 5-minute schedule, independent
+  // of refreshTrigger. We intentionally do NOT re-check on every bookmark change
+  // because a newly added bookmark won't have an embedding yet (the worker needs
+  // time to process it), which would cause a spurious "missing data" banner.
   useEffect(() => {
     const fetchMaintenance = () =>
       fetch("/api/maintenance")
@@ -110,7 +112,7 @@ function BookmarkPageContent() {
     fetchMaintenance();
     const interval = setInterval(fetchMaintenance, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [refreshTrigger]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [columns, setColumns] = useState(1);
 
@@ -421,7 +423,7 @@ function BookmarkPageContent() {
   }, [virtualItems, isFetchingNextPage, loading, page, totalPages, rowCount, fetchBookmarks]);
 
   return (
-    <AppLayout bookmarkCounts={counts} refreshTrigger={refreshTrigger}>
+    <>
       <Header onAddBookmark={() => setFormOpen(true)} />
 
       {/* Maintenance notification banner */}
@@ -918,7 +920,7 @@ function BookmarkPageContent() {
         </DialogContent>
       </Dialog>
 
-    </AppLayout>
+    </>
   );
 }
 
