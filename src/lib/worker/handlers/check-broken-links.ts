@@ -36,8 +36,7 @@ async function checkUrl(url: string): Promise<{ status: LinkStatus; code: number
         if (code === 429 || code >= 500) return { status: 'unreachable', code };
         return { status: 'broken', code };
     } catch {
-        // Network error, DNS failure, timeout, TLS error, etc.
-        return { status: 'broken', code: null };
+        return { status: 'unreachable', code: null };
     }
 }
 

@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Loader2, Github, Rss, Send, RefreshCw, ShieldCheck, Check, AlertTriangle, Copy, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -34,6 +42,7 @@ export function IntegrationsTab({
     const [isGeneratingTelegramToken, setIsGeneratingTelegramToken] = useState(false);
     const [linkingToken, setLinkingToken] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
+    const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false);
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -102,11 +111,11 @@ export function IntegrationsTab({
     };
 
     const handleUnlinkTelegram = async () => {
-        if (!confirm("Are you sure you want to unlink your Telegram account?")) return;
         try {
             const res = await fetch("/api/settings/telegram", { method: "DELETE" });
             if (res.ok) { setTelegramStatus({ ...telegramStatus, isLinked: false }); toast.success("Telegram account unlinked"); }
         } catch { toast.error("Failed to unlink Telegram"); }
+        setUnlinkDialogOpen(false);
     };
 
     return (
@@ -266,7 +275,7 @@ export function IntegrationsTab({
                                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                     <span className="text-sm font-medium">Your Telegram account is connected</span>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={handleUnlinkTelegram} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">Unlink</Button>
+                                <Button variant="ghost" size="sm" onClick={() => setUnlinkDialogOpen(true)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">Unlink</Button>
                             </div>
                             <div className="text-[11px] text-muted-foreground">
                                 Open <a href={`https://t.me/${telegramStatus.botUsername}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">@{telegramStatus.botUsername}</a> and send any link to save it.
@@ -299,6 +308,21 @@ export function IntegrationsTab({
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog open={unlinkDialogOpen} onOpenChange={setUnlinkDialogOpen}>
+                <DialogContent className="sm:max-w-md bg-card border-border/50">
+                    <DialogHeader>
+                        <DialogTitle>Unlink Telegram</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to unlink your Telegram account? You will no longer be able to save bookmarks via the bot until you re-link.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex gap-2 sm:justify-end">
+                        <Button variant="outline" onClick={() => setUnlinkDialogOpen(false)} className="cursor-pointer">Cancel</Button>
+                        <Button variant="destructive" onClick={handleUnlinkTelegram} className="cursor-pointer">Unlink</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Placeholder integrations */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

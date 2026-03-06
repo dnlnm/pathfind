@@ -27,6 +27,10 @@ export function Header({ onAddBookmark }: HeaderProps) {
     const [query, setQuery] = useState(searchParams.get("q") || "");
     const [taskStats, setTaskStats] = useState<any>(null);
 
+    useEffect(() => {
+        setQuery(searchParams.get("q") || "");
+    }, [searchParams]);
+
     // Autocomplete state
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -45,13 +49,13 @@ export function Header({ onAddBookmark }: HeaderProps) {
                     const data = await res.json();
                     setTaskStats(data);
                 }
-            } catch (err) {
+            } catch {
                 // Silent fail
             }
         };
 
         fetchTasks();
-        const interval = setInterval(fetchTasks, 3000);
+        const interval = setInterval(fetchTasks, 10000);
 
         // Fetch tags and collections for autocomplete
         fetch("/api/tags")
@@ -370,7 +374,7 @@ export function Header({ onAddBookmark }: HeaderProps) {
                                         <div
                                             className="h-full bg-primary transition-all duration-700"
                                             style={{
-                                                width: `${Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100)}%`
+                                                width: `${Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed || 1)) * 100)}%`
                                             }}
                                         />
                                     </div>

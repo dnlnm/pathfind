@@ -1,13 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Monitor, Moon, Sun, EyeOff, CheckCircle2, MousePointerClick, ExternalLink, Link } from "lucide-react";
+import { Monitor, Moon, Sun, EyeOff, CheckCircle2, MousePointerClick, ExternalLink, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
@@ -20,25 +15,20 @@ interface GeneralTabProps {
 }
 
 export function GeneralTab({ nsfwDisplay, setNsfwDisplay, bookmarkClickAction, setBookmarkClickAction }: GeneralTabProps) {
-    const [savingNsfw, setSavingNsfw] = useState(false);
-    const [savingClickAction, setSavingClickAction] = useState(false);
     const { theme, setTheme } = useTheme();
 
     const handleSaveNsfwDisplay = (value: string) => {
         setNsfwDisplay(value as any);
-        setSavingNsfw(true);
         try {
             localStorage.setItem("nsfw-display-mode", value);
             toast.success("Sensitive content setting updated");
         } catch {
             toast.error("Failed to update sensitive content setting");
         }
-        setSavingNsfw(false);
     };
 
     const handleSaveClickAction = (value: "current" | "new") => {
         setBookmarkClickAction(value);
-        setSavingClickAction(true);
         try {
             localStorage.setItem("bookmark-click-action", value);
             window.dispatchEvent(new Event("bookmark-click-action-changed"));
@@ -46,7 +36,6 @@ export function GeneralTab({ nsfwDisplay, setNsfwDisplay, bookmarkClickAction, s
         } catch {
             toast.error("Failed to update behavior");
         }
-        setSavingClickAction(false);
     };
 
     return (
@@ -138,11 +127,6 @@ export function GeneralTab({ nsfwDisplay, setNsfwDisplay, bookmarkClickAction, s
                                         </div>
                                     </button>
                                 ))}
-                                {savingNsfw && (
-                                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground animate-pulse mt-4">
-                                        <Loader2 className="h-3 w-3 animate-spin" /> Saving preference...
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -201,11 +185,6 @@ export function GeneralTab({ nsfwDisplay, setNsfwDisplay, bookmarkClickAction, s
                                         </div>
                                     </button>
                                 ))}
-                                {savingClickAction && (
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse mt-4">
-                                        <Loader2 className="h-3 w-3 animate-spin" /> Saving preference...
-                                    </div>
-                                )}
                             </div>
                         </div>
 

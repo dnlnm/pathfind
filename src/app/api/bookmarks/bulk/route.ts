@@ -45,6 +45,13 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
+    const verifyOwnership = db.prepare("SELECT id FROM bookmarks WHERE id = ? AND user_id = ?");
+    const ownedIds = ids.filter((id: string) => !!verifyOwnership.get(id, userAuth.id));
+
+    if (ownedIds.length === 0) {
+        return NextResponse.json({ success: true, affected: 0 });
+    }
+
     let affected = 0;
     const updateBookmarks = db.transaction((bookmarkIds: string[]) => {
         if (action === "archive") {
@@ -94,7 +101,7 @@ export async function PUT(request: NextRequest) {
         }
     });
 
-    updateBookmarks(ids);
+    updateBookmarks(ownedIds);
 
     return NextResponse.json({ success: true, affected });
 }

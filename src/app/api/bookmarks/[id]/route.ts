@@ -68,48 +68,50 @@ export async function PUT(
         }
     }
 
-    db.prepare(`
-    UPDATE bookmarks SET
-      url = ?, title = ?, description = ?, notes = ?,
-      thumbnail = ?,
-      is_read_later = ?, is_archived = ?, is_nsfw = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `).run(
-        resolvedUrl,
-        finalTitle,
-        finalDescription,
-        notes ?? existing.notes,
-        finalThumbnail,
-        (isReadLater ?? !!existing.is_read_later) ? 1 : 0,
-        (isArchived ?? !!existing.is_archived) ? 1 : 0,
-        finalIsNsfw ? 1 : 0,
-        id
-    );
+    const updateBookmark = db.transaction(() => {
+        db.prepare(`
+        UPDATE bookmarks SET
+          url = ?, title = ?, description = ?, notes = ?,
+          thumbnail = ?,
+          is_read_later = ?, is_archived = ?, is_nsfw = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).run(
+            resolvedUrl,
+            finalTitle,
+            finalDescription,
+            notes ?? existing.notes,
+            finalThumbnail,
+            (isReadLater ?? !!existing.is_read_later) ? 1 : 0,
+            (isArchived ?? !!existing.is_archived) ? 1 : 0,
+            finalIsNsfw ? 1 : 0,
+            id
+        );
 
-    // Reconnect tags
-    db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
+        db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
 
-    if (tags && tags.length > 0) {
-        const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
-        const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
-        const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
+        if (tags && tags.length > 0) {
+            const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
+            const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
+            const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
 
-        for (const tagName of tags) {
-            const normalized = tagName.toLowerCase().trim();
-            insertTag.run(generateId(), normalized);
-            const tagRow = getTag.get(normalized) as { id: string };
-            linkTag.run(id, tagRow.id);
+            for (const tagName of tags) {
+                const normalized = tagName.toLowerCase().trim();
+                insertTag.run(generateId(), normalized);
+                const tagRow = getTag.get(normalized) as { id: string };
+                linkTag.run(id, tagRow.id);
+            }
         }
-    }
 
-    // Update collections
-    db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
-    if (body.collections && body.collections.length > 0) {
-        const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
-        for (const collectionId of body.collections) {
-            linkCollection.run(id, collectionId);
+        db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
+        if (body.collections && body.collections.length > 0) {
+            const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
+            for (const collectionId of body.collections) {
+                linkCollection.run(id, collectionId);
+            }
         }
-    }
+    });
+
+    updateBookmark();
 
     const updated = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;
     return NextResponse.json(toBookmarkResponse(updated));

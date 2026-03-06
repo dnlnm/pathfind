@@ -114,7 +114,7 @@ export default function LoginPage() {
                     className="h-full w-full"
                     squareSize={4}
                     gridGap={6}
-                    color="#ffffff"
+                    color="hsl(var(--foreground))"
                     maxOpacity={0.15}
                     flickerChance={0.1}
                 />
@@ -208,6 +208,7 @@ export default function LoginPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     className="bg-background/50"
+                                    autoComplete="current-password"
                                 />
                             </div>
                             <Button type="submit" className="w-full cursor-pointer" disabled={loading}>
@@ -255,6 +256,7 @@ export default function LoginPage() {
                                     onChange={(e) => setRegEmail(e.target.value)}
                                     required
                                     className={cn("bg-background/50", fieldError("email") && "border-destructive")}
+                                    autoComplete="email"
                                 />
                                 {fieldError("email") && (
                                     <p className="text-xs text-destructive">{fieldError("email")}</p>
@@ -270,6 +272,7 @@ export default function LoginPage() {
                                     onChange={(e) => setRegPassword(e.target.value)}
                                     required
                                     className={cn("bg-background/50", fieldError("password") && "border-destructive")}
+                                    autoComplete="new-password"
                                 />
                                 {fieldError("password") && (
                                     <p className="text-xs text-destructive">{fieldError("password")}</p>
@@ -285,6 +288,7 @@ export default function LoginPage() {
                                     onChange={(e) => setRegConfirm(e.target.value)}
                                     required
                                     className={cn("bg-background/50", fieldError("confirm") && "border-destructive")}
+                                    autoComplete="new-password"
                                 />
                                 {fieldError("confirm") && (
                                     <p className="text-xs text-destructive">{fieldError("confirm")}</p>

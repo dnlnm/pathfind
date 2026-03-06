@@ -25,7 +25,7 @@ export async function PUT(request: Request) {
 
     const { email } = await request.json();
 
-    if (!email || !email.includes("@")) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 

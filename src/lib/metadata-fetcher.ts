@@ -71,45 +71,38 @@ async function parseHtmlMetadata(html: string, url: string) {
     };
 }
 
-async function fetchWithFlareSolverr(url: string) {
-    const flareSolverrUrl = process.env.FLARESOLVERR_URL;
-    if (!flareSolverrUrl) return null;
-
-    console.log(`[Metadata] Attempting FlareSolverr bypass for: ${url}`);
-    try {
-        const response = await fetch(flareSolverrUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                cmd: "request.get",
-                url: url,
-                maxTimeout: 60000
-            })
-        });
-
-        if (!response.ok) {
-            console.error(`[Metadata] FlareSolverr error: ${response.status}`);
-            return null;
-        }
-
-        const data = await response.json();
-        if (data.status === "ok") {
-            console.log(`[Metadata] FlareSolverr success for: ${url}`);
-            return data.solution.response as string;
-        } else {
-            console.warn(`[Metadata] FlareSolverr failed: ${data.message}`);
-            return null;
-        }
-    } catch (e) {
-        console.error(`[Metadata] FlareSolverr fetch failed`, e);
-        return null;
+function isPrivateHostname(hostname: string): boolean {
+    if (
+        hostname === "localhost" ||
+        hostname === "[::1]" ||
+        hostname.endsWith(".local") ||
+        hostname.endsWith(".internal")
+    ) {
+        return true;
     }
+
+    const parts = hostname.split(".").map(Number);
+    if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+        if (parts[0] === 127) return true;                                    // 127.0.0.0/8
+        if (parts[0] === 10) return true;                                     // 10.0.0.0/8
+        if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+        if (parts[0] === 192 && parts[1] === 168) return true;                // 192.168.0.0/16
+        if (parts[0] === 169 && parts[1] === 254) return true;                // 169.254.0.0/16
+        if (parts[0] === 0) return true;                                       // 0.0.0.0/8
+    }
+
+    return false;
 }
 
 export async function fetchUrlMetadata(url: string) {
     console.log(`[Metadata] Fetching: ${url}`);
     try {
         const urlObj = new URL(url);
+
+        if (isPrivateHostname(urlObj.hostname)) {
+            console.warn(`[Metadata] Blocked request to private/internal address: ${urlObj.hostname}`);
+            return { title: null, description: null, favicon: null, thumbnail: null, isNsfw: undefined };
+        }
         const isReddit = urlObj.hostname.includes("reddit.com");
 
         // Special handling for Reddit: use the .json trick
@@ -230,35 +223,27 @@ export async function fetchUrlMetadata(url: string) {
                 },
             });
 
-            console.log(`[Metadata] Headers received for ${url}, reading body...`);
+            console.log(`[Metadata] Headers received for ${url}, status: ${response.status}`);
 
-            // Read stream carefully or just use text() and cap it
-            const fullHtml = await response.text();
-            // Capping HTML length to avoid regex hanging on massive pages (like eBay)
-            html = fullHtml.length > 512 * 1024 ? fullHtml.substring(0, 512 * 1024) : fullHtml;
-            console.log(`[Metadata] Body read complete for ${url}, original length: ${fullHtml.length}, processed length: ${html.length}`);
+            if (!response.ok) {
+                console.warn(`[Metadata] HTTP ${response.status} for ${url}, skipping body parse`);
+            } else {
+                const fullHtml = await response.text();
+                html = fullHtml.length > 512 * 1024 ? fullHtml.substring(0, 512 * 1024) : fullHtml;
+                console.log(`[Metadata] Body read complete for ${url}, original length: ${fullHtml.length}, processed length: ${html.length}`);
+            }
         } catch (e: any) {
             if (e.name === 'AbortError') {
                 console.warn(`[Metadata] Fetch aborted due to timeout: ${url}`);
             } else {
                 console.error(`[Metadata] Fetch error for ${url}:`, e);
             }
-            // Do not return here, try parsing what we have or attempt FlareSolverr
+            // Do not return here, try parsing what we have
         } finally {
             clearTimeout(timeout);
         }
 
-        let result = await parseHtmlMetadata(html || "", url);
-
-        // Check for Cloudflare challenge
-        const isCloudflare = result.title === "Just a moment..." || result.title?.includes("Attention Required! | Cloudflare");
-
-        if (isCloudflare && process.env.FLARESOLVERR_URL) {
-            const bypassedHtml = await fetchWithFlareSolverr(url);
-            if (bypassedHtml) {
-                result = await parseHtmlMetadata(bypassedHtml, url);
-            }
-        }
+        const result = await parseHtmlMetadata(html || "", url);
 
         console.log(`[Metadata] Final result:`, result.title);
         return result;
@@ -334,13 +319,20 @@ async function imageUrlToBase64(url: string, maxSize = 2 * 1024 * 1024): Promise
 function decodeHtml(html: string) {
     if (!html) return "";
     return html
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
         .replace(/&amp;/g, "&")
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
         .replace(/&apos;/g, "'")
-        .replace(/&#039;/g, "'")
+        .replace(/&nbsp;/g, " ")
         .replace(/&mdash;/g, "—")
-        .replace(/&ndash;/g, "–");
+        .replace(/&ndash;/g, "–")
+        .replace(/&hellip;/g, "…")
+        .replace(/&laquo;/g, "«")
+        .replace(/&raquo;/g, "»")
+        .replace(/&copy;/g, "©")
+        .replace(/&reg;/g, "®")
+        .replace(/&trade;/g, "™");
 }

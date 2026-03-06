@@ -1,46 +1,9 @@
 import { NextResponse, NextRequest } from "next/server";
 import db from "@/lib/db";
-import { getDomainFavicon } from "@/lib/bookmark-queries";
+import { toBookmarksWithTagsBatch } from "@/lib/bookmark-queries";
 import { getAuthenticatedUser } from "@/lib/api-auth";
 import { generateEmbedding } from "@/lib/gemini";
-import { DbBookmark, BookmarkWithTags } from "@/types";
-
-function getTagsForBookmark(bookmarkId: string): { id: string; name: string }[] {
-    return db.prepare(`
-    SELECT t.id, t.name FROM tags t
-    JOIN bookmark_tags bt ON bt.tag_id = t.id
-    WHERE bt.bookmark_id = ?
-  `).all(bookmarkId) as { id: string; name: string }[];
-}
-
-function getCollectionsForBookmark(bookmarkId: string): { id: string; name: string; color?: string | null }[] {
-    return db.prepare(`
-    SELECT c.id, c.name, c.color FROM collections c
-    JOIN bookmark_collections bc ON bc.collection_id = c.id
-    WHERE bc.bookmark_id = ?
-  `).all(bookmarkId) as { id: string; name: string; color?: string | null }[];
-}
-
-function toBookmarkWithTags(row: DbBookmark & { distance?: number }): BookmarkWithTags & { distance?: number } {
-    return {
-        id: row.id,
-        url: row.url,
-        title: row.title,
-        description: row.description,
-        notes: row.notes,
-        favicon: getDomainFavicon(row.url),
-        thumbnail: row.thumbnail,
-        isArchived: !!row.is_archived,
-        isReadLater: !!row.is_read_later,
-        isNsfw: !!row.is_nsfw,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        userId: row.user_id,
-        tags: getTagsForBookmark(row.id),
-        collections: getCollectionsForBookmark(row.id),
-        distance: row.distance,
-    };
-}
+import { DbBookmark } from "@/types";
 
 export async function GET(request: NextRequest) {
     const userAuth = await getAuthenticatedUser(request);
@@ -78,8 +41,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ bookmarks: [], total: 0, page: 1, totalPages: 1 });
         }
 
-        // We fetch the real bookmarks from the matched rowids.
-        // We ensure we only extract bookmarks belonging to the user and match the filter.
         let filterWhere = "AND is_nsfw = 0 ";
         if (filter === "readlater") filterWhere += "AND is_read_later = 1 AND is_archived = 0";
         else if (filter === "archived") filterWhere += "AND is_archived = 1";
@@ -95,21 +56,21 @@ export async function GET(request: NextRequest) {
 
         const rawBookmarks = bookmarksQuery.all(userAuth.id) as DbBookmark[];
 
-        // Re-attach distance and sort correctly since IN (...) clause loses ordering
         const distanceMap = new Map(vectorResults.map((r) => [r.rowid, r.distance]));
 
-        const finalResults = rawBookmarks
-            .map((b) => {
-                const bRowid = (db.prepare("SELECT rowid FROM bookmarks WHERE id = ?").get(b.id) as { rowid: number }).rowid;
-                return {
-                    ...b,
-                    distance: distanceMap.get(bRowid) || 0
-                };
-            })
-            .sort((a, b) => a.distance - b.distance)
+        const rowidRows = rawBookmarks.length > 0
+            ? db.prepare(`SELECT id, rowid FROM bookmarks WHERE id IN (${rawBookmarks.map(() => "?").join(",")})`)
+                .all(...rawBookmarks.map(b => b.id)) as { id: string; rowid: number }[]
+            : [];
+        const idToRowid = new Map(rowidRows.map(r => [r.id, r.rowid]));
+
+        const sortedBookmarks = rawBookmarks
+            .map(b => ({ ...b, _distance: distanceMap.get(idToRowid.get(b.id)!) || 0 }))
+            .sort((a, b) => a._distance - b._distance)
             .slice(0, k);
 
-        const bookmarks = finalResults.map(toBookmarkWithTags);
+        const bookmarksWithTags = toBookmarksWithTagsBatch(sortedBookmarks);
+        const bookmarks = bookmarksWithTags.map((b, i) => ({ ...b, distance: sortedBookmarks[i]._distance }));
 
         return NextResponse.json({
             bookmarks,

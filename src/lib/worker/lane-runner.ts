@@ -77,15 +77,16 @@ async function processNextJobForLane(laneName: string, types: string[], placehol
         const attempt = (job.attempts || 0) + 1;
         // Exponential backoff: attempt^2 * 5 minutes
         const backoffMinutes = attempt * attempt * 5;
+        const availableAt = new Date(Date.now() + backoffMinutes * 60_000).toISOString().replace("T", " ").slice(0, 19);
         db.prepare(`
             UPDATE jobs 
             SET status = 'failed', 
                 attempts = ?, 
                 error = ?, 
-                available_at = datetime('now', '+${backoffMinutes} minutes'),
+                available_at = ?,
                 updated_at = datetime('now') 
             WHERE id = ?
-        `).run(attempt, e.message || String(e), job.id);
+        `).run(attempt, e.message || String(e), availableAt, job.id);
         return true;
     }
 }

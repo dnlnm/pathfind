@@ -73,6 +73,7 @@ function BookmarkPageContent() {
   const [nsfwDisplayMode, setNsfwDisplayMode] = useState<"blur" | "hide" | "show">("blur");
   const [maintenanceStats, setMaintenanceStats] = useState<{ missingThumbnails: number; missingEmbeddings: number } | null>(null);
   const [maintenanceDismissed, setMaintenanceDismissed] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch("/api/collections")
@@ -135,8 +136,15 @@ function BookmarkPageContent() {
   };
 
   const fetchBookmarks = useCallback(async (targetPage: number) => {
-    if (targetPage === 1) setLoading(true);
-    else setIsFetchingNextPage(true);
+    if (targetPage === 1) {
+      abortControllerRef.current?.abort();
+      setLoading(true);
+    } else {
+      setIsFetchingNextPage(true);
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     const params = new URLSearchParams();
 
@@ -160,9 +168,11 @@ function BookmarkPageContent() {
 
     try {
       const endpoint = useSemantic ? `/api/search/semantic` : `/api/bookmarks`;
-      const res = await fetch(`${endpoint}?${params.toString()}`);
+      const res = await fetch(`${endpoint}?${params.toString()}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       if (res.ok) {
         const data = await res.json();
+        if (controller.signal.aborted) return;
         if (targetPage === 1) {
           setBookmarks(data.bookmarks);
         } else {
@@ -176,8 +186,8 @@ function BookmarkPageContent() {
         setPage(data.page);
         setTotalPages(data.totalPages);
       }
-    } catch {
-      // Silent fail
+    } catch (e: any) {
+      if (e.name === "AbortError") return;
     }
     setLoading(false);
     setIsFetchingNextPage(false);
@@ -257,7 +267,10 @@ function BookmarkPageContent() {
 
   const handleFormClose = (open: boolean) => {
     setFormOpen(open);
-    if (!open) setEditingBookmark(null);
+    if (!open) {
+      setEditingBookmark(null);
+      setSharedData(null);
+    }
   };
 
   const handleDeleteCollection = async () => {

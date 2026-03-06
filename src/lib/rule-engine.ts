@@ -1,5 +1,14 @@
+import { runInNewContext } from "vm";
 import db, { generateId } from "./db";
 import { DbRule, RuleCondition, RuleAction, DbBookmark } from "@/types";
+
+function safeRegexTest(pattern: string, input: string, timeoutMs = 1000): boolean {
+    return runInNewContext(
+        `new RegExp(pattern, "i").test(input)`,
+        { pattern, input },
+        { timeout: timeoutMs }
+    ) as boolean;
+}
 
 /**
  * Evaluate all enabled rules for a given event and apply matching actions.
@@ -146,8 +155,8 @@ function evaluateCondition(condition: RuleCondition, bookmark: DbBookmark, userI
             return haystack !== target;
         case "matches_regex": {
             try {
-                const regex = new RegExp(value, "i");
-                return regex.test(fieldValue);
+                if (value.length > 500) return false;
+                return safeRegexTest(value, fieldValue.substring(0, 10_000));
             } catch {
                 return false;
             }

@@ -9,9 +9,23 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { currentPassword, newPassword } = await request.json();
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(session.user.id) as { password: string } | undefined;
+    const { currentPassword, newPassword } = body;
+
+    if (!currentPassword || typeof currentPassword !== "string") {
+        return NextResponse.json({ error: "Current password is required" }, { status: 400 });
+    }
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+        return NextResponse.json({ error: "New password must be at least 6 characters" }, { status: 400 });
+    }
+
+    const user = db.prepare("SELECT password FROM users WHERE id = ?").get(session.user.id) as { password: string } | undefined;
 
     if (!user) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });

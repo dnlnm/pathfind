@@ -238,7 +238,7 @@ export function LinkHealthTab({
                 <CardContent className="p-0">
                     {brokenBookmarks.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <div className="h-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                            <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
                                 <Check className="h-5 w-5 text-emerald-500" />
                             </div>
                             <p className="text-sm font-semibold">Perfect Health</p>

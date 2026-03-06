@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import db, { generateId, upsertDomainFavicon } from "@/lib/db";
 import { fetchUrlMetadata } from "@/lib/metadata-fetcher";
+import { normalizeUrl } from "@/lib/url-normalizer";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
 async function sendMessage(chatId: number | string, text: string) {
@@ -21,6 +23,13 @@ async function sendMessage(chatId: number | string, text: string) {
 export async function POST(req: NextRequest) {
     if (!TELEGRAM_BOT_TOKEN) {
         return NextResponse.json({ error: "Telegram bot token not configured" }, { status: 500 });
+    }
+
+    if (TELEGRAM_WEBHOOK_SECRET) {
+        const headerSecret = req.headers.get("x-telegram-bot-api-secret-token");
+        if (headerSecret !== TELEGRAM_WEBHOOK_SECRET) {
+            return NextResponse.json({ error: "Invalid secret" }, { status: 403 });
+        }
     }
 
     try {
@@ -67,10 +76,11 @@ export async function POST(req: NextRequest) {
                     if (metadata.favicon) {
                         upsertDomainFavicon(url, metadata.favicon);
                     }
+                    const canonicalUrl = normalizeUrl(url);
                     db.prepare(`
-                        INSERT INTO bookmarks (id, url, title, description, thumbnail, user_id)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    `).run(id, url, metadata.title || url, metadata.description, metadata.thumbnail, user.id);
+                        INSERT INTO bookmarks (id, url, canonical_url, title, description, thumbnail, user_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    `).run(id, url, canonicalUrl, metadata.title || url, metadata.description, metadata.thumbnail, user.id);
 
                     await sendMessage(chatId, `🔖 Saved: ${metadata.title || url}`);
                 } catch (error) {

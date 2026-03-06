@@ -169,8 +169,6 @@ export function BookmarkCard({
 
     const twentyFavicon = `https://twenty-icons.com/${hostname}`;
 
-    const tagList = bookmark.tags;
-
     const isGrid = layout === "grid";
 
     if (isDeleted) return null;

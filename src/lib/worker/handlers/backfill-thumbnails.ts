@@ -28,7 +28,7 @@ export async function handleBackfillThumbnails(job: any, payload: any) {
     initJobProgress(job.id, total, payload);
 
     for (let i = 0; i < bookmarks.length; i++) {
-        if (isJobCancelled(job.id)) {
+        if (i % 50 === 0 && isJobCancelled(job.id)) {
             logDebug(`[Worker] Fetch thumbnails job ${job.id} cancelled at ${i}/${total}`);
             return;
         }

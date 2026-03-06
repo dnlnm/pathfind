@@ -473,11 +473,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
                 collectionId={editingCollectionId}
                 onSuccess={() => {
                     fetchCollections();
-                    if (refreshTrigger !== undefined) {
-                        // This is a hacky way to trigger a refresh in the parent
-                        // but since we can't easily trigger a refresh of the bookmarks
-                        // from here without a prop, it's better than nothing.
-                    }
+                    window.dispatchEvent(new CustomEvent("refresh-sidebar"));
                 }}
             />
         </Sidebar>

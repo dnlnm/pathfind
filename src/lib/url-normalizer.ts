@@ -23,7 +23,7 @@ const TRACKING_PARAMS = new Set([
     // Social shares
     "si", "feature", "app",
     // Others
-    "_ga", "_gl", "igshid", "s", "t",
+    "_ga", "_gl", "igshid",
 ]);
 
 export function normalizeUrl(raw: string): string {
@@ -60,7 +60,7 @@ export function normalizeUrl(raw: string): string {
         }
         cleaned.sort((a, b) => a[0].localeCompare(b[0]));
         url.search = cleaned.length > 0
-            ? "?" + cleaned.map(([k, v]) => v ? `${k}=${v}` : k).join("&")
+            ? "?" + new URLSearchParams(cleaned).toString()
             : "";
 
         // 6. Remove trailing slash (but keep "/" for root paths)

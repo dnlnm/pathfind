@@ -65,12 +65,17 @@ export function UsersTab({ currentUserId }: UsersTabProps) {
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
-        const res = await fetch("/api/admin/users");
-        if (res.ok) {
-            const data = await res.json();
-            setUsers(data);
+        try {
+            const res = await fetch("/api/admin/users");
+            if (res.ok) {
+                const data = await res.json();
+                setUsers(data);
+            }
+        } catch {
+            // Network error
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, []);
 
     useEffect(() => { fetchUsers(); }, [fetchUsers]);

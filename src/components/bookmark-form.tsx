@@ -666,7 +666,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
                                             alt="Thumbnail preview"
                                             className="w-full h-full object-cover"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).src = "";
+                                                (e.target as HTMLImageElement).style.display = "none";
                                             }}
                                         />
                                         <Button

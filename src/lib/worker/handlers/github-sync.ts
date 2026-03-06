@@ -11,20 +11,33 @@ export async function handleGithubStarredSync(job: any, payload: any) {
 
     logDebug(`[Worker] Syncing GitHub stars for user ${userId}`);
 
-    const response = await fetch("https://api.github.com/user/starred", {
-        headers: {
-            Authorization: `token ${githubToken}`,
-            Accept: "application/vnd.github.v3+json",
-            "User-Agent": "PathFind-App",
-        },
-    });
+    const stars: any[] = [];
+    let page = 1;
+    const perPage = 100;
 
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`GitHub API error: ${response.status} ${err}`);
+    while (true) {
+        const response = await fetch(`https://api.github.com/user/starred?per_page=${perPage}&page=${page}`, {
+            headers: {
+                Authorization: `token ${githubToken}`,
+                Accept: "application/vnd.github.v3+json",
+                "User-Agent": "PathFind-App",
+            },
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`GitHub API error: ${response.status} ${err}`);
+        }
+
+        const batch = await response.json();
+        if (!Array.isArray(batch) || batch.length === 0) break;
+
+        stars.push(...batch);
+        if (batch.length < perPage) break;
+        page++;
     }
 
-    const stars = await response.json();
+    logDebug(`[Worker] Fetched ${stars.length} total GitHub stars across ${page} page(s)`);
     let syncedCount = 0;
 
     const githubTagId = generateId();

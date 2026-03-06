@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (!username || !USERNAME_RE.test(username)) {
         return NextResponse.json({ error: "Invalid username", field: "username" }, { status: 400 });
     }
-    if (!email || !email.includes("@")) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return NextResponse.json({ error: "Valid email is required", field: "email" }, { status: 400 });
     }
     if (!password || password.length < 6) {

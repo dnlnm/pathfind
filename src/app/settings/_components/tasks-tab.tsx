@@ -191,11 +191,11 @@ export function TasksTab({ taskStats, onRetryFailed, onClearTasks, onStartBulkJo
                                         <Loader2 className="h-3 w-3 animate-spin text-primary" />Processing
                                     </span>
                                     <span className="text-muted-foreground font-mono">
-                                        {Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100)}%
+                                        {Math.round((taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed || 1)) * 100)}%
                                     </span>
                                 </div>
                                 <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary transition-all duration-700" style={{ width: `${(taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed)) * 100}%` }} />
+                                    <div className="h-full bg-primary transition-all duration-700" style={{ width: `${(taskStats.completed / (taskStats.pending + taskStats.processing + taskStats.completed + taskStats.failed || 1)) * 100}%` }} />
                                 </div>
                             </div>
                         )}

@@ -5,6 +5,15 @@ import { evaluateRules } from "@/lib/rule-engine";
 import { normalizeUrl } from "@/lib/url-normalizer";
 import { DbBookmark } from "@/types";
 
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 export async function GET(request: Request) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -63,11 +72,11 @@ export async function GET(request: Request) {
     `).all(bm.id) as { name: string }[];
         const tags = tagRows.map(t => t.name).join(",");
 
-        html += `    <DT><A HREF="${bm.url}" ADD_DATE="${timestamp}"`;
-        if (tags) html += ` TAGS="${tags}"`;
-        html += `>${bm.title || bm.url}</A>\n`;
+        html += `    <DT><A HREF="${escapeHtml(bm.url)}" ADD_DATE="${timestamp}"`;
+        if (tags) html += ` TAGS="${escapeHtml(tags)}"`;
+        html += `>${escapeHtml(bm.title || bm.url)}</A>\n`;
         if (bm.description) {
-            html += `    <DD>${bm.description}\n`;
+            html += `    <DD>${escapeHtml(bm.description)}\n`;
         }
     }
 
@@ -87,10 +96,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { html, json } = await request.json();
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    const { html, json } = body;
     if (!html && !json) {
         return NextResponse.json({ error: "Content required" }, { status: 400 });
     }
+
+    const MAX_IMPORT_ITEMS = 10_000;
 
     const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
     const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
@@ -103,6 +121,10 @@ export async function POST(request: Request) {
             parsedJson = typeof json === "string" ? JSON.parse(json) : json;
         } catch (e) {
             return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+        }
+
+        if (Array.isArray(parsedJson) && parsedJson.length > MAX_IMPORT_ITEMS) {
+            return NextResponse.json({ error: `Import limited to ${MAX_IMPORT_ITEMS} bookmarks at a time` }, { status: 400 });
         }
 
         let count = 0;

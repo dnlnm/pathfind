@@ -24,8 +24,12 @@ export async function GET(
         return NextResponse.json({ error: "Archive not found" }, { status: 404 });
     }
 
-    const archivesDir = path.join(process.cwd(), "data", "archives");
-    const filePath = path.join(archivesDir, bookmark.archive_path);
+    const archivesDir = path.resolve(process.cwd(), "data", "archives");
+    const filePath = path.resolve(archivesDir, bookmark.archive_path);
+
+    if (!filePath.startsWith(archivesDir + path.sep) && filePath !== archivesDir) {
+        return NextResponse.json({ error: "Invalid archive path" }, { status: 400 });
+    }
 
     if (!fs.existsSync(filePath)) {
         return NextResponse.json({ error: "File not found on server" }, { status: 404 });

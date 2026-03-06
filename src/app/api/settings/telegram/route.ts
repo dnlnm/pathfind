@@ -47,8 +47,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Generate a 6-character random token
-    const token = crypto.randomBytes(3).toString("hex").toUpperCase();
+    const token = crypto.randomBytes(16).toString("hex").toUpperCase();
 
     db.prepare("UPDATE users SET telegram_linking_token = ? WHERE id = ?").run(token, userAuth.id);
 

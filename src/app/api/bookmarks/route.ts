@@ -6,7 +6,7 @@ import { generateEmbedding } from "@/lib/gemini";
 import { evaluateRules } from "@/lib/rule-engine";
 import { normalizeUrl } from "@/lib/url-normalizer";
 import { DbBookmark } from "@/types";
-import { toBookmarkWithTags } from "@/lib/bookmark-queries";
+import { toBookmarkWithTags, toBookmarksWithTagsBatch } from "@/lib/bookmark-queries";
 
 import { parseSearchQuery } from "@/lib/search-query-parser";
 
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag") || "";
     const collectionId = searchParams.get("collection");
     const filter = searchParams.get("filter") || "all";
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || String(defaultLimit));
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(200, Math.max(0, parseInt(searchParams.get("limit") || String(defaultLimit)) || defaultLimit));
     const sort = searchParams.get("sort") || "newest";
     const offset = (page - 1) * limit;
 
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset) as DbBookmark[];
 
-    const bookmarks = rows.map(toBookmarkWithTags);
+    const bookmarks = toBookmarksWithTagsBatch(rows);
 
     return NextResponse.json({
         bookmarks,
@@ -206,53 +206,55 @@ export async function POST(request: NextRequest) {
     let id: string;
     let isUpdate = false;
 
-    if (existing) {
-        id = existing.id;
-        isUpdate = true;
+    const createOrUpdate = db.transaction(() => {
+        if (existing) {
+            id = existing.id;
+            isUpdate = true;
 
-        let finalNotes = notes !== undefined ? notes : existing.notes;
+            let finalNotes = notes !== undefined ? notes : existing.notes;
 
-        db.prepare(`
-            UPDATE bookmarks 
-            SET title = ?, description = ?, notes = ?, thumbnail = ?, is_read_later = ?, is_nsfw = ?, updated_at = datetime('now')
-            WHERE id = ?
-        `).run(finalTitle, finalDescription, finalNotes, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, finalIsNsfw ? 1 : 0, id);
+            db.prepare(`
+                UPDATE bookmarks 
+                SET title = ?, description = ?, notes = ?, thumbnail = ?, is_read_later = ?, is_nsfw = ?, updated_at = datetime('now')
+                WHERE id = ?
+            `).run(finalTitle, finalDescription, finalNotes, finalThumbnail, isReadLater !== undefined ? (isReadLater ? 1 : 0) : existing.is_read_later, finalIsNsfw ? 1 : 0, id!);
 
-        if (body.tags !== undefined) {
-            db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
+            if (body.tags !== undefined) {
+                db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id!);
+            }
+            if (body.collections !== undefined) {
+                db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id!);
+            }
+        } else {
+            id = generateId();
+            db.prepare(`
+                INSERT INTO bookmarks (id, url, canonical_url, title, description, notes, thumbnail, is_read_later, is_nsfw, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(id!, url, canonicalUrl, finalTitle, finalDescription, notes || null, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
         }
-        if (body.collections !== undefined) {
-            db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
-        }
-    } else {
-        id = generateId();
-        db.prepare(`
-            INSERT INTO bookmarks (id, url, canonical_url, title, description, notes, thumbnail, is_read_later, is_nsfw, user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(id, url, canonicalUrl, finalTitle, finalDescription, notes || null, finalThumbnail, isReadLater ? 1 : 0, finalIsNsfw ? 1 : 0, userAuth.id);
-    }
 
-    // Create/connect tags
-    if ((!isUpdate || body.tags !== undefined) && tags && tags.length > 0) {
-        const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
-        const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
-        const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
+        if ((!isUpdate || body.tags !== undefined) && tags && tags.length > 0) {
+            const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
+            const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
+            const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
 
-        for (const tagName of tags) {
-            const normalized = tagName.toLowerCase().trim();
-            insertTag.run(generateId(), normalized);
-            const tagRow = getTag.get(normalized) as { id: string };
-            linkTag.run(id, tagRow.id);
+            for (const tagName of tags) {
+                const normalized = tagName.toLowerCase().trim();
+                insertTag.run(generateId(), normalized);
+                const tagRow = getTag.get(normalized) as { id: string };
+                linkTag.run(id!, tagRow.id);
+            }
         }
-    }
 
-    // Connect collections
-    if ((!isUpdate || body.collections !== undefined) && body.collections && body.collections.length > 0) {
-        const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
-        for (const collectionId of body.collections) {
-            linkCollection.run(id, collectionId);
+        if ((!isUpdate || body.collections !== undefined) && body.collections && body.collections.length > 0) {
+            const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
+            for (const collectionId of body.collections) {
+                linkCollection.run(id!, collectionId);
+            }
         }
-    }
+    });
+
+    createOrUpdate();
 
     // Evaluate rule engine
     const bookmarkForRules = db.prepare("SELECT * FROM bookmarks WHERE id = ?").get(id) as DbBookmark;
