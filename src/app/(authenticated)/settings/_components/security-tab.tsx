@@ -355,7 +355,7 @@ export function SecurityTab({ email, setEmail, username, setUsername, apiTokens,
                                             <div className="flex items-center gap-2">
                                                 <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">{token.masked_token || 'pf_****...****'}</code>
                                                 <span className="text-[10px] text-muted-foreground">
-                                                    Last used: {token.last_used_at ? new Date(token.last_used_at.endsWith('Z') ? token.last_used_at : token.last_used_at + 'Z').toLocaleDateString(undefined, { timeZone: process.env.NEXT_PUBLIC_APP_TIMEZONE || undefined }) : 'Never'}
+                                                    Last used: {token.last_used_at ? new Date(token.last_used_at.endsWith('Z') ? token.last_used_at : token.last_used_at + 'Z').toLocaleDateString(undefined, { timeZone: process.env.TIMEZONE || undefined }) : 'Never'}
                                                 </span>
                                             </div>
                                         </div>

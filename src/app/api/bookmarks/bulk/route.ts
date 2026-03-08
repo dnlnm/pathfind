@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import db, { generateId } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/api-auth";
+import { deleteThumbnail } from "@/lib/thumbnail-store";
 
 export async function DELETE(request: NextRequest) {
     const userAuth = await getAuthenticatedUser(request);
@@ -15,15 +16,24 @@ export async function DELETE(request: NextRequest) {
     }
 
     let affected = 0;
+    const deletedIds: string[] = [];
     const deleteBookmarks = db.transaction((bookmarkIds: string[]) => {
         const stmt = db.prepare("DELETE FROM bookmarks WHERE id = ? AND user_id = ?");
         for (const id of bookmarkIds) {
             const result = stmt.run(id, userAuth.id);
-            affected += result.changes;
+            if (result.changes > 0) {
+                affected += result.changes;
+                deletedIds.push(id);
+            }
         }
     });
 
     deleteBookmarks(ids);
+
+    // Clean up thumbnail files for deleted bookmarks
+    for (const id of deletedIds) {
+        deleteThumbnail(id);
+    }
 
     return NextResponse.json({ success: true, affected });
 }

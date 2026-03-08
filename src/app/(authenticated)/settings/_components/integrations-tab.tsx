@@ -165,7 +165,7 @@ export function IntegrationsTab({
                             <p className="text-[10px] text-muted-foreground italic">Syncs automatically every hour</p>
                             {lastGithubSync && (
                                 <p className="text-[10px] text-muted-foreground">
-                                    Last synced: {new Date(lastGithubSync + "Z").toLocaleString(undefined, { timeZone: process.env.NEXT_PUBLIC_APP_TIMEZONE || undefined })}
+                                    Last synced: {new Date(lastGithubSync + "Z").toLocaleString(undefined, { timeZone: process.env.TIMEZONE || undefined })}
                                 </p>
                             )}
                         </div>
@@ -215,7 +215,7 @@ export function IntegrationsTab({
                                 <p className="text-[10px] text-muted-foreground italic">Syncs automatically every hour</p>
                                 {lastRedditSync && (
                                     <p className="text-[10px] text-muted-foreground">
-                                        Last synced: {new Date(lastRedditSync + "Z").toLocaleString(undefined, { timeZone: process.env.NEXT_PUBLIC_APP_TIMEZONE || undefined })}
+                                        Last synced: {new Date(lastRedditSync + "Z").toLocaleString(undefined, { timeZone: process.env.TIMEZONE || undefined })}
                                     </p>
                                 )}
                             </div>

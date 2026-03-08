@@ -60,7 +60,7 @@ async function parseHtmlMetadata(html: string, url: string) {
     const hostname = isReddit ? "reddit.com" : urlObj.hostname;
 
     const fallbackThumbnail = title
-        ? `/api/thumbnail?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`
+        ? `/api/thumbnails/generate?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`
         : null;
 
     return {
@@ -185,7 +185,7 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                         }
 
                         const fallbackThumbnail = title
-                            ? `/api/thumbnail?title=${encodeURIComponent(title)}&domain=reddit.com`
+                            ? `/api/thumbnails/generate?title=${encodeURIComponent(title)}&domain=reddit.com`
                             : null;
 
                         const isNsfw = !!postData.over_18;
@@ -210,6 +210,7 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
         }
 
         let html = "";
+        let directFetchStatus = 0;
         const controller = new AbortController();
         const timeout = setTimeout(() => {
             console.log(`[Metadata] Timeout reached for ${url}, aborting...`);
@@ -226,6 +227,7 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                 },
             });
 
+            directFetchStatus = response.status;
             console.log(`[Metadata] Headers received for ${url}, status: ${response.status}`);
 
             if (!response.ok) {
@@ -243,6 +245,36 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
             }
         } finally {
             clearTimeout(timeout);
+        }
+
+        // Cloudflare bypass fallback: retry via proxy when blocked (403/503) or empty html
+        const cfBypassUrl = process.env.CF_BYPASS_URL;
+        if (cfBypassUrl && (!html || directFetchStatus === 403 || directFetchStatus === 503)) {
+            try {
+                console.log(`[Metadata] Direct fetch failed/blocked (status ${directFetchStatus}), attempting Cloudflare bypass for ${url}`);
+                const bypassController = new AbortController();
+                const bypassTimeout = setTimeout(() => bypassController.abort(), 30000); // longer timeout for browser-based bypass
+
+                const bypassRes = await fetch(
+                    `${cfBypassUrl}/html?url=${encodeURIComponent(url)}`,
+                    { signal: bypassController.signal }
+                );
+                clearTimeout(bypassTimeout);
+
+                if (bypassRes.ok) {
+                    const bypassHtml = await bypassRes.text();
+                    html = bypassHtml.length > 512 * 1024 ? bypassHtml.substring(0, 512 * 1024) : bypassHtml;
+                    console.log(`[Metadata] Cloudflare bypass success for ${url}, html length: ${html.length}`);
+                } else {
+                    console.warn(`[Metadata] Cloudflare bypass returned HTTP ${bypassRes.status} for ${url}`);
+                }
+            } catch (e: any) {
+                if (e.name === 'AbortError') {
+                    console.warn(`[Metadata] Cloudflare bypass timed out for ${url}`);
+                } else {
+                    console.warn(`[Metadata] Cloudflare bypass error for ${url}:`, e.message || e);
+                }
+            }
         }
 
         const parsed = await parseHtmlMetadata(html || "", url);

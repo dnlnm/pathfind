@@ -101,26 +101,30 @@ export async function PUT(
             id
         );
 
-        db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
+        if (body.tags !== undefined) {
+            db.prepare("DELETE FROM bookmark_tags WHERE bookmark_id = ?").run(id);
 
-        if (tags && tags.length > 0) {
-            const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
-            const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
-            const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
+            if (tags && tags.length > 0) {
+                const insertTag = db.prepare("INSERT OR IGNORE INTO tags (id, name) VALUES (?, ?)");
+                const getTag = db.prepare("SELECT id FROM tags WHERE name = ?");
+                const linkTag = db.prepare("INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id) VALUES (?, ?)");
 
-            for (const tagName of tags) {
-                const normalized = tagName.toLowerCase().trim();
-                insertTag.run(generateId(), normalized);
-                const tagRow = getTag.get(normalized) as { id: string };
-                linkTag.run(id, tagRow.id);
+                for (const tagName of tags) {
+                    const normalized = tagName.toLowerCase().trim();
+                    insertTag.run(generateId(), normalized);
+                    const tagRow = getTag.get(normalized) as { id: string };
+                    linkTag.run(id, tagRow.id);
+                }
             }
         }
 
-        db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
-        if (body.collections && body.collections.length > 0) {
-            const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
-            for (const collectionId of body.collections) {
-                linkCollection.run(id, collectionId);
+        if (body.collections !== undefined) {
+            db.prepare("DELETE FROM bookmark_collections WHERE bookmark_id = ?").run(id);
+            if (body.collections && body.collections.length > 0) {
+                const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
+                for (const collectionId of body.collections) {
+                    linkCollection.run(id, collectionId);
+                }
             }
         }
     });

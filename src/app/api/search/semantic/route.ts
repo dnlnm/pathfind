@@ -46,20 +46,22 @@ export async function GET(request: NextRequest) {
         else if (filter === "archived") filterWhere += "AND is_archived = 1";
         else filterWhere += "AND is_archived = 0";
 
-        const inClauseRows = vectorResults.map((r) => r.rowid).join(",");
+        const rowidPlaceholders = vectorResults.map(() => "?").join(",");
+        const rowidValues = vectorResults.map((r) => r.rowid);
 
         // Load the actual bookmarks checking permissions
         const bookmarksQuery = db.prepare(`
             SELECT * FROM bookmarks 
-            WHERE rowid IN (${inClauseRows}) AND user_id = ? ${filterWhere}
+            WHERE rowid IN (${rowidPlaceholders}) AND user_id = ? ${filterWhere}
         `);
 
-        const rawBookmarks = bookmarksQuery.all(userAuth.id) as DbBookmark[];
+        const rawBookmarks = bookmarksQuery.all(...rowidValues, userAuth.id) as DbBookmark[];
 
         const distanceMap = new Map(vectorResults.map((r) => [r.rowid, r.distance]));
 
+        const idPlaceholders = rawBookmarks.map(() => "?").join(",");
         const rowidRows = rawBookmarks.length > 0
-            ? db.prepare(`SELECT id, rowid FROM bookmarks WHERE id IN (${rawBookmarks.map(() => "?").join(",")})`)
+            ? db.prepare(`SELECT id, rowid FROM bookmarks WHERE id IN (${idPlaceholders})`)
                 .all(...rawBookmarks.map(b => b.id)) as { id: string; rowid: number }[]
             : [];
         const idToRowid = new Map(rowidRows.map(r => [r.id, r.rowid]));

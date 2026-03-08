@@ -191,7 +191,7 @@ export function BookmarkForm({ open, onOpenChange, bookmark, onSuccess, initialV
         setGenerating(true);
         try {
             const domain = url ? new URL(url).hostname.replace("www.", "") : "";
-            const dynamicUrl = `/api/thumbnail?title=${encodeURIComponent(title || "Bookmark")}&domain=${encodeURIComponent(domain)}`;
+            const dynamicUrl = `/api/thumbnails/generate?title=${encodeURIComponent(title || "Bookmark")}&domain=${encodeURIComponent(domain)}`;
             setThumbnail(dynamicUrl);
             toast.success("Dynamic thumbnail generated");
         } catch {

@@ -470,7 +470,7 @@ export function BookmarkCard({
                                         {new Date(localBookmark.createdAt.endsWith("Z") ? localBookmark.createdAt : localBookmark.createdAt + "Z").toLocaleDateString("en-US", {
                                             month: "short",
                                             day: "numeric",
-                                            timeZone: process.env.NEXT_PUBLIC_APP_TIMEZONE || undefined
+                                            timeZone: process.env.NEXT_PUBLIC_TIMEZONE || undefined
                                         })}
                                     </span>
                                 </div>

@@ -128,7 +128,7 @@ export function getThumbnailAbsolutePath(relativePath: string): string | null {
 /**
  * Resolve a thumbnail value stored in DB to a displayable URL.
  * - "thumbnails/..." → "/api/thumbnails/..."
- * - "/api/thumbnail?..." → passthrough (dynamic SVG fallback)
+ * - "/api/thumbnails/generate?..." → passthrough (dynamic SVG fallback)
  * - "http..." → passthrough
  */
 export function resolveThumbnailUrl(thumbnail: string | null): string | null {
