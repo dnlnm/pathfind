@@ -6,6 +6,7 @@ import { handleGithubStarredSync } from "./handlers/github-sync";
 import { handleBackfillThumbnails } from "./handlers/backfill-thumbnails";
 import { handleBackfillEmbeddings } from "./handlers/backfill-embeddings";
 import { handleCheckBrokenLinks } from "./handlers/check-broken-links";
+import { handleYoutubePlaylistSync } from "./handlers/youtube-sync";
 
 // ---------------------------------------------------------------------------
 // Lane runner — polls for jobs of the given types
@@ -65,6 +66,9 @@ async function processNextJobForLane(laneName: string, types: string[], placehol
                 break;
             case 'check_broken_links':
                 await handleCheckBrokenLinks(job, payload);
+                break;
+            case 'youtube_playlist_sync':
+                await handleYoutubePlaylistSync(job, payload);
                 break;
             default:
                 logDebug(`[Worker] Unknown job type: ${job.type}`);

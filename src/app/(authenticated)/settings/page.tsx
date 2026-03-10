@@ -15,14 +15,16 @@ import { RulesTab } from "./_components/rules-tab";
 import { LinkHealthTab } from "./_components/link-health-tab";
 import { DuplicatesTab } from "./_components/duplicates-tab";
 import { UsersTab } from "./_components/users-tab";
+import { YoutubeTab } from "./_components/youtube-tab";
 import { toast } from "sonner";
 
-type TabType = "general" | "integrations" | "security" | "data" | "tasks" | "rules" | "link-health" | "duplicates" | "users";
+type TabType = "general" | "integrations" | "youtube" | "security" | "data" | "tasks" | "rules" | "link-health" | "duplicates" | "users";
 
 const BASE_TABS: { id: TabType; label: string; description: string }[] = [
     { id: "general", label: "General", description: "Display and behavior settings" },
     { id: "rules", label: "Rules", description: "Automate actions when bookmarks are saved" },
     { id: "integrations", label: "Integrations", description: "Connect external services" },
+    { id: "youtube", label: "YouTube Sync", description: "Sync your playlists and videos" },
     { id: "security", label: "Security", description: "Manage your credentials" },
     { id: "data", label: "Data Management", description: "Import and export your data" },
     { id: "tasks", label: "Background Tasks", description: "Monitor active and pending jobs" },
@@ -236,6 +238,10 @@ function SettingsContent() {
                             telegramStatus={telegramStatus}
                             setTelegramStatus={setTelegramStatus}
                         />
+                    )}
+
+                    {activeTab === "youtube" && (
+                        <YoutubeTab />
                     )}
 
                     {activeTab === "security" && (

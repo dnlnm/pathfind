@@ -3,11 +3,14 @@ import { logDebug } from "../logger";
 
 export async function handleGithubStarredSync(job: any, payload: any) {
     const { userId } = payload;
-    const githubToken = process.env.GITHUB_TOKEN;
+    
+    const user = db.prepare("SELECT github_token FROM users WHERE id = ?").get(userId) as { github_token: string | null };
 
-    if (!githubToken) {
-        throw new Error("GITHUB_TOKEN is not configured in .env");
+    if (!user || !user.github_token) {
+        throw new Error("User has not connected their GitHub account.");
     }
+
+    const githubToken = user.github_token;
 
     logDebug(`[Worker] Syncing GitHub stars for user ${userId}`);
 

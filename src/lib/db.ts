@@ -273,6 +273,30 @@ try {
   // Column already exists
 }
 
+try {
+  db.exec("ALTER TABLE users ADD COLUMN youtube_token TEXT");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN youtube_refresh_token TEXT");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN youtube_token_expires_at INTEGER");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN youtube_sync_enabled INTEGER DEFAULT 0");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN last_youtube_sync_at DATETIME");
+} catch (e) { /* Column already exists */ }
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN youtube_playlists_sync TEXT");
+} catch (e) { /* Column already exists */ }
+
 // Migration: add favicon_colors cache table if missing
 try {
   db.exec(`

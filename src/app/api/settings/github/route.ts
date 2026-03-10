@@ -8,10 +8,10 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = db.prepare("SELECT github_sync_enabled, last_github_sync_at FROM users WHERE id = ?").get(session.user.id) as { github_sync_enabled: number; last_github_sync_at: string | null };
+    const user = db.prepare("SELECT github_token, github_sync_enabled, last_github_sync_at FROM users WHERE id = ?").get(session.user.id) as { github_token: string | null; github_sync_enabled: number; last_github_sync_at: string | null };
 
     return NextResponse.json({
-        configured: !!process.env.GITHUB_TOKEN,
+        configured: !!user?.github_token,
         syncEnabled: user?.github_sync_enabled === 1,
         lastSync: user?.last_github_sync_at || null,
     });

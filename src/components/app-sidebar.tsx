@@ -22,7 +22,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff, Copy, Users, Sparkles } from "lucide-react";
+import { Compass, Bookmark, Clock, Archive, Tag, LogOut, ChevronDown, Plus, MoreHorizontal, Settings2, Share2, ShieldCheck, Database, RefreshCw, ArrowLeft, Zap, Link as LinkIcon, EyeOff, Copy, Users, Sparkles, Youtube } from "lucide-react";
 import { CollectionForm } from "./collection-form";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +75,7 @@ export function AppSidebar({ bookmarkCounts: initialCounts, userName, refreshTri
         { id: "general", label: "General", icon: Settings2 },
         { id: "rules", label: "Rules", icon: Zap },
         { id: "integrations", label: "Integrations", icon: Share2 },
+        { id: "youtube", label: "YouTube Sync", icon: Youtube },
         { id: "security", label: "Security", icon: ShieldCheck },
         { id: "data", label: "Data Management", icon: Database },
         { id: "tasks", label: "Background Tasks", icon: RefreshCw },

@@ -28,7 +28,7 @@ export async function startWorker() {
     for (let i = 0; i < 5; i++) {
         runWorkerLane(`fast-${i}`, ["metadata_fetch"]);
     }
-    runWorkerLane("sync", ["reddit_rss_sync", "github_starred_sync"]);
+    runWorkerLane("sync", ["reddit_rss_sync", "github_starred_sync", "youtube_playlist_sync"]);
     runWorkerLane("bulk", ["backfill_thumbnails", "backfill_embeddings", "check_broken_links"]);
     runSchedulerLoop();
     runMaintenanceScanLoop();

@@ -10,14 +10,14 @@ export async function POST() {
 
     const userId = session.user.id;
 
-    const user = db.prepare("SELECT github_token FROM users WHERE id = ?").get(userId) as { github_token: string | null };
-
-    if (!user || !user.github_token) {
-        return NextResponse.json({ error: "GitHub account not connected" }, { status: 400 });
+    // Check if connected
+    const user = db.prepare("SELECT youtube_token FROM users WHERE id = ?").get(userId) as any;
+    if (!user?.youtube_token) {
+        return NextResponse.json({ error: "YouTube not connected" }, { status: 400 });
     }
 
-    // Check if there's already a pending github_starred_sync job for this user
-    const existingJob = db.prepare("SELECT id FROM jobs WHERE user_id = ? AND type = 'github_starred_sync' AND status IN ('pending', 'processing')").get(userId);
+    // Check if there's already a pending job
+    const existingJob = db.prepare("SELECT id FROM jobs WHERE user_id = ? AND type = 'youtube_playlist_sync' AND status IN ('pending', 'processing')").get(userId);
 
     if (existingJob) {
         return NextResponse.json({ error: "A sync is already in progress" }, { status: 409 });
@@ -26,7 +26,7 @@ export async function POST() {
     const id = generateId();
     db.prepare(`
         INSERT INTO jobs (id, type, payload, status, user_id)
-        VALUES (?, 'github_starred_sync', ?, 'pending', ?)
+        VALUES (?, 'youtube_playlist_sync', ?, 'pending', ?)
     `).run(id, JSON.stringify({ userId }), userId);
 
     return NextResponse.json({ success: true, jobId: id });

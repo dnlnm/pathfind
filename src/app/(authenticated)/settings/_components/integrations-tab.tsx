@@ -51,6 +51,18 @@ export function IntegrationsTab({
         setTimeout(() => setCopiedToken(null), 2000);
     };
 
+    const handleDisconnectGithub = async () => {
+        try {
+            const res = await fetch("/api/github/disconnect", { method: "POST" });
+            if (res.ok) {
+                setGithubSyncEnabled(false);
+                // We'll need to force a reload or pass a callback to the parent to refresh state,
+                // but for now, a simple page reload is fine:
+                window.location.reload();
+            }
+        } catch { toast.error("Failed to disconnect"); }
+    };
+
     const handleToggleGithubSync = async (enabled: boolean) => {
         setGithubSyncEnabled(enabled);
         try {
@@ -59,7 +71,7 @@ export function IntegrationsTab({
     };
 
     const handleSyncStars = async () => {
-        if (!githubConfigured) { toast.error("Set GITHUB_TOKEN in .env first"); return; }
+        if (!githubConfigured) { toast.error("Connect your GitHub account first"); return; }
         setSyncingStars(true);
         try {
             const res = await fetch("/api/github/sync", { method: "POST" });
@@ -141,14 +153,23 @@ export function IntegrationsTab({
                     <CardContent className="space-y-6">
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <Label className="text-sm">Personal Access Token</Label>
+                                <Label className="text-sm">GitHub Account</Label>
                                 <div className={cn("flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full", githubConfigured ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground")}>
-                                    {githubConfigured ? <><Check className="h-3 w-3" /> Configured in .env</> : <>Set <code className="font-mono">GITHUB_TOKEN</code> in .env</>}
+                                    {githubConfigured ? (
+                                        <>
+                                            <Check className="h-3 w-3" /> Connected
+                                            <Button variant="ghost" size="sm" onClick={handleDisconnectGithub} className="h-4 w-4 ml-2 p-0 text-red-500 hover:text-red-600 hover:bg-transparent cursor-pointer">Unlink</Button>
+                                        </>
+                                    ) : (
+                                        <Button variant="ghost" size="sm" onClick={() => window.location.href = "/api/github/auth"} className="h-4 p-0 px-1 text-[11px] hover:bg-transparent cursor-pointer">
+                                            Connect Account
+                                        </Button>
+                                    )}
                                 </div>
                             </div>
                             <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                                 <ShieldCheck className="h-3 w-3" />
-                                Requires <code className="bg-muted px-1 rounded">public_repo</code> or <code className="bg-muted px-1 rounded">repo</code> scope.
+                                Securely connect via GitHub OAuth
                             </p>
                             <div className="flex items-center justify-between pt-2">
                                 <Label htmlFor="github-sync-toggle" className="text-xs font-normal text-muted-foreground cursor-pointer">

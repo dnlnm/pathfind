@@ -112,6 +112,36 @@ export async function runSchedulerLoop() {
                     `).run(id, JSON.stringify({}), userId);
                 }
             }
+
+            // Find users due for YouTube sync
+            const youtubeUsers = db.prepare(`
+                SELECT id FROM users 
+                WHERE youtube_sync_enabled = 1
+                AND youtube_token IS NOT NULL
+                AND (
+                    last_youtube_sync_at IS NULL 
+                    OR last_youtube_sync_at < datetime('now', '-6 hours')
+                )
+            `).all() as { id: string }[];
+
+            for (const user of youtubeUsers) {
+                const userId = user.id;
+                const existingJob = db.prepare(`
+                    SELECT id FROM jobs 
+                    WHERE user_id = ? 
+                    AND type = 'youtube_playlist_sync' 
+                    AND status IN ('pending', 'processing')
+                `).get(userId);
+
+                if (!existingJob) {
+                    logDebug(`[Worker] Scheduling automatic YouTube sync for user ${userId}`);
+                    const id = generateId();
+                    db.prepare(`
+                        INSERT INTO jobs (id, type, payload, status, user_id)
+                        VALUES (?, 'youtube_playlist_sync', ?, 'pending', ?)
+                    `).run(id, JSON.stringify({ userId }), userId);
+                }
+            }
         } catch (e) {
             logDebug("[Worker] Error in scheduler loop: " + e);
         }
