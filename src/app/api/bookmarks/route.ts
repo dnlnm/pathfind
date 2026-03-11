@@ -370,7 +370,8 @@ export async function POST(request: NextRequest) {
                     const row = db.prepare("SELECT rowid FROM bookmarks WHERE id = ?").get(id) as { rowid: number };
                     if (row) {
                         const f32arr = new Float32Array(embedding);
-                        db.prepare("INSERT OR REPLACE INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(row.rowid), f32arr);
+                        db.prepare("DELETE FROM vec_bookmarks WHERE rowid = ?").run(BigInt(row.rowid));
+                        db.prepare("INSERT INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(row.rowid), f32arr);
                     }
                 }
             }

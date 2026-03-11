@@ -1,15 +1,14 @@
 import 'dotenv/config';
 import Database from 'better-sqlite3';
 import * as sqliteVec from "sqlite-vec";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 if (!process.env.GEMINI_API_KEY) {
     console.error("Missing GEMINI_API_KEY in environment variables.");
     process.exit(1);
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const db = new Database("data/pathfind.db");
 sqliteVec.load(db);
@@ -41,11 +40,15 @@ for (const item of missingEmbeddings) {
         if (!textToEmbed) continue;
 
         // Call Gemini API
-        const result = await model.embedContent({
-            content: { parts: [{ text: textToEmbed }], role: "user" },
-            outputDimensionality: 768
+        const result = await ai.models.embedContent({
+            model: "gemini-embedding-2-preview",
+            contents: textToEmbed,
+            config: {
+                outputDimensionality: 768
+            }
         });
-        const embedding = result.embedding.values;
+        const embedding = result.embeddings?.[0]?.values;
+        if (!embedding) continue;
         const f32arr = new Float32Array(embedding);
 
         db.prepare("INSERT INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(item.rowid), f32arr);

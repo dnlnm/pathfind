@@ -69,7 +69,8 @@ export async function handleMetadataFetch(job: any, payload: any) {
                 const embedding = await generateEmbedding(textToEmbed);
                 if (embedding) {
                     const f32arr = new Float32Array(embedding);
-                    db.prepare("INSERT OR REPLACE INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(updatedRow.rowid), f32arr);
+                    db.prepare("DELETE FROM vec_bookmarks WHERE rowid = ?").run(BigInt(updatedRow.rowid));
+                    db.prepare("INSERT INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(updatedRow.rowid), f32arr);
                     logDebug(`[Worker] Generated embedding for bookmark ${bookmarkId}`);
                 }
             }

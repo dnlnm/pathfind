@@ -1,31 +1,33 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
-let genAI: GoogleGenerativeAI | null = null;
+let ai: GoogleGenAI | null = null;
 if (apiKey) {
-    genAI = new GoogleGenerativeAI(apiKey);
+    ai = new GoogleGenAI({ apiKey });
 }
 
 const MAX_INPUT_LENGTH = 10_000;
 const MAX_RETRIES = 3;
 
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-    if (!genAI) {
+    if (!ai) {
         console.warn("GEMINI_API_KEY is not set. Cannot generate embedding.");
         return null;
     }
 
     const truncatedText = text.length > MAX_INPUT_LENGTH ? text.substring(0, MAX_INPUT_LENGTH) : text;
-    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-            const result = await model.embedContent({
-                content: { parts: [{ text: truncatedText }], role: "user" },
-                outputDimensionality: 768
-            } as any);
-            return result.embedding.values;
+            const result = await ai.models.embedContent({
+                model: "gemini-embedding-2-preview",
+                contents: truncatedText,
+                config: {
+                    outputDimensionality: 768
+                }
+            });
+            return result.embeddings?.[0]?.values || null;
         } catch (error: any) {
             const status = error?.status || error?.code;
             const isRetryable = status === 429 || status === 503 || status === 500;
