@@ -2,6 +2,7 @@ import db, { generateId } from "../../db";
 import { logDebug } from "../logger";
 import { getYouTubeToken, fetchPlaylistItems, fetchYouTubePlaylists } from "../../youtube-client";
 import { normalizeUrl } from "../../url-normalizer";
+import { saveThumbnailFromUrl } from "../../thumbnail-store";
 
 export async function handleYoutubePlaylistSync(job: any, payload: any) {
     const { userId } = payload;
@@ -56,6 +57,8 @@ export async function handleYoutubePlaylistSync(job: any, payload: any) {
         const linkCollection = db.prepare("INSERT OR IGNORE INTO bookmark_collections (bookmark_id, collection_id) VALUES (?, ?)");
         const checkExisting = db.prepare("SELECT id, thumbnail FROM bookmarks WHERE canonical_url = ? AND user_id = ?");
 
+        const thumbnailsToFetch: { bookmarkId: string, url: string }[] = [];
+
         const playlistTransaction = db.transaction(() => {
             for (const item of items) {
                 const videoId = item.contentDetails.videoId;
@@ -73,9 +76,9 @@ export async function handleYoutubePlaylistSync(job: any, payload: any) {
 
                 if (existing) {
                     bookmarkId = existing.id;
-                    // Proactively update thumbnail if missing in DB
-                    if (!existing.thumbnail && thumbnailUrl) {
-                        updateThumbnail.run(thumbnailUrl, bookmarkId);
+                    // Proactively update thumbnail if missing in DB or if it is an external URL
+                    if ((!existing.thumbnail || existing.thumbnail.startsWith('http')) && thumbnailUrl) {
+                        thumbnailsToFetch.push({ bookmarkId, url: thumbnailUrl });
                     }
                 } else {
                     bookmarkId = generateId();
@@ -89,6 +92,10 @@ export async function handleYoutubePlaylistSync(job: any, payload: any) {
                         userId,
                         item.contentDetails.videoPublishedAt || new Date().toISOString() // Fallback to now
                     );
+
+                    if (thumbnailUrl) {
+                        thumbnailsToFetch.push({ bookmarkId, url: thumbnailUrl });
+                    }
 
                     // Add a job for embedding and further metadata fetch
                     const metadataJobId = generateId();
@@ -106,6 +113,17 @@ export async function handleYoutubePlaylistSync(job: any, payload: any) {
         });
 
         playlistTransaction();
+
+        for (const task of thumbnailsToFetch) {
+            try {
+                const localPath = await saveThumbnailFromUrl(task.bookmarkId, task.url);
+                if (localPath) {
+                    updateThumbnail.run(localPath, task.bookmarkId);
+                }
+            } catch (err) {
+                logDebug(`[Worker] Failed to save YouTube sync thumbnail for ${task.bookmarkId}: ` + err);
+            }
+        }
     }
 
     db.prepare("UPDATE users SET last_youtube_sync_at = datetime('now') WHERE id = ?").run(userId);
