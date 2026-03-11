@@ -7,7 +7,7 @@ export async function handleBackfillEmbeddings(job: any, payload: any) {
     const userId = job.user_id;
 
     let bookmarksQuery = `
-        SELECT b.rowid, b.id, b.title, b.description, b.notes
+        SELECT b.rowid, b.id, b.title, b.description, b.notes, b.thumbnail
         FROM bookmarks b
         LEFT JOIN vec_bookmarks v ON b.rowid = v.rowid
         WHERE b.user_id = ? AND IFNULL(b.is_nsfw, 0) = 0
@@ -16,7 +16,7 @@ export async function handleBackfillEmbeddings(job: any, payload: any) {
         bookmarksQuery += " AND v.rowid IS NULL";
     }
 
-    const bookmarks = db.prepare(bookmarksQuery).all(userId) as { rowid: number; id: string; title: string | null; description: string | null; notes: string | null }[];
+    const bookmarks = db.prepare(bookmarksQuery).all(userId) as { rowid: number; id: string; title: string | null; description: string | null; notes: string | null; thumbnail: string | null }[];
 
     const total = bookmarks.length;
     logDebug(`[Worker] Backfill embeddings: ${total} bookmarks to process for user ${userId}`);
@@ -35,7 +35,7 @@ export async function handleBackfillEmbeddings(job: any, payload: any) {
         try {
             const textToEmbed = `${item.title || ''} ${item.description || ''} ${item.notes || ''}`.trim();
             if (textToEmbed) {
-                const embedding = await generateEmbedding(textToEmbed);
+                const embedding = await generateEmbedding(textToEmbed, item.thumbnail);
                 if (embedding) {
                     const f32arr = new Float32Array(embedding);
                     db.prepare("DELETE FROM vec_bookmarks WHERE rowid = ?").run(BigInt(item.rowid));

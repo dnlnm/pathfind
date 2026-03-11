@@ -365,10 +365,10 @@ export async function POST(request: NextRequest) {
         try {
             const textToEmbed = `${finalTitle || ''} ${finalDescription || ''} ${notes || ''}`.trim();
             if (textToEmbed) {
-                const embedding = await generateEmbedding(textToEmbed);
-                if (embedding) {
-                    const row = db.prepare("SELECT rowid FROM bookmarks WHERE id = ?").get(id) as { rowid: number };
-                    if (row) {
+                const row = db.prepare("SELECT rowid, thumbnail FROM bookmarks WHERE id = ?").get(id) as { rowid: number, thumbnail: string | null };
+                if (row) {
+                    const embedding = await generateEmbedding(textToEmbed, row.thumbnail);
+                    if (embedding) {
                         const f32arr = new Float32Array(embedding);
                         db.prepare("DELETE FROM vec_bookmarks WHERE rowid = ?").run(BigInt(row.rowid));
                         db.prepare("INSERT INTO vec_bookmarks(rowid, embedding) VALUES (?, ?)").run(BigInt(row.rowid), f32arr);

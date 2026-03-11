@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const queryEmbedding = await generateEmbedding(query);
+        const queryEmbedding = await generateEmbedding(query, null, "RETRIEVAL_QUERY");
         if (!queryEmbedding) {
             return NextResponse.json({ error: "Failed to generate query embedding. Check GEMINI_API_KEY." }, { status: 500 });
         }

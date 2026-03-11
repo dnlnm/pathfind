@@ -2,6 +2,8 @@ import 'dotenv/config';
 import Database from 'better-sqlite3';
 import * as sqliteVec from "sqlite-vec";
 import { GoogleGenAI } from "@google/genai";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 if (!process.env.GEMINI_API_KEY) {
     console.error("Missing GEMINI_API_KEY in environment variables.");
@@ -21,7 +23,7 @@ db.exec(`
 `);
 
 const missingEmbeddings = db.prepare(`
-  SELECT b.rowid, b.id, b.title, b.description, b.notes 
+  SELECT b.rowid, b.id, b.title, b.description, b.notes, b.thumbnail
   FROM bookmarks b
   LEFT JOIN vec_bookmarks v on b.rowid = v.rowid
   WHERE v.rowid IS NULL
@@ -39,12 +41,35 @@ for (const item of missingEmbeddings) {
         const textToEmbed = `${item.title || ''} ${item.description || ''} ${item.notes || ''}`.trim();
         if (!textToEmbed) continue;
 
+        let parts = [{ text: textToEmbed }];
+
+        if (item.thumbnail && item.thumbnail.startsWith('thumbnails/')) {
+            try {
+                const absolutePath = path.join(process.cwd(), 'public', item.thumbnail);
+                if (fs.existsSync(absolutePath)) {
+                    const imgBase64 = fs.readFileSync(absolutePath, { encoding: "base64" });
+                    const ext = path.extname(absolutePath).toLowerCase();
+                    let mimeType = 'image/jpeg';
+                    if (ext === '.png') mimeType = 'image/png';
+                    else if (ext === '.webp') mimeType = 'image/webp';
+                    else if (ext === '.gif') mimeType = 'image/gif';
+                    
+                    parts.push({
+                        inlineData: { mimeType, data: imgBase64 }
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to load image for embedding:", e);
+            }
+        }
+
         // Call Gemini API
         const result = await ai.models.embedContent({
             model: "gemini-embedding-2-preview",
-            contents: textToEmbed,
+            contents: { parts },
             config: {
-                outputDimensionality: 768
+                outputDimensionality: 768,
+                taskType: "RETRIEVAL_DOCUMENT"
             }
         });
         const embedding = result.embeddings?.[0]?.values;

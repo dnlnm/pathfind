@@ -62,11 +62,11 @@ export async function handleMetadataFetch(job: any, payload: any) {
 
     // After updating metadata, generate vector embedding for semantic search
     try {
-        const updatedRow = db.prepare("SELECT rowid, title, description, notes FROM bookmarks WHERE id = ?").get(bookmarkId) as { rowid: number, title: string | null, description: string | null, notes: string | null };
+        const updatedRow = db.prepare("SELECT rowid, title, description, notes, thumbnail FROM bookmarks WHERE id = ?").get(bookmarkId) as { rowid: number, title: string | null, description: string | null, notes: string | null, thumbnail: string | null };
         if (updatedRow) {
             const textToEmbed = `${updatedRow.title || ''} ${updatedRow.description || ''} ${updatedRow.notes || ''}`.trim();
             if (textToEmbed) {
-                const embedding = await generateEmbedding(textToEmbed);
+                const embedding = await generateEmbedding(textToEmbed, updatedRow.thumbnail);
                 if (embedding) {
                     const f32arr = new Float32Array(embedding);
                     db.prepare("DELETE FROM vec_bookmarks WHERE rowid = ?").run(BigInt(updatedRow.rowid));
