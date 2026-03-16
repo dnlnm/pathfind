@@ -1,6 +1,9 @@
+import { fetchWithProviders } from "./metadata/registry";
+import { FetchedMetadata } from "./metadata/types";
+import { decodeHtml } from "./metadata/utils";
+
 async function parseHtmlMetadata(html: string, url: string) {
     const urlObj = new URL(url);
-    const isReddit = urlObj.hostname.includes("reddit.com");
 
     const getMeta = (prop: string) => {
         const patterns = [
@@ -22,10 +25,6 @@ async function parseHtmlMetadata(html: string, url: string) {
 
     if (title) {
         title = title.replace(/^[\(\[]\d+\+?[\)\]]\s*/, "").trim();
-    }
-
-    if (title && isReddit) {
-        title = title.replace(/ - Reddit$/i, "").replace(/^Reddit - /i, "").trim();
     }
 
     const description = getMeta("og:description") || getMeta("description") || getMeta("twitter:description");
@@ -50,14 +49,10 @@ async function parseHtmlMetadata(html: string, url: string) {
     }
 
     if (!favicon) {
-        if (isReddit) {
-            favicon = "https://www.reddit.com/favicon.ico";
-        } else {
-            favicon = `https://twenty-icons.com/${urlObj.hostname}`;
-        }
+        favicon = `https://twenty-icons.com/${urlObj.hostname}`;
     }
 
-    const hostname = isReddit ? "reddit.com" : urlObj.hostname;
+    const hostname = urlObj.hostname;
 
     const fallbackThumbnail = title
         ? `/api/thumbnails/generate?title=${encodeURIComponent(title)}&domain=${encodeURIComponent(hostname)}`
@@ -96,14 +91,7 @@ function isPrivateHostname(hostname: string): boolean {
     return false;
 }
 
-export interface FetchedMetadata {
-    title: string | null;
-    description: string | null;
-    favicon: string | null;
-    thumbnailUrl: string | null;
-    fallbackThumbnail: string | null;
-    isNsfw: boolean | undefined;
-}
+export type { FetchedMetadata };
 
 export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
     console.log(`[Metadata] Fetching: ${url}`);
@@ -114,128 +102,7 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
             console.warn(`[Metadata] Blocked request to private/internal address: ${urlObj.hostname}`);
             return { title: null, description: null, favicon: null, thumbnailUrl: null, fallbackThumbnail: null, isNsfw: undefined };
         }
-        const isReddit = urlObj.hostname.includes("reddit.com");
 
-        // Special handling for Reddit: use the .json trick
-        if (isReddit) {
-            try {
-                let resolvedUrl = url;
-
-                const isShareLink = /\/s\/[a-zA-Z0-9]+\/?$/.test(urlObj.pathname);
-                if (isShareLink) {
-                    console.log(`[Metadata] Reddit share link detected, resolving redirect...`);
-                    const headRes = await fetch(url, {
-                        method: "GET",
-                        redirect: "follow",
-                        headers: {
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                        },
-                    });
-                    resolvedUrl = headRes.url;
-                    console.log(`[Metadata] Resolved Reddit URL: ${resolvedUrl}`);
-                }
-
-                let redditJsonUrl = resolvedUrl.replace(/\?.*$/, "");
-                redditJsonUrl = redditJsonUrl.replace(/\/$/, "") + ".json";
-
-                console.log(`[Metadata] Reddit JSON URL: ${redditJsonUrl}`);
-
-                const jsonRes = await fetch(redditJsonUrl, {
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                        "Accept": "application/json"
-                    }
-                });
-
-                if (jsonRes.ok) {
-                    const data = await jsonRes.json();
-
-                    let postData: any = null;
-                    if (Array.isArray(data)) {
-                        postData = data[0]?.data?.children[0]?.data;
-                    } else if (data?.data?.children && data.data.children.length > 0) {
-                        postData = data.data.children[0].data;
-                    } else if (data?.kind === "t5") {
-                        postData = data.data;
-                    }
-
-                    if (postData) {
-                        const title = postData.title || postData.display_name_prefixed || postData.name || null;
-
-                        let thumbnailUrl = null;
-
-                        if (postData.is_gallery && postData.media_metadata) {
-                            const firstMediaId = Object.keys(postData.media_metadata)[0];
-                            const firstMedia = postData.media_metadata[firstMediaId];
-                            if (firstMedia?.s?.u) {
-                                thumbnailUrl = firstMedia.s.u.replace(/&amp;/g, "&");
-                            }
-                        }
-
-                        if (!thumbnailUrl) {
-                            const media = postData.secure_media || postData.media;
-                            if (media?.oembed?.thumbnail_url) {
-                                thumbnailUrl = media.oembed.thumbnail_url;
-                            }
-                        }
-
-                        if (!thumbnailUrl) {
-                            thumbnailUrl = postData.preview?.images[0]?.source?.url?.replace(/&amp;/g, "&") ||
-                                (postData.thumbnail?.startsWith("http") ? postData.thumbnail : null);
-                        }
-
-                        const fallbackThumbnail = title
-                            ? `/api/thumbnails/generate?title=${encodeURIComponent(title)}&domain=reddit.com`
-                            : null;
-
-                        const isNsfw = !!postData.over_18;
-
-                        const result: FetchedMetadata = {
-                            title,
-                            description: postData.selftext?.substring(0, 200) || postData.public_description || postData.description?.substring(0, 200) || null,
-                            favicon: "https://www.reddit.com/favicon.ico",
-                            thumbnailUrl,
-                            fallbackThumbnail,
-                            isNsfw
-                        };
-                        console.log(`[Metadata] Reddit JSON Success:`, result.title);
-                        if (result.title) return result;
-                    }
-                } else {
-                    console.warn(`[Metadata] Reddit JSON failed with status: ${jsonRes.status}`);
-                }
-            } catch (e) {
-                console.error("[Metadata] Reddit JSON fetch failed", e);
-            }
-        }
-
-        const isYouTube = urlObj.hostname.includes("youtube.com") || urlObj.hostname.includes("youtu.be");
-        if (isYouTube) {
-            try {
-                console.log(`[Metadata] Attempting YouTube oEmbed for ${url}`);
-                const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-                const oembedRes = await fetch(oembedUrl);
-                if (oembedRes.ok) {
-                    const data = await oembedRes.json();
-                    const title = data.title || null;
-                    const result: FetchedMetadata = {
-                        title: title,
-                        description: data.author_name ? `Video by ${data.author_name}` : null,
-                        favicon: "https://www.youtube.com/favicon.ico",
-                        thumbnailUrl: data.thumbnail_url || null,
-                        fallbackThumbnail: title ? `/api/thumbnails/generate?title=${encodeURIComponent(title)}&domain=youtube.com` : null,
-                        isNsfw: undefined
-                    };
-                    console.log(`[Metadata] YouTube oEmbed Success:`, result.title);
-                    if (result.title) return result;
-                }
-            } catch (e) {
-                console.warn("[Metadata] YouTube oEmbed failed", e);
-            }
-        }
-
-        let html = "";
-        let directFetchStatus = 0;
         const controller = new AbortController();
         const timeout = setTimeout(() => {
             console.log(`[Metadata] Timeout reached for ${url}, aborting...`);
@@ -243,7 +110,17 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
         }, 12000);
 
         try {
-            console.log(`[Metadata] Starting fetch for ${url}`);
+            // Try specialized providers first
+            const providerResult = await fetchWithProviders(urlObj, { signal: controller.signal });
+            if (providerResult) {
+                clearTimeout(timeout);
+                return providerResult;
+            }
+
+            let html = "";
+            let directFetchStatus = 0;
+
+            console.log(`[Metadata] Starting generic fetch for ${url}`);
             const response = await fetch(url, {
                 signal: controller.signal,
                 headers: {
@@ -262,73 +139,37 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
                 html = fullHtml.length > 512 * 1024 ? fullHtml.substring(0, 512 * 1024) : fullHtml;
                 console.log(`[Metadata] Body read complete for ${url}, original length: ${fullHtml.length}, processed length: ${html.length}`);
             }
-        } catch (e: any) {
-            if (e.name === 'AbortError') {
-                console.warn(`[Metadata] Fetch aborted due to timeout: ${url}`);
-            } else {
-                console.error(`[Metadata] Fetch error for ${url}:`, e);
-            }
-        } finally {
-            clearTimeout(timeout);
-        }
 
-        // Cloudflare bypass fallback: retry via proxy when blocked (403/503) or empty html
-        const cfBypassUrl = process.env.CF_BYPASS_URL;
-        if (cfBypassUrl && (!html || directFetchStatus === 403 || directFetchStatus === 503)) {
-            try {
-                console.log(`[Metadata] Direct fetch failed/blocked (status ${directFetchStatus}), attempting Cloudflare bypass for ${url}`);
-                const bypassController = new AbortController();
-                const bypassTimeout = setTimeout(() => bypassController.abort(), 30000); // longer timeout for browser-based bypass
+            // Cloudflare bypass fallback: retry via proxy when blocked (403/503) or empty html
+            const cfBypassUrl = process.env.CF_BYPASS_URL;
+            if (cfBypassUrl && (!html || directFetchStatus === 403 || directFetchStatus === 503)) {
+                try {
+                    console.log(`[Metadata] Direct fetch failed/blocked (status ${directFetchStatus}), attempting Cloudflare bypass for ${url}`);
+                    const bypassRes = await fetch(
+                        `${cfBypassUrl}/html?url=${encodeURIComponent(url)}`,
+                        { signal: controller.signal }
+                    );
 
-                const bypassRes = await fetch(
-                    `${cfBypassUrl}/html?url=${encodeURIComponent(url)}`,
-                    { signal: bypassController.signal }
-                );
-                clearTimeout(bypassTimeout);
-
-                if (bypassRes.ok) {
-                    const bypassHtml = await bypassRes.text();
-                    html = bypassHtml.length > 512 * 1024 ? bypassHtml.substring(0, 512 * 1024) : bypassHtml;
-                    console.log(`[Metadata] Cloudflare bypass success for ${url}, html length: ${html.length}`);
-                } else {
-                    console.warn(`[Metadata] Cloudflare bypass returned HTTP ${bypassRes.status} for ${url}`);
-                }
-            } catch (e: any) {
-                if (e.name === 'AbortError') {
-                    console.warn(`[Metadata] Cloudflare bypass timed out for ${url}`);
-                } else {
+                    if (bypassRes.ok) {
+                        const bypassHtml = await bypassRes.text();
+                        html = bypassHtml.length > 512 * 1024 ? bypassHtml.substring(0, 512 * 1024) : bypassHtml;
+                        console.log(`[Metadata] Cloudflare bypass success for ${url}, html length: ${html.length}`);
+                    }
+                } catch (e: any) {
                     console.warn(`[Metadata] Cloudflare bypass error for ${url}:`, e.message || e);
                 }
             }
+
+            const parsed = await parseHtmlMetadata(html || "", url);
+            console.log(`[Metadata] Final result:`, parsed.title);
+            return parsed;
+
+        } finally {
+            clearTimeout(timeout);
         }
-
-        const parsed = await parseHtmlMetadata(html || "", url);
-
-        console.log(`[Metadata] Final result:`, parsed.title);
-        return parsed;
     } catch (e) {
         console.error(`[Metadata] Error fetching ${url}:`, e);
         return { title: null, description: null, favicon: null, thumbnailUrl: null, fallbackThumbnail: null, isNsfw: undefined };
     }
 }
 
-function decodeHtml(html: string) {
-    if (!html) return "";
-    return html
-        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&mdash;/g, "—")
-        .replace(/&ndash;/g, "–")
-        .replace(/&hellip;/g, "…")
-        .replace(/&laquo;/g, "«")
-        .replace(/&raquo;/g, "»")
-        .replace(/&copy;/g, "©")
-        .replace(/&reg;/g, "®")
-        .replace(/&trade;/g, "™");
-}
