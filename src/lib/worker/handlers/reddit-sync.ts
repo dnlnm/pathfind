@@ -6,13 +6,15 @@ const parser = new Parser();
 
 export async function handleRedditRssSync(job: any, payload: any) {
     const { userId } = payload;
-    const rssUrl = process.env.REDDIT_RSS_URL;
+    
+    const user = db.prepare("SELECT reddit_rss_url FROM users WHERE id = ?").get(userId) as { reddit_rss_url: string | null };
+    const rssUrl = user?.reddit_rss_url || process.env.REDDIT_RSS_URL;
 
     if (!rssUrl) {
-        throw new Error("REDDIT_RSS_URL is not configured in .env");
+        throw new Error(`Reddit RSS URL is not configured for user ${userId}`);
     }
 
-    logDebug(`[Worker] Syncing Reddit feed for user ${userId} from env URL`);
+    logDebug(`[Worker] Syncing Reddit feed for user ${userId} from ${user?.reddit_rss_url ? "user setting" : "env default"}`);
 
     const response = await fetch(rssUrl, {
         headers: {

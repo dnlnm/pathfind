@@ -8,11 +8,13 @@ export async function POST() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!process.env.REDDIT_RSS_URL) {
-        return NextResponse.json({ error: "REDDIT_RSS_URL is not configured in .env" }, { status: 400 });
-    }
-
     const userId = session.user.id;
+
+    // Check if user has a URL or if there is an env fallback
+    const user = db.prepare("SELECT reddit_rss_url FROM users WHERE id = ?").get(userId) as { reddit_rss_url: string | null };
+    if (!user?.reddit_rss_url && !process.env.REDDIT_RSS_URL) {
+        return NextResponse.json({ error: "Reddit RSS URL is not configured. Please set it in your integration settings." }, { status: 400 });
+    }
 
     // Check if there's already a pending reddit_rss_sync job for this user
     const existingJob = db.prepare("SELECT id FROM jobs WHERE user_id = ? AND type = 'reddit_rss_sync' AND status IN ('pending', 'processing')").get(userId);

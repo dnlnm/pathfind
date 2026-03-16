@@ -72,6 +72,7 @@ function SettingsContent() {
     const [lastGithubSync, setLastGithubSync] = useState<string | null>(null);
     const [redditConfigured, setRedditConfigured] = useState(false);
     const [redditSyncEnabled, setRedditSyncEnabled] = useState(false);
+    const [redditRssUrl, setRedditRssUrl] = useState("");
     const [lastRedditSync, setLastRedditSync] = useState<string | null>(null);
     const [telegramStatus, setTelegramStatus] = useState({ isLinked: false, botUsername: "", botConfigured: false, webhookRegistered: false, webhookUrl: null as string | null });
     const [taskStats, setTaskStats] = useState<any>(null);
@@ -118,7 +119,12 @@ function SettingsContent() {
 
         // Integration settings
         fetch("/api/settings/github").then(r => r.json()).then(d => { setGithubConfigured(d.configured || false); setGithubSyncEnabled(d.syncEnabled || false); setLastGithubSync(d.lastSync || null); });
-        fetch("/api/settings/reddit").then(r => r.json()).then(d => { setRedditConfigured(d.configured || false); setLastRedditSync(d.lastSync || null); setRedditSyncEnabled(d.syncEnabled || false); });
+        fetch("/api/settings/reddit").then(r => r.json()).then(d => { 
+            setRedditConfigured(d.configured || false); 
+            setLastRedditSync(d.lastSync || null); 
+            setRedditSyncEnabled(d.syncEnabled || false); 
+            setRedditRssUrl(d.rssUrl || "");
+        });
         fetch("/api/settings/telegram").then(r => r.json()).then(d => setTelegramStatus(d));
         fetch("/api/settings/domain-colors").then(r => r.json()).then(d => setDomainColors(d));
         fetch("/api/settings/email").then(r => r.json()).then(d => setEmail(d.email || ""));
@@ -234,6 +240,8 @@ function SettingsContent() {
                             redditConfigured={redditConfigured}
                             redditSyncEnabled={redditSyncEnabled}
                             setRedditSyncEnabled={setRedditSyncEnabled}
+                            redditRssUrl={redditRssUrl}
+                            setRedditRssUrl={setRedditRssUrl}
                             lastRedditSync={lastRedditSync}
                             telegramStatus={telegramStatus}
                             setTelegramStatus={setTelegramStatus}
