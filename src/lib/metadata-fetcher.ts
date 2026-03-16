@@ -209,6 +209,31 @@ export async function fetchUrlMetadata(url: string): Promise<FetchedMetadata> {
             }
         }
 
+        const isYouTube = urlObj.hostname.includes("youtube.com") || urlObj.hostname.includes("youtu.be");
+        if (isYouTube) {
+            try {
+                console.log(`[Metadata] Attempting YouTube oEmbed for ${url}`);
+                const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+                const oembedRes = await fetch(oembedUrl);
+                if (oembedRes.ok) {
+                    const data = await oembedRes.json();
+                    const title = data.title || null;
+                    const result: FetchedMetadata = {
+                        title: title,
+                        description: data.author_name ? `Video by ${data.author_name}` : null,
+                        favicon: "https://www.youtube.com/favicon.ico",
+                        thumbnailUrl: data.thumbnail_url || null,
+                        fallbackThumbnail: title ? `/api/thumbnails/generate?title=${encodeURIComponent(title)}&domain=youtube.com` : null,
+                        isNsfw: undefined
+                    };
+                    console.log(`[Metadata] YouTube oEmbed Success:`, result.title);
+                    if (result.title) return result;
+                }
+            } catch (e) {
+                console.warn("[Metadata] YouTube oEmbed failed", e);
+            }
+        }
+
         let html = "";
         let directFetchStatus = 0;
         const controller = new AbortController();
